@@ -1,0 +1,35 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "properties": {
+        "database_url": {
+            "type": "string",
+        },
+        "default_command_prefix": {
+            "type": "string",
+        },
+        "token": {
+            "type": "string"
+        },
+        "bot_name": {
+            "type": "string",
+        },
+        "default_command_configuration": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+        "$schema": {
+            "type": "string"
+        }
+    },
+    required: [
+        "database_url",
+        "default_command_prefix",
+        "token",
+        "bot_name",
+        "default_command_configuration",
+        "$schema",
+    ],
+    "additionalProperties": false,
+}

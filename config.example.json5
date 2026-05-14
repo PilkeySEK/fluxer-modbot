@@ -1,0 +1,9 @@
+{
+    "database_url": "postgres://botuser:botpass@localhost:5433/neptune_bot_2",
+    "default_command_prefix": "!",
+    "token": "",
+    "bot_name": "Neptune",
+    "default_command_configuration": {
+        "ping": "0",
+    },
+}
