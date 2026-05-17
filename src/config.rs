@@ -32,6 +32,7 @@ pub struct Config {
     pub token: Zeroizing<String>,
     pub bot_name: String,
     pub default_command_configuration: HashMap<String, Permissions>,
+    pub max_command_prefix_len: usize,
 }
 
 pub enum ConfigLoadError {

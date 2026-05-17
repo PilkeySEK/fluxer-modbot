@@ -9,3 +9,23 @@ macro_rules! embed_default_footer {
             })
     };
 }
+
+#[macro_export]
+macro_rules! try_db {
+    ($ctx:expr, $operation:expr) => {
+        match $operation.await {
+            Ok(value) => value,
+            Err(e) => {
+                tracing::error!("Database error: {e}");
+                $ctx.message.reply($ctx.ctx, embed_default_footer!(
+                    $ctx,
+                    {
+                        description: "Database error.",
+                        color: 0xff0000,
+                    }
+                )).await?;
+                return Ok(());
+            }
+        }
+    };
+}

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, pin::Pin, sync::Arc, time::SystemTime};
+use std::{collections::HashMap, pin::Pin, time::SystemTime};
 
 use fluxer_neptunium::{
     cache::CachedMessage,
@@ -46,32 +46,43 @@ pub struct CommandContext<'a> {
     pub db: &'a DatabaseManager,
     pub guild_id: Id<GuildMarker>,
     pub default_command_configuration: &'a HashMap<String, Permissions>,
+    pub max_command_prefix_len: usize,
+    pub default_command_prefix: &'a str,
 }
 
 pub struct CommandDispatcher {
-    commands: HashMap<&'static str, Arc<dyn for<'a> CommandExecuteFn<'a>>>,
+    /// (alias, primary)
+    aliases: HashMap<&'static str, &'static str>,
+    commands: HashMap<&'static str, Box<dyn for<'a> CommandExecuteFn<'a>>>,
 }
 
 impl CommandDispatcher {
     pub fn new() -> Self {
         Self {
+            aliases: HashMap::new(),
             commands: HashMap::new(),
         }
     }
 
     pub fn register<const N: usize, F: for<'a> CommandExecuteFn<'a>>(
         &mut self,
-        command_names: [&'static str; N],
+        primary_name: &'static str,
+        aliases: [&'static str; N],
         execute_fn: F,
     ) {
-        let execute_fn: Arc<dyn for<'a> CommandExecuteFn<'a>> = Arc::new(execute_fn);
-        for name in command_names {
-            self.commands.insert(name, Arc::clone(&execute_fn));
+        self.commands.insert(primary_name, Box::new(execute_fn));
+        for alias in aliases {
+            self.aliases.insert(alias, primary_name);
         }
     }
 
     pub async fn execute(&self, ctx: CommandContext<'_>, input: &str) -> Result<(), EventError> {
         let (command_name, args) = input.split_once(' ').unwrap_or((input, ""));
+        let command_name = if let Some(primary_name) = self.aliases.get(command_name) {
+            primary_name
+        } else {
+            command_name
+        };
         let command_configuration = match ctx
             .db
             .get_guild_command_configuration(ctx.guild_id, command_name)
@@ -144,6 +155,6 @@ impl CommandDispatcher {
 }
 
 pub fn register_commands(dispatcher: &mut CommandDispatcher) {
-    dispatcher.register(["ping"], misc::ping);
-    dispatcher.register(["set-prefix"], guild_settings::set_prefix);
+    dispatcher.register("ping", [], misc::ping);
+    dispatcher.register("add-prefix", [], guild_settings::add_prefix);
 }

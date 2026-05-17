@@ -3,7 +3,12 @@
     "default_command_prefix": "!",
     "token": "",
     "bot_name": "Neptune",
+    // You can use https://pilkey.online/fluxer-permissions-calculator/
+    // for the permission numbers here
     "default_command_configuration": {
         "ping": "0",
+        // Manage guild
+        "add-prefix": "32"
     },
+    "max_command_prefix_len": 10,
 }

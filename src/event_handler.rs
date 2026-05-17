@@ -20,6 +20,7 @@ pub struct BotEventHandler {
     db_manager: DatabaseManager,
     default_command_prefix: String,
     default_command_configuration: HashMap<String, Permissions>,
+    max_command_prefix_len: usize,
 }
 
 impl BotEventHandler {
@@ -29,6 +30,7 @@ impl BotEventHandler {
         db_manager: DatabaseManager,
         default_command_prefix: String,
         default_command_configuration: HashMap<String, Permissions>,
+        max_command_prefix_len: usize,
     ) -> Self {
         Self {
             dispatcher,
@@ -37,6 +39,7 @@ impl BotEventHandler {
             db_manager,
             default_command_prefix,
             default_command_configuration,
+            max_command_prefix_len,
         }
     }
 }
@@ -89,6 +92,8 @@ impl EventHandler for BotEventHandler {
                             db: &self.db_manager,
                             guild_id,
                             default_command_configuration: &self.default_command_configuration,
+                            max_command_prefix_len: self.max_command_prefix_len,
+                            default_command_prefix: &self.default_command_prefix,
                         },
                         content,
                     )

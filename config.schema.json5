@@ -19,6 +19,9 @@
                 "type": "string"
             }
         },
+        "max_command_prefix_len": {
+            "type": "number",
+        },
         "$schema": {
             "type": "string"
         }
@@ -29,6 +32,7 @@
         "token",
         "bot_name",
         "default_command_configuration",
+        "max_command_prefix_len",
         "$schema",
     ],
     "additionalProperties": false,

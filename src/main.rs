@@ -60,6 +60,7 @@ async fn main() {
         db_manager,
         config.default_command_prefix,
         config.default_command_configuration,
+        config.max_command_prefix_len,
     );
     let mut client = Client::new(config.token);
     client.register_event_handler(event_handler);

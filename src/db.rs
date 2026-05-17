@@ -1,5 +1,9 @@
 use fluxer_neptunium::model::id::{Id, marker::GuildMarker};
-use sqlx::{PgPool, postgres::PgPoolOptions, query_as, query_scalar};
+use sqlx::{
+    PgPool,
+    postgres::{PgPoolOptions, PgQueryResult},
+    query, query_as, query_scalar,
+};
 
 use crate::db::schema::{GuildCommandConfiguration, RawGuildCommandConfiguration};
 
@@ -74,6 +78,28 @@ impl DatabaseManager {
             },
             None => Ok(None),
         }
+    }
+
+    pub async fn add_guild_command_prefix_upsert(
+        &self,
+        guild_id: Id<GuildMarker>,
+        prefix: &str,
+        default_prefix: &str,
+    ) -> Result<PgQueryResult, sqlx::Error> {
+        query!(
+            "INSERT INTO guilds (guild_id, command_prefixes)
+            VALUES ($1, ARRAY[$2, $3])
+            ON CONFLICT (guild_id) DO UPDATE
+            SET command_prefixes = CASE
+                WHEN $2=ANY(guilds.command_prefixes) THEN ARRAY[$2, '!']
+                ELSE ARRAY_APPEND(guilds.command_prefixes, $2)
+            END",
+            guild_id.into_inner().cast_signed(),
+            prefix,
+            default_prefix,
+        )
+        .execute(&self.pool)
+        .await
     }
 }
 
