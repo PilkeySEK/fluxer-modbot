@@ -17,7 +17,7 @@ macro_rules! try_db {
             Ok(value) => value,
             Err(e) => {
                 tracing::error!("Database error: {e}");
-                $ctx.message.reply($ctx.ctx, embed_default_footer!(
+                ::fluxer_neptunium::exts::MessageExt::reply($ctx.message, $ctx.ctx, $crate::embed_default_footer!(
                     $ctx,
                     {
                         description: "Database error.",

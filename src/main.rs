@@ -15,6 +15,7 @@ mod config;
 mod db;
 mod event_handler;
 mod macros;
+mod util;
 
 const GIT_HASH: &str = match option_env!("GIT_HASH") {
     Some(value) => value,

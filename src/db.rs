@@ -2,9 +2,15 @@ use std::sync::Arc;
 
 use fluxer_neptunium::model::id::{Id, marker::GuildMarker};
 use mini_moka::sync::Cache;
-use sqlx::{PgPool, postgres::PgPoolOptions, query_as, query_scalar};
+use sqlx::{
+    PgPool,
+    postgres::{PgPoolOptions, PgQueryResult},
+    query, query_as, query_scalar,
+};
 
-use crate::db::schema::{GuildCommandConfiguration, RawGuildCommandConfiguration};
+use crate::db::schema::{
+    CreateModerationCaseData, GuildCommandConfiguration, RawGuildCommandConfiguration,
+};
 
 pub struct DatabaseManager {
     pool: PgPool,
@@ -62,7 +68,7 @@ impl DatabaseManager {
         )
         .fetch_optional(&self.pool)
         .await?;
-        Ok(if let Some(prefixes) = prefixes.clone() {
+        Ok(if let Some(prefixes) = prefixes {
             let prefixes = Arc::new(prefixes);
             self.cached_prefixes.insert(guild_id, Arc::clone(&prefixes));
             prefixes
@@ -148,6 +154,22 @@ impl DatabaseManager {
         self.cached_prefixes.insert(guild_id, Arc::clone(&prefixes));
         Ok(prefixes)
     }
+
+    pub async fn create_moderation_case(
+        &self,
+        data: CreateModerationCaseData<'_>,
+    ) -> Result<PgQueryResult, sqlx::Error> {
+        query!(
+            "INSERT INTO guild_moderation_cases (guild_id, target_id, moderator_id, moderation_kind, expires_at, reason)
+            VALUES ($1, $2, $3, $4, $5, $6)",
+            data.guild_id.into_inner().cast_signed(),
+            data.target_id.into_inner().cast_signed(),
+            data.moderator_id.map(|id| id.into_inner().cast_signed()),
+            data.moderation_kind.to_string(),
+            data.expires_at,
+            data.reason,
+        ).execute(&self.pool).await
+    }
 }
 
 pub mod schema {
@@ -155,7 +177,7 @@ pub mod schema {
         guild::permissions::Permissions,
         id::{
             Id,
-            marker::{ChannelMarker, GuildMarker, RoleMarker},
+            marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
         },
     };
 
@@ -196,5 +218,22 @@ pub mod schema {
                     .collect::<Option<_>>()?,
             })
         }
+    }
+
+    #[derive(strum::Display, strum::EnumString)]
+    pub enum ModerationKind {
+        Warn,
+        Mute,
+        Kick,
+        Ban,
+    }
+
+    pub struct CreateModerationCaseData<'a> {
+        pub guild_id: Id<GuildMarker>,
+        pub target_id: Id<UserMarker>,
+        pub moderator_id: Option<Id<UserMarker>>,
+        pub moderation_kind: ModerationKind,
+        pub expires_at: Option<time::OffsetDateTime>,
+        pub reason: Option<&'a str>,
     }
 }

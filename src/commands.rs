@@ -15,6 +15,7 @@ use crate::db::{DatabaseManager, schema::GuildCommandConfiguration};
 
 mod guild_settings;
 mod misc;
+mod moderation;
 
 pub trait CommandExecuteFn<'a>: Send + Sync + 'static {
     fn call(
@@ -50,7 +51,7 @@ pub struct CommandContext<'a> {
 }
 
 pub struct CommandDispatcher {
-    /// (alias, primary)
+    /// (alias, primary).
     aliases: HashMap<&'static str, &'static str>,
     commands: HashMap<&'static str, Box<dyn for<'a> CommandExecuteFn<'a>>>,
 }
@@ -146,7 +147,7 @@ impl CommandDispatcher {
         }
 
         if let Some(execute_fn) = self.commands.get(command_name) {
-            execute_fn.call(ctx, args).await
+            execute_fn.call(ctx, args.trim_start()).await
         } else {
             Ok(())
         }
@@ -162,4 +163,5 @@ pub fn register_commands(dispatcher: &mut CommandDispatcher) {
         guild_settings::remove_prefix,
     );
     dispatcher.register("list-prefixes", ["prefixes"], guild_settings::list_prefixes);
+    dispatcher.register("warn", ["add-warn", "create-warn"], moderation::warn);
 }
