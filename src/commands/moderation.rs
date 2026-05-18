@@ -10,34 +10,20 @@ use time::OffsetDateTime;
 use crate::{
     commands::CommandContext,
     db::schema::{CreateModerationCaseData, ModerationKind},
-    embed_default_footer, try_db,
+    embed_default_footer, try_db, try_parse_mention_or_id,
     util::{parse_duration, parse_mention_or_id},
 };
 
 pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), EventError> {
     let (user_mention_or_id_str, rest) = args.split_once(' ').unwrap_or((args, ""));
 
-    let Some(target_id) = parse_mention_or_id(user_mention_or_id_str) else {
-        ctx.message
-            .reply(
-                ctx.ctx,
-                embed_default_footer!(
-                    ctx,
-                    {
-                        description: "Provide a target user ID or mention.",
-                        color: 0xff0000,
-                    }
-                ),
-            )
-            .await?;
-        return Ok(());
-    };
+    let target_id = try_parse_mention_or_id!(ctx, user_mention_or_id_str);
 
     let (maybe_duration, reason) = rest.split_once(' ').unwrap_or((rest, ""));
 
-    let (expires_at, rest) = match parse_duration(maybe_duration) {
-        Some(duration) => {
-            if duration > Duration::from_hours(24 * 356) {
+    let (expires_at_and_duration, rest) = match parse_duration(maybe_duration) {
+        Some(std_duration) => {
+            if std_duration > Duration::from_hours(24 * 356) {
                 ctx.message
                     .reply(
                         ctx.ctx,
@@ -52,7 +38,7 @@ pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), EventError>
                     .await?;
                 return Ok(());
             }
-            let duration = match duration.try_into() {
+            let duration = match std_duration.try_into() {
                 Ok(duration) => duration,
                 Err(e) => {
                     tracing::error!("{e}");
@@ -61,12 +47,15 @@ pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), EventError>
             };
             let now = OffsetDateTime::now_utc();
             (
-                Some(if let Some(time) = now.checked_add(duration) {
-                    time
-                } else {
-                    tracing::error!(%duration, %now, "Duration add overflow!");
-                    return Ok(());
-                }),
+                Some((
+                    if let Some(time) = now.checked_add(duration) {
+                        time
+                    } else {
+                        tracing::error!(%duration, %now, "Duration add overflow!");
+                        return Ok(());
+                    },
+                    std_duration,
+                )),
                 reason,
             )
         }
@@ -83,7 +72,17 @@ pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), EventError>
             target_id,
             moderator_id: Some(ctx.message.author.id),
             moderation_kind: ModerationKind::Warn,
-            expires_at,
+            expiry: match expires_at_and_duration {
+                Some((expires_at, duration)) => {
+                    if let Ok(value) = i64::try_from(duration.as_secs()) {
+                        Some((expires_at, value))
+                    } else {
+                        tracing::error!(?duration, "Failed to convert seconds to i64.");
+                        return Ok(());
+                    }
+                }
+                None => None,
+            },
             reason,
         })
     );
@@ -94,7 +93,7 @@ pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), EventError>
             embed_default_footer!(
                 ctx,
                 {
-                    description: format!("**Warned** <@{target_id}>{}\n{}", if let Some(expires_at) = expires_at {
+                    description: format!("**Warned** <@{target_id}>{}\n{}", if let Some((expires_at, _)) = expires_at_and_duration {
                         format!(
                             " until {}.",
                             Timestamp::<UnixMillis>::from(expires_at).time_string(TimestampDisplayType::VerboseDateWithDayOfWeekAndShortTime),

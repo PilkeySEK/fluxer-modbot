@@ -29,3 +29,24 @@ macro_rules! try_db {
         }
     };
 }
+
+#[macro_export]
+macro_rules! try_parse_mention_or_id {
+    ($ctx:expr, $args:expr) => {{
+        let Some(target_id) = parse_mention_or_id($args) else {
+            ::fluxer_neptunium::exts::MessageExt::reply(
+                $ctx.message,
+                $ctx.ctx,
+                $crate::embed_default_footer!(
+                    $ctx,
+                    {
+                        description: "Provide a target user ID or mention.",
+                        color: 0xff0000,
+                    }
+                ),
+            ).await?;
+            return Ok(());
+        };
+        target_id
+    }};
+}

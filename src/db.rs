@@ -160,14 +160,15 @@ impl DatabaseManager {
         data: CreateModerationCaseData<'_>,
     ) -> Result<PgQueryResult, sqlx::Error> {
         query!(
-            "INSERT INTO guild_moderation_cases (guild_id, target_id, moderator_id, moderation_kind, expires_at, reason)
-            VALUES ($1, $2, $3, $4, $5, $6)",
+            "INSERT INTO guild_moderation_cases (guild_id, target_id, moderator_id, moderation_kind, expires_at, reason, duration)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)",
             data.guild_id.into_inner().cast_signed(),
             data.target_id.into_inner().cast_signed(),
             data.moderator_id.map(|id| id.into_inner().cast_signed()),
             data.moderation_kind.to_string(),
-            data.expires_at,
+            data.expiry.map(|value| value.0),
             data.reason,
+            data.expiry.map(|value| value.1),
         ).execute(&self.pool).await
     }
 }
@@ -233,7 +234,7 @@ pub mod schema {
         pub target_id: Id<UserMarker>,
         pub moderator_id: Option<Id<UserMarker>>,
         pub moderation_kind: ModerationKind,
-        pub expires_at: Option<time::OffsetDateTime>,
         pub reason: Option<&'a str>,
+        pub expiry: Option<(time::OffsetDateTime, i64)>,
     }
 }

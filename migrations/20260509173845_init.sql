@@ -41,5 +41,8 @@ CREATE TABLE guild_moderation_cases (
     -- Whether this moderation case is closed.
     -- A moderation case is closed either when the expires_at time is reached (it expired)
     -- or when it is closed manually by a moderator.
-    closed BOOLEAN NOT NULL DEFAULT FALSE
+    closed BOOLEAN NOT NULL DEFAULT FALSE,
+    -- The initially set duration in seconds
+    -- NULL if permanent
+    duration BIGINT
 );
