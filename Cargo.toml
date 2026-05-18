@@ -8,6 +8,7 @@ dotenvy = "0.15.7"
 enumset = "1.1.12"
 fluxer-neptunium = { git = "https://github.com/PilkeySEK/fluxer-neptunium.git", features = ["experimental-macros", "chrono-timestamp-conversion"] }
 json5 = "1.3.1"
+mini-moka = "0.10.3"
 pretty-duration = "0.1.1"
 serde = { version = "1.0.228", features = ["derive"] }
 sqlx = { version = "0.8.6", features = ["runtime-tokio", "postgres"] } #, "tls-rustls-ring-webpki"] }

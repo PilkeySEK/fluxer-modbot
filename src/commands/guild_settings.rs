@@ -37,8 +37,7 @@ pub async fn add_prefix(ctx: CommandContext<'_>, args: &str) -> Result<(), Event
 
     try_db!(
         ctx,
-        ctx.db
-            .add_guild_command_prefix_upsert(ctx.guild_id, prefix, ctx.default_command_prefix)
+        ctx.db.add_guild_command_prefix_upsert(ctx.guild_id, prefix)
     );
 
     ctx.message
@@ -77,7 +76,7 @@ pub async fn remove_prefix(ctx: CommandContext<'_>, args: &str) -> Result<(), Ev
     let new_prefixes = try_db!(
         ctx,
         ctx.db
-            .remove_guild_command_prefix_upsert(ctx.guild_id, prefix, ctx.default_command_prefix)
+            .remove_guild_command_prefix_upsert(ctx.guild_id, prefix)
     );
 
     ctx.message.reply(ctx.ctx, embed_default_footer!(
@@ -95,8 +94,7 @@ pub async fn remove_prefix(ctx: CommandContext<'_>, args: &str) -> Result<(), Ev
 }
 
 pub async fn list_prefixes(ctx: CommandContext<'_>, _args: &str) -> Result<(), EventError> {
-    let prefixes = try_db!(ctx, ctx.db.get_guild_command_prefixes(ctx.guild_id))
-        .unwrap_or_else(|| vec![ctx.default_command_prefix.to_owned()]);
+    let prefixes = try_db!(ctx, ctx.db.get_guild_command_prefixes(ctx.guild_id));
 
     ctx.message
         .reply(
@@ -110,7 +108,7 @@ pub async fn list_prefixes(ctx: CommandContext<'_>, _args: &str) -> Result<(), E
                         format!(
                             "The prefixes for this community are:\n{}",
                             prefixes
-                                .into_iter()
+                                .iter()
                                 .map(|prefix| format!("- `{prefix}`"))
                                 .collect::<Vec<String>>()
                                 .join("\n")

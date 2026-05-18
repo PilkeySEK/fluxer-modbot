@@ -44,7 +44,13 @@ async fn main() {
         }
     };
 
-    let db_manager = match DatabaseManager::connect(&config.database_url).await {
+    let db_manager = match DatabaseManager::connect(
+        &config.database_url,
+        config.prefix_cache_capacity,
+        config.default_command_prefix,
+    )
+    .await
+    {
         Ok(db_manager) => db_manager,
         Err(e) => {
             tracing::error!("Error connecting to database: {e}");
@@ -58,7 +64,6 @@ async fn main() {
         dispatcher,
         config.bot_name,
         db_manager,
-        config.default_command_prefix,
         config.default_command_configuration,
         config.max_command_prefix_len,
         config.user_id,

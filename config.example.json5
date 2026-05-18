@@ -16,4 +16,5 @@
     },
     "max_command_prefix_len": 10,
     "user_id": "",
+    "prefix_cache_capacity": 1024,
 }

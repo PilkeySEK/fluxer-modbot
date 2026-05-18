@@ -47,7 +47,6 @@ pub struct CommandContext<'a> {
     pub guild_id: Id<GuildMarker>,
     pub default_command_configuration: &'a HashMap<String, Permissions>,
     pub max_command_prefix_len: usize,
-    pub default_command_prefix: &'a str,
 }
 
 pub struct CommandDispatcher {

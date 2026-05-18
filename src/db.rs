@@ -1,14 +1,15 @@
+use std::sync::Arc;
+
 use fluxer_neptunium::model::id::{Id, marker::GuildMarker};
-use sqlx::{
-    PgPool,
-    postgres::{PgPoolOptions, PgQueryResult},
-    query, query_as, query_scalar,
-};
+use mini_moka::sync::Cache;
+use sqlx::{PgPool, postgres::PgPoolOptions, query_as, query_scalar};
 
 use crate::db::schema::{GuildCommandConfiguration, RawGuildCommandConfiguration};
 
 pub struct DatabaseManager {
     pool: PgPool,
+    cached_prefixes: mini_moka::sync::Cache<Id<GuildMarker>, std::sync::Arc<Vec<String>>>,
+    default_prefix: String,
 }
 
 #[derive(Debug)]
@@ -35,23 +36,41 @@ impl From<sqlx::Error> for DatabaseError {
 }
 
 impl DatabaseManager {
-    pub async fn connect(url: &str) -> Result<Self, sqlx::Error> {
+    pub async fn connect(
+        url: &str,
+        prefix_cache_capacity: u64,
+        default_prefix: String,
+    ) -> Result<Self, sqlx::Error> {
         Ok(Self {
             pool: PgPoolOptions::new().connect(url).await?,
+            cached_prefixes: Cache::new(prefix_cache_capacity),
+            default_prefix,
         })
     }
 
     pub async fn get_guild_command_prefixes(
         &self,
         guild_id: Id<GuildMarker>,
-    ) -> Result<Option<Vec<String>>, sqlx::Error> {
-        query_scalar!(
+    ) -> Result<Arc<Vec<String>>, sqlx::Error> {
+        if let Some(cached_prefixes) = self.cached_prefixes.get(&guild_id) {
+            return Ok(cached_prefixes);
+        }
+        let prefixes: Option<Vec<String>> = query_scalar!(
             "SELECT command_prefixes FROM guilds
             WHERE guild_id = $1",
             guild_id.into_inner().cast_signed(),
         )
         .fetch_optional(&self.pool)
-        .await
+        .await?;
+        Ok(if let Some(prefixes) = prefixes.clone() {
+            let prefixes = Arc::new(prefixes);
+            self.cached_prefixes.insert(guild_id, Arc::clone(&prefixes));
+            prefixes
+        } else {
+            let prefixes = Arc::new(vec![self.default_prefix.clone()]);
+            self.cached_prefixes.insert(guild_id, Arc::clone(&prefixes));
+            prefixes
+        })
     }
 
     pub async fn get_guild_command_configuration(
@@ -83,36 +102,37 @@ impl DatabaseManager {
         &self,
         guild_id: Id<GuildMarker>,
         prefix: &str,
-        default_prefix: &str,
-    ) -> Result<PgQueryResult, sqlx::Error> {
-        query!(
+    ) -> Result<(), sqlx::Error> {
+        let prefixes = query_scalar!(
             "INSERT INTO guilds (guild_id, command_prefixes)
             VALUES ($1, ARRAY[$2, $3])
             ON CONFLICT (guild_id) DO UPDATE
             SET command_prefixes = CASE
                 WHEN $2=ANY(guilds.command_prefixes) THEN ARRAY[$2, '!']
                 ELSE ARRAY_APPEND(guilds.command_prefixes, $2)
-            END",
+            END
+            RETURNING command_prefixes",
             guild_id.into_inner().cast_signed(),
             prefix,
-            default_prefix,
+            self.default_prefix,
         )
-        .execute(&self.pool)
-        .await
+        .fetch_one(&self.pool)
+        .await?;
+        self.cached_prefixes.insert(guild_id, Arc::new(prefixes));
+        Ok(())
     }
 
     pub async fn remove_guild_command_prefix_upsert(
         &self,
         guild_id: Id<GuildMarker>,
         prefix: &str,
-        default_prefix: &str,
-    ) -> Result<Vec<String>, sqlx::Error> {
-        let inserted_prefixes_vec = if prefix == default_prefix {
+    ) -> Result<Arc<Vec<String>>, sqlx::Error> {
+        let inserted_prefixes_vec = if prefix == self.default_prefix {
             Vec::new()
         } else {
-            vec![default_prefix.to_owned()]
+            vec![self.default_prefix.clone()]
         };
-        query_scalar!(
+        let prefixes = query_scalar!(
             "INSERT INTO guilds (guild_id, command_prefixes)
             VALUES ($1, $2)
             ON CONFLICT (guild_id) DO UPDATE
@@ -123,7 +143,10 @@ impl DatabaseManager {
             prefix,
         )
         .fetch_one(&self.pool)
-        .await
+        .await?;
+        let prefixes = Arc::new(prefixes);
+        self.cached_prefixes.insert(guild_id, Arc::clone(&prefixes));
+        Ok(prefixes)
     }
 }
 

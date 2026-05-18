@@ -2,12 +2,16 @@ use std::{collections::HashMap, sync::Arc, time::SystemTime};
 
 use fluxer_neptunium::{
     async_trait,
+    cache::{CachedMessage, Guard},
     cached_payload::{CachedMessageCreate, CachedReady},
     events::{EventError, EventHandler, context::Context},
     exts::ChannelExt,
     model::{
         guild::permissions::Permissions,
-        id::{Id, marker::UserMarker},
+        id::{
+            Id,
+            marker::{GuildMarker, UserMarker},
+        },
     },
 };
 
@@ -21,7 +25,6 @@ pub struct BotEventHandler {
     bot_name: String,
     started_at: SystemTime,
     db_manager: DatabaseManager,
-    default_command_prefix: String,
     default_command_configuration: HashMap<String, Permissions>,
     max_command_prefix_len: usize,
     my_id: Id<UserMarker>,
@@ -32,7 +35,6 @@ impl BotEventHandler {
         dispatcher: CommandDispatcher,
         bot_name: String,
         db_manager: DatabaseManager,
-        default_command_prefix: String,
         default_command_configuration: HashMap<String, Permissions>,
         max_command_prefix_len: usize,
         my_id: Id<UserMarker>,
@@ -42,7 +44,6 @@ impl BotEventHandler {
             bot_name,
             started_at: SystemTime::now(),
             db_manager,
-            default_command_prefix,
             default_command_configuration,
             max_command_prefix_len,
             my_id,
@@ -76,43 +77,57 @@ impl EventHandler for BotEventHandler {
             guild_id
         };
 
-        let mut guild_prefixes = match self.db_manager.get_guild_command_prefixes(guild_id).await {
-            Ok(Some(prefixes)) => prefixes,
-            Ok(None) => vec![self.default_command_prefix.clone()],
-            Err(e) => {
-                tracing::error!("Error getting command prefixes for guild {guild_id}: {e}");
-                return Ok(());
-            }
-        };
-
-        guild_prefixes.push(format!("<@{}>", self.my_id));
-
-        for prefix in guild_prefixes {
-            if let Some(content) = message.content.strip_prefix(&prefix) {
-                if let Err(e) = self
-                    .dispatcher
-                    .execute(
-                        CommandContext {
-                            ctx: &ctx,
-                            message: &message,
-                            bot_name: &self.bot_name,
-                            started_at: &self.started_at,
-                            db: &self.db_manager,
-                            guild_id,
-                            default_command_configuration: &self.default_command_configuration,
-                            max_command_prefix_len: self.max_command_prefix_len,
-                            default_command_prefix: &self.default_command_prefix,
-                        },
-                        content.trim_start(),
-                    )
-                    .await
-                {
-                    tracing::error!("Error executing command: {e}");
+        let guild_prefixes: Arc<Vec<String>> =
+            match self.db_manager.get_guild_command_prefixes(guild_id).await {
+                Ok(prefixes) => prefixes,
+                Err(e) => {
+                    tracing::error!("Error getting command prefixes for guild {guild_id}: {e}");
+                    return Ok(());
                 }
+            };
+
+        if let Some(content) = message.content.strip_prefix(&format!("<@{}>", self.my_id)) {
+            self.execute_command(ctx, &message, guild_id, content).await;
+            return Ok(());
+        }
+
+        for prefix in guild_prefixes.iter() {
+            if let Some(content) = message.content.strip_prefix(prefix) {
+                self.execute_command(ctx, &message, guild_id, content).await;
                 break;
             }
         }
 
         Ok(())
+    }
+}
+
+impl BotEventHandler {
+    async fn execute_command(
+        &self,
+        ctx: Context,
+        message: &Guard<Arc<CachedMessage>>,
+        guild_id: Id<GuildMarker>,
+        content: &str,
+    ) {
+        if let Err(e) = self
+            .dispatcher
+            .execute(
+                CommandContext {
+                    ctx: &ctx,
+                    message,
+                    bot_name: &self.bot_name,
+                    started_at: &self.started_at,
+                    db: &self.db_manager,
+                    guild_id,
+                    default_command_configuration: &self.default_command_configuration,
+                    max_command_prefix_len: self.max_command_prefix_len,
+                },
+                content.trim_start(),
+            )
+            .await
+        {
+            tracing::error!("Error executing command: {e}");
+        }
     }
 }
