@@ -1,13 +1,17 @@
 use std::time::Duration;
 
-use fluxer_neptunium::{events::EventError, exts::MessageExt};
+use fluxer_neptunium::{
+    events::EventError,
+    exts::MessageExt,
+    model::time::timestamp::{Timestamp, TimestampDisplayType, representations::UnixMillis},
+};
 use time::OffsetDateTime;
 
 use crate::{
     commands::CommandContext,
     db::schema::{CreateModerationCaseData, ModerationKind},
     embed_default_footer, try_db,
-    util::parse_mention_or_id,
+    util::{parse_duration, parse_mention_or_id},
 };
 
 pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), EventError> {
@@ -31,8 +35,8 @@ pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), EventError>
 
     let (maybe_duration, reason) = rest.split_once(' ').unwrap_or((rest, ""));
 
-    let (expires_at, rest) = match parse_duration::parse(maybe_duration) {
-        Ok(duration) => {
+    let (expires_at, rest) = match parse_duration(maybe_duration) {
+        Some(duration) => {
             if duration > Duration::from_hours(24 * 356) {
                 ctx.message
                     .reply(
@@ -66,7 +70,7 @@ pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), EventError>
                 reason,
             )
         }
-        Err(_) => (None, rest),
+        None => (None, rest),
     };
 
     let rest = rest.trim();
@@ -90,7 +94,17 @@ pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), EventError>
             embed_default_footer!(
                 ctx,
                 {
-                    description: format!("Warned <@{target_id}>."),
+                    description: format!("**Warned** <@{target_id}>{}\n{}", if let Some(expires_at) = expires_at {
+                        format!(
+                            " until {}.",
+                            Timestamp::<UnixMillis>::from(expires_at).time_string(TimestampDisplayType::VerboseDateWithDayOfWeekAndShortTime),
+                        )
+                    } else { ".".to_owned() },
+                    if let Some(reason) = reason {
+                        format!("**Reason:** {reason}")
+                    } else {
+                        "*No reason.*".to_owned()
+                    }),
                     color: 0xffffff,
                 }
             ),

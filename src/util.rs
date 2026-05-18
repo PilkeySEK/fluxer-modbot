@@ -1,4 +1,7 @@
+use std::time::Duration;
+
 use fluxer_neptunium::model::id::{Id, marker::UserMarker};
+use nom::{Parser, error::ErrorKind};
 
 pub fn parse_mention_or_id(input: &str) -> Option<Id<UserMarker>> {
     Id::try_from(
@@ -9,4 +12,29 @@ pub fn parse_mention_or_id(input: &str) -> Option<Id<UserMarker>> {
             .unwrap_or(input),
     )
     .ok()
+}
+
+pub fn parse_duration(input: &str) -> Option<Duration> {
+    let Ok((_, duration_elems)) = nom::multi::many1(nom::sequence::pair(
+        nom::character::complete::u64::<_, (_, ErrorKind)>,
+        nom::character::complete::alpha1,
+    ))
+    .parse(input) else {
+        return None;
+    };
+
+    duration_elems
+        .into_iter()
+        .map(|(number, unit)| {
+            Some(match unit {
+                "s" | "sec" | "seconds" | "secs" => Duration::from_secs(number),
+                "m" | "min" | "minutes" | "mins" => Duration::from_mins(number),
+                "h" | "hour" => Duration::from_hours(number),
+                "d" | "day" | "days" => Duration::from_hours(number.checked_mul(24)?),
+                _ => return None,
+            })
+        })
+        .collect::<Option<Vec<Duration>>>()?
+        .into_iter()
+        .try_fold(Duration::ZERO, std::time::Duration::checked_add)
 }
