@@ -22,6 +22,9 @@
         "max_command_prefix_len": {
             "type": "number",
         },
+        "user_id": {
+            type: "string",
+        },
         "$schema": {
             "type": "string"
         }
@@ -33,6 +36,7 @@
         "bot_name",
         "default_command_configuration",
         "max_command_prefix_len",
+        "user_id",
         "$schema",
     ],
     "additionalProperties": false,

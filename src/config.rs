@@ -1,6 +1,9 @@
 use std::{collections::HashMap, fs::File, io::Read, path::Path};
 
-use fluxer_neptunium::model::guild::permissions::Permissions;
+use fluxer_neptunium::model::{
+    guild::permissions::Permissions,
+    id::{Id, marker::UserMarker},
+};
 use serde::Deserialize;
 use zeroize::Zeroizing;
 
@@ -33,6 +36,7 @@ pub struct Config {
     pub bot_name: String,
     pub default_command_configuration: HashMap<String, Permissions>,
     pub max_command_prefix_len: usize,
+    pub user_id: Id<UserMarker>,
 }
 
 pub enum ConfigLoadError {

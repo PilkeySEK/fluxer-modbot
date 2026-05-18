@@ -45,14 +45,13 @@ impl DatabaseManager {
         &self,
         guild_id: Id<GuildMarker>,
     ) -> Result<Option<Vec<String>>, sqlx::Error> {
-        Ok(query_scalar!(
+        query_scalar!(
             "SELECT command_prefixes FROM guilds
             WHERE guild_id = $1",
             guild_id.into_inner().cast_signed(),
         )
         .fetch_optional(&self.pool)
-        .await?
-        .flatten())
+        .await
     }
 
     pub async fn get_guild_command_configuration(
@@ -101,6 +100,31 @@ impl DatabaseManager {
         .execute(&self.pool)
         .await
     }
+
+    pub async fn remove_guild_command_prefix_upsert(
+        &self,
+        guild_id: Id<GuildMarker>,
+        prefix: &str,
+        default_prefix: &str,
+    ) -> Result<Vec<String>, sqlx::Error> {
+        let inserted_prefixes_vec = if prefix == default_prefix {
+            Vec::new()
+        } else {
+            vec![default_prefix.to_owned()]
+        };
+        query_scalar!(
+            "INSERT INTO guilds (guild_id, command_prefixes)
+            VALUES ($1, $2)
+            ON CONFLICT (guild_id) DO UPDATE
+            SET command_prefixes = ARRAY_REMOVE(guilds.command_prefixes, $3)
+            RETURNING command_prefixes",
+            guild_id.into_inner().cast_signed(),
+            inserted_prefixes_vec.as_slice(),
+            prefix,
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
 }
 
 pub mod schema {
@@ -113,7 +137,9 @@ pub mod schema {
     };
 
     pub struct GuildCommandConfiguration {
+        #[expect(unused)]
         pub guild_id: Id<GuildMarker>,
+        #[expect(unused)]
         pub command_name: String,
         pub roles: Vec<Id<RoleMarker>>,
         pub permissions: Permissions,

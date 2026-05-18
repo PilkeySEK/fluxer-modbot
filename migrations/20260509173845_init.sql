@@ -3,7 +3,7 @@
 CREATE TABLE guilds (
     guild_id BIGINT PRIMARY KEY,
     -- NULL if default prefix
-    command_prefixes TEXT[]
+    command_prefixes TEXT[] NOT NULL
 );
 
 -- CREATE TABLE guild_permissions (

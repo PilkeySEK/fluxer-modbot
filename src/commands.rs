@@ -157,4 +157,10 @@ impl CommandDispatcher {
 pub fn register_commands(dispatcher: &mut CommandDispatcher) {
     dispatcher.register("ping", [], misc::ping);
     dispatcher.register("add-prefix", [], guild_settings::add_prefix);
+    dispatcher.register(
+        "remove-prefix",
+        ["delete-prefix"],
+        guild_settings::remove_prefix,
+    );
+    dispatcher.register("list-prefixes", ["prefixes"], guild_settings::list_prefixes);
 }

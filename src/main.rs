@@ -61,6 +61,7 @@ async fn main() {
         config.default_command_prefix,
         config.default_command_configuration,
         config.max_command_prefix_len,
+        config.user_id,
     );
     let mut client = Client::new(config.token);
     client.register_event_handler(event_handler);

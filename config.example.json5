@@ -8,7 +8,12 @@
     "default_command_configuration": {
         "ping": "0",
         // Manage guild
-        "add-prefix": "32"
+        "add-prefix": "32",
+        // Manage guild
+        "remove-prefix": "32",
+        // Manage guild
+        "list-prefixes": "32",
     },
     "max_command_prefix_len": 10,
+    "user_id": "",
 }

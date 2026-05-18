@@ -5,7 +5,10 @@ use fluxer_neptunium::{
     cached_payload::{CachedMessageCreate, CachedReady},
     events::{EventError, EventHandler, context::Context},
     exts::ChannelExt,
-    model::guild::permissions::Permissions,
+    model::{
+        guild::permissions::Permissions,
+        id::{Id, marker::UserMarker},
+    },
 };
 
 use crate::{
@@ -21,6 +24,7 @@ pub struct BotEventHandler {
     default_command_prefix: String,
     default_command_configuration: HashMap<String, Permissions>,
     max_command_prefix_len: usize,
+    my_id: Id<UserMarker>,
 }
 
 impl BotEventHandler {
@@ -31,6 +35,7 @@ impl BotEventHandler {
         default_command_prefix: String,
         default_command_configuration: HashMap<String, Permissions>,
         max_command_prefix_len: usize,
+        my_id: Id<UserMarker>,
     ) -> Self {
         Self {
             dispatcher,
@@ -40,6 +45,7 @@ impl BotEventHandler {
             default_command_prefix,
             default_command_configuration,
             max_command_prefix_len,
+            my_id,
         }
     }
 }
@@ -70,7 +76,7 @@ impl EventHandler for BotEventHandler {
             guild_id
         };
 
-        let guild_prefixes = match self.db_manager.get_guild_command_prefixes(guild_id).await {
+        let mut guild_prefixes = match self.db_manager.get_guild_command_prefixes(guild_id).await {
             Ok(Some(prefixes)) => prefixes,
             Ok(None) => vec![self.default_command_prefix.clone()],
             Err(e) => {
@@ -78,6 +84,8 @@ impl EventHandler for BotEventHandler {
                 return Ok(());
             }
         };
+
+        guild_prefixes.push(format!("<@{}>", self.my_id));
 
         for prefix in guild_prefixes {
             if let Some(content) = message.content.strip_prefix(&prefix) {
@@ -95,7 +103,7 @@ impl EventHandler for BotEventHandler {
                             max_command_prefix_len: self.max_command_prefix_len,
                             default_command_prefix: &self.default_command_prefix,
                         },
-                        content,
+                        content.trim_start(),
                     )
                     .await
                 {
