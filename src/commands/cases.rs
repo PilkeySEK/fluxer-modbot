@@ -13,7 +13,7 @@ use crate::{
     util::parse_mention_or_id,
 };
 
-fn format_case(case: GuildModerationCase) -> String {
+fn format_case_oneline(case: GuildModerationCase) -> String {
     format!(
         "[{}] **{}** of <@{}> - `{}` ({}){}: {}",
         Timestamp::<UnixMillis>::from(case.created_at).time_string(TimestampDisplayType::Date),
@@ -47,7 +47,10 @@ pub async fn list_cases(ctx: CommandContext<'_>, args: &str) -> Result<(), Event
     let cases = try_db!(ctx, cases);
     let case_count = try_db!(ctx, case_count);
 
-    let cases_formatted = cases.into_iter().map(format_case).collect::<Vec<String>>();
+    let cases_formatted = cases
+        .into_iter()
+        .map(format_case_oneline)
+        .collect::<Vec<String>>();
     let cases_string = if cases_formatted.is_empty() {
         "*There are no cases.*".to_owned()
     } else {
@@ -75,7 +78,7 @@ pub async fn list_cases(ctx: CommandContext<'_>, args: &str) -> Result<(), Event
     Ok(())
 }
 
-fn case_details(case: GuildModerationCase) -> String {
+fn format_case_details(case: GuildModerationCase) -> String {
     format!(
         "> **Type:** `{}`\n> **User:** <@{}> ({})\n> **Reason:** {}\n> **Duration:** {}{}\n> **Moderator:** {}",
         case.moderation_kind,
@@ -153,7 +156,7 @@ pub async fn case_info(ctx: CommandContext<'_>, args: &str) -> Result<(), EventE
                         ctx,
                         {
                             title: format!("Case `{}`", case.case_id),
-                            description: case_details(case),
+                            description: format_case_details(case),
                             color: 0xffffff,
                         }
                     ),
