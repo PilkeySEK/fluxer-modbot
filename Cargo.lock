@@ -601,9 +601,9 @@ dependencies = [
 
 [[package]]
 name = "enumset"
-version = "1.1.12"
+version = "1.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f96a4a12fe60ac746ae295a1a4ecb5bb02debc20856506c8635288065f142de"
+checksum = "839c4174b41e75c8f7306110b2c51996a293b8d1d850edd529011841d9fede7d"
 dependencies = [
  "enumset_derive",
 ]
@@ -693,7 +693,7 @@ dependencies = [
 [[package]]
 name = "fluxer-neptunium"
 version = "0.6.2"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#d274b233904df321dfe04e088054599747441a19"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#7bb3a95fb1c58f4c37d6c77f93247035e136caab"
 dependencies = [
  "async-trait",
  "bon",
@@ -1501,7 +1501,7 @@ dependencies = [
 [[package]]
 name = "neptunium-cache-inmemory"
 version = "0.6.2"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#d274b233904df321dfe04e088054599747441a19"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#7bb3a95fb1c58f4c37d6c77f93247035e136caab"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -1519,7 +1519,7 @@ dependencies = [
 [[package]]
 name = "neptunium-gateway"
 version = "0.6.2"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#d274b233904df321dfe04e088054599747441a19"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#7bb3a95fb1c58f4c37d6c77f93247035e136caab"
 dependencies = [
  "bon",
  "futures-util",
@@ -1536,7 +1536,7 @@ dependencies = [
 [[package]]
 name = "neptunium-http"
 version = "0.6.2"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#d274b233904df321dfe04e088054599747441a19"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#7bb3a95fb1c58f4c37d6c77f93247035e136caab"
 dependencies = [
  "async-trait",
  "bon",
@@ -1560,7 +1560,7 @@ dependencies = [
 [[package]]
 name = "neptunium-model"
 version = "0.6.2"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#d274b233904df321dfe04e088054599747441a19"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#7bb3a95fb1c58f4c37d6c77f93247035e136caab"
 dependencies = [
  "bitflags",
  "bon",
@@ -1609,9 +1609,9 @@ dependencies = [
 
 [[package]]
 name = "num-conv"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6673768db2d862beb9b39a78fdcb1a69439615d5794a1be50caa9bc92c81967"
+checksum = "521739c6d2bac4aa25192232afe6841231376b2b26d4d9fae5ecf8ca5772e441"
 
 [[package]]
 name = "num-integer"
@@ -2935,9 +2935,9 @@ dependencies = [
 
 [[package]]
 name = "tower-http"
-version = "0.6.10"
+version = "0.6.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68d6fdd9f81c2819c9a8b0e0cd91660e7746a8e6ea2ba7c6b2b057985f6bcb51"
+checksum = "4cfcf7e2740e6fc6d4d688b4ef00650406bb94adf4731e43c096c3a19fe40840"
 dependencies = [
  "bitflags",
  "bytes",
