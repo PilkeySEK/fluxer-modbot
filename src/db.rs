@@ -1,15 +1,19 @@
 use std::sync::Arc;
 
-use fluxer_neptunium::model::id::{Id, marker::GuildMarker};
+use fluxer_neptunium::model::id::{
+    Id,
+    marker::{GuildMarker, UserMarker},
+};
 use mini_moka::sync::Cache;
 use sqlx::{
-    PgPool,
+    PgPool, QueryBuilder,
     postgres::{PgPoolOptions, PgQueryResult},
     query, query_as, query_scalar,
 };
 
 use crate::db::schema::{
-    CreateModerationCaseData, GuildCommandConfiguration, RawGuildCommandConfiguration,
+    CaseId, CreateGuildModerationCaseData, GuildCommandConfiguration, GuildModerationCase,
+    RawGuildCommandConfiguration, RawGuildModerationCase,
 };
 
 pub struct DatabaseManager {
@@ -157,11 +161,11 @@ impl DatabaseManager {
 
     pub async fn create_moderation_case(
         &self,
-        data: CreateModerationCaseData<'_>,
+        data: CreateGuildModerationCaseData<'_>,
     ) -> Result<PgQueryResult, sqlx::Error> {
         query!(
-            "INSERT INTO guild_moderation_cases (guild_id, target_id, moderator_id, moderation_kind, expires_at, reason, duration)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            "INSERT INTO guild_moderation_cases (guild_id, target_id, moderator_id, moderation_kind, expires_at, reason, duration, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
             data.guild_id.into_inner().cast_signed(),
             data.target_id.into_inner().cast_signed(),
             data.moderator_id.map(|id| id.into_inner().cast_signed()),
@@ -169,11 +173,97 @@ impl DatabaseManager {
             data.expiry.map(|value| value.0),
             data.reason,
             data.expiry.map(|value| value.1),
+            data.created_at,
         ).execute(&self.pool).await
+    }
+
+    pub async fn list_guild_moderation_cases(
+        &self,
+        guild_id: Id<GuildMarker>,
+        limit: i64,
+        after: Option<CaseId>,
+        involving_user: Option<Id<UserMarker>>,
+    ) -> Result<Vec<GuildModerationCase>, DatabaseError> {
+        let mut qb = QueryBuilder::new("SELECT * FROM guild_moderation_cases WHERE guild_id = ");
+        qb.push_bind(guild_id.into_inner().cast_signed());
+        if let Some(after) = after {
+            qb.push(" AND case_id < ").push_bind(after.0);
+        }
+        if let Some(involving_user) = involving_user {
+            let involving_user = involving_user.into_inner().cast_signed();
+            qb.push(" AND (target_id = ").push_bind(involving_user);
+            qb.push(" OR moderator_id = ").push_bind(involving_user);
+            qb.push(")");
+        }
+
+        qb.push(" ORDER BY case_id DESC LIMIT ").push_bind(limit);
+
+        let raw_cases = qb.build_query_as().fetch_all(&self.pool).await?;
+
+        match raw_cases
+            .into_iter()
+            .map(GuildModerationCase::from_raw)
+            .collect::<Option<Vec<GuildModerationCase>>>()
+        {
+            Some(cases) => Ok(cases),
+            None => Err(DatabaseError::ParseError),
+        }
+    }
+
+    pub async fn count_guild_moderation_cases(
+        &self,
+        guild_id: Id<GuildMarker>,
+        involving_user: Option<Id<UserMarker>>,
+    ) -> Result<i64, sqlx::Error> {
+        if let Some(involving_user) = involving_user {
+            query_scalar!(
+                "SELECT COUNT(case_id) FROM guild_moderation_cases
+                WHERE guild_id = $1 AND (target_id = $2 OR moderator_id = $2)",
+                guild_id.into_inner().cast_signed(),
+                involving_user.into_inner().cast_signed(),
+            )
+            .fetch_one(&self.pool)
+            .await
+        } else {
+            query_scalar!(
+                "SELECT COUNT(case_id) FROM guild_moderation_cases
+                WHERE guild_id = $1",
+                guild_id.into_inner().cast_signed(),
+            )
+            .fetch_one(&self.pool)
+            .await
+        }
+        .map(|value| value.unwrap_or(0))
+    }
+
+    pub async fn get_guild_moderation_case(
+        &self,
+        guild_id: Id<GuildMarker>,
+        case_id: CaseId,
+    ) -> Result<Option<GuildModerationCase>, DatabaseError> {
+        let case = query_as!(
+            RawGuildModerationCase,
+            "SELECT * FROM guild_moderation_cases
+            WHERE guild_id = $1 AND case_id = $2",
+            guild_id.into_inner().cast_signed(),
+            case_id.0,
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        match case {
+            Some(case) => match GuildModerationCase::from_raw(case) {
+                Some(case) => Ok(Some(case)),
+                None => Err(DatabaseError::ParseError),
+            },
+            None => Ok(None),
+        }
     }
 }
 
 pub mod schema {
+    use std::{str::FromStr, time::Duration};
+
     use fluxer_neptunium::model::{
         guild::permissions::Permissions,
         id::{
@@ -229,12 +319,95 @@ pub mod schema {
         Ban,
     }
 
-    pub struct CreateModerationCaseData<'a> {
+    pub struct CreateGuildModerationCaseData<'a> {
         pub guild_id: Id<GuildMarker>,
         pub target_id: Id<UserMarker>,
         pub moderator_id: Option<Id<UserMarker>>,
         pub moderation_kind: ModerationKind,
         pub reason: Option<&'a str>,
         pub expiry: Option<(time::OffsetDateTime, i64)>,
+        pub created_at: time::OffsetDateTime,
+    }
+
+    pub struct CaseId(pub i64);
+
+    #[derive(sqlx::FromRow)]
+    pub(super) struct RawGuildModerationCase {
+        pub case_id: i64,
+        pub guild_id: i64,
+        pub target_id: i64,
+        pub moderator_id: Option<i64>,
+        pub moderation_kind: String,
+        pub expires_at: Option<time::OffsetDateTime>,
+        pub reason: Option<String>,
+        pub closed: bool,
+        pub duration: Option<i64>,
+        pub created_at: time::OffsetDateTime,
+    }
+
+    pub struct GuildModerationCase {
+        pub case_id: CaseId,
+        #[expect(unused)]
+        pub guild_id: Id<GuildMarker>,
+        pub target_id: Id<UserMarker>,
+        pub moderator_id: Option<Id<UserMarker>>,
+        pub moderation_kind: ModerationKind,
+        pub expires_at: Option<time::OffsetDateTime>,
+        pub reason: Option<String>,
+        pub closed: bool,
+        pub duration: Option<Duration>,
+        pub created_at: time::OffsetDateTime,
+    }
+
+    impl GuildModerationCase {
+        pub(super) fn from_raw(raw: RawGuildModerationCase) -> Option<Self> {
+            Some(Self {
+                case_id: CaseId(raw.case_id),
+                guild_id: raw.guild_id.cast_unsigned().into(),
+                target_id: raw.target_id.cast_unsigned().into(),
+                moderator_id: raw.moderator_id.map(|id| id.cast_unsigned().into()),
+                moderation_kind: ModerationKind::from_str(&raw.moderation_kind).ok()?,
+                expires_at: raw.expires_at,
+                reason: raw.reason,
+                closed: raw.closed,
+                duration: match raw.duration {
+                    Some(duration_i64) => {
+                        Some(Duration::from_secs(u64::try_from(duration_i64).ok()?))
+                    }
+                    None => None,
+                },
+                created_at: raw.created_at,
+            })
+        }
+    }
+
+    impl std::fmt::Display for CaseId {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            // Try to encode it using SQIDS with the blocklist, which is very unlikely to fail.
+            // It only fails when it has reached the maximum number of tries for getting around the
+            // blocklist, in which case we use sqids without a blocklist, which may contain a bad
+            // word but this is probably fine in practice. Either way, it would be better than
+            // panicking if sqids fails.
+            let sqids_encoded = match crate::SQIDS.encode(&[self.0.cast_unsigned()]) {
+                Ok(encoded) => encoded,
+                #[expect(
+                    clippy::unwrap_used,
+                    reason = "There is no blocklist so this can't fail."
+                )]
+                Err(_) => crate::SQIDS_NO_BLOCKLIST
+                    .encode(&[self.0.cast_unsigned()])
+                    .unwrap(),
+            };
+            f.write_str(&sqids_encoded)
+        }
+    }
+
+    impl CaseId {
+        pub fn from_str(s: &str) -> Option<Self> {
+            // I think sqids doesn't take any blocklists into account when decoding so this is fine
+            // even if the original ID was generated using SQIDS_NO_BLOCKLISt
+            let id = crate::SQIDS.decode(s);
+            id.first().map(|id| Self(id.cast_signed()))
+        }
     }
 }

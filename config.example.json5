@@ -15,6 +15,10 @@
         "list-prefixes": "32",
         // Time out members
         "warn": "1099511627776",
+        // Manage guild
+        "list-cases": "32",
+        // Manage guild
+        "case-info": "32",
     },
     "max_command_prefix_len": 10,
     "user_id": "",

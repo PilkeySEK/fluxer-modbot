@@ -1,4 +1,3 @@
-#[macro_export]
 macro_rules! embed_default_footer {
     ($ctx:expr, { $($tt:tt)* } $(,)?) => {
         ::fluxer_neptunium::create_embed!(
@@ -10,14 +9,13 @@ macro_rules! embed_default_footer {
     };
 }
 
-#[macro_export]
 macro_rules! try_db {
-    ($ctx:expr, $operation:expr) => {
-        match $operation.await {
+    ($ctx:expr, $db_result:expr) => {
+        match $db_result {
             Ok(value) => value,
             Err(e) => {
                 tracing::error!("Database error: {e}");
-                ::fluxer_neptunium::exts::MessageExt::reply($ctx.message, $ctx.ctx, $crate::embed_default_footer!(
+                ::fluxer_neptunium::exts::MessageExt::reply($ctx.message, $ctx.ctx, $crate::macros::embed_default_footer!(
                     $ctx,
                     {
                         description: "Database error.",
@@ -30,14 +28,13 @@ macro_rules! try_db {
     };
 }
 
-#[macro_export]
 macro_rules! try_parse_mention_or_id {
     ($ctx:expr, $args:expr) => {{
         let Some(target_id) = parse_mention_or_id($args) else {
             ::fluxer_neptunium::exts::MessageExt::reply(
                 $ctx.message,
                 $ctx.ctx,
-                $crate::embed_default_footer!(
+                $crate::macros::embed_default_footer!(
                     $ctx,
                     {
                         description: "Provide a target user ID or mention.",
@@ -50,3 +47,15 @@ macro_rules! try_parse_mention_or_id {
         target_id
     }};
 }
+
+/// Panic only if in debug mode, otherwise this is a no-op.
+/// Useful for bugs that should be caught during development / testing, but are non-fatal.
+macro_rules! debug_panic {
+    ($($reason:tt)*) => {
+        if cfg!(debug_assertions) {
+            panic!($($reason)*);
+        }
+    };
+}
+
+pub(crate) use {debug_panic, embed_default_footer, try_db, try_parse_mention_or_id};

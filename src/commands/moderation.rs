@@ -9,8 +9,8 @@ use time::OffsetDateTime;
 
 use crate::{
     commands::CommandContext,
-    db::schema::{CreateModerationCaseData, ModerationKind},
-    embed_default_footer, try_db, try_parse_mention_or_id,
+    db::schema::{CreateGuildModerationCaseData, ModerationKind},
+    macros::{embed_default_footer, try_db, try_parse_mention_or_id},
     util::{parse_duration, parse_mention_or_id},
 };
 
@@ -20,6 +20,8 @@ pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), EventError>
     let target_id = try_parse_mention_or_id!(ctx, user_mention_or_id_str);
 
     let (maybe_duration, reason) = rest.split_once(' ').unwrap_or((rest, ""));
+
+    let now = OffsetDateTime::now_utc();
 
     let (expires_at_and_duration, rest) = match parse_duration(maybe_duration) {
         Some(std_duration) => {
@@ -45,7 +47,6 @@ pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), EventError>
                     return Ok(());
                 }
             };
-            let now = OffsetDateTime::now_utc();
             (
                 Some((
                     if let Some(time) = now.checked_add(duration) {
@@ -67,24 +68,27 @@ pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), EventError>
 
     try_db!(
         ctx,
-        ctx.db.create_moderation_case(CreateModerationCaseData {
-            guild_id: ctx.guild_id,
-            target_id,
-            moderator_id: Some(ctx.message.author.id),
-            moderation_kind: ModerationKind::Warn,
-            expiry: match expires_at_and_duration {
-                Some((expires_at, duration)) => {
-                    if let Ok(value) = i64::try_from(duration.as_secs()) {
-                        Some((expires_at, value))
-                    } else {
-                        tracing::error!(?duration, "Failed to convert seconds to i64.");
-                        return Ok(());
+        ctx.db
+            .create_moderation_case(CreateGuildModerationCaseData {
+                guild_id: ctx.guild_id,
+                target_id,
+                moderator_id: Some(ctx.message.author.id),
+                moderation_kind: ModerationKind::Warn,
+                expiry: match expires_at_and_duration {
+                    Some((expires_at, duration)) => {
+                        if let Ok(value) = i64::try_from(duration.as_secs()) {
+                            Some((expires_at, value))
+                        } else {
+                            tracing::error!(?duration, "Failed to convert seconds to i64.");
+                            return Ok(());
+                        }
                     }
-                }
-                None => None,
-            },
-            reason,
-        })
+                    None => None,
+                },
+                reason,
+                created_at: now,
+            })
+            .await
     );
 
     ctx.message

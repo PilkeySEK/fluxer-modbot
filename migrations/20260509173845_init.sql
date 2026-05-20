@@ -6,6 +6,8 @@ CREATE TABLE guilds (
     command_prefixes TEXT[] NOT NULL
 );
 
+CREATE UNIQUE INDEX idx_guilds ON guilds (guild_id);
+
 -- CREATE TABLE guild_permissions (
 --     guild_id BIGINT NOT NULL,
 --     entity_id BIGINT NOT NULL,
@@ -24,6 +26,8 @@ CREATE TABLE guild_command_configuration (
     -- list of channel IDs
     channels TEXT[] NOT NULL
 );
+
+CREATE UNIQUE INDEX idx_guild_command_configuration ON guild_command_configuration (guild_id, command_name);
 
 CREATE TABLE guild_moderation_cases (
     case_id BIGSERIAL PRIMARY KEY,
@@ -44,5 +48,10 @@ CREATE TABLE guild_moderation_cases (
     closed BOOLEAN NOT NULL DEFAULT FALSE,
     -- The initially set duration in seconds
     -- NULL if permanent
-    duration BIGINT
+    duration BIGINT,
+    created_at TIMESTAMPTZ NOT NULL
 );
+
+CREATE UNIQUE INDEX idx_guild_moderation_cases_by_guild_id_and_case_id ON guild_moderation_cases (case_id, guild_id);
+CREATE UNIQUE INDEX idx_guild_moderation_cases_by_guild_id_and_target_id ON guild_moderation_cases (guild_id, target_id);
+CREATE UNIQUE INDEX idx_guild_moderation_cases_by_guild_id_and_moderator_id ON guild_moderation_cases (guild_id, moderator_id);

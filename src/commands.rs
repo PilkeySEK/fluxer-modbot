@@ -11,8 +11,12 @@ use fluxer_neptunium::{
     },
 };
 
-use crate::db::{DatabaseManager, schema::GuildCommandConfiguration};
+use crate::{
+    db::{DatabaseManager, schema::GuildCommandConfiguration},
+    macros::debug_panic,
+};
 
+mod cases;
 mod guild_settings;
 mod misc;
 mod moderation;
@@ -70,9 +74,17 @@ impl CommandDispatcher {
         aliases: [&'static str; N],
         execute_fn: F,
     ) {
-        self.commands.insert(primary_name, Box::new(execute_fn));
+        if self
+            .commands
+            .insert(primary_name, Box::new(execute_fn))
+            .is_some()
+        {
+            debug_panic!("Command \"{primary_name}\" registered twice.");
+        }
         for alias in aliases {
-            self.aliases.insert(alias, primary_name);
+            if self.aliases.insert(alias, primary_name).is_some() {
+                debug_panic!("Alias \"{alias}\" registered twice.");
+            }
         }
     }
 
@@ -162,6 +174,16 @@ pub fn register_commands(dispatcher: &mut CommandDispatcher) {
         ["delete-prefix"],
         guild_settings::remove_prefix,
     );
-    dispatcher.register("list-prefixes", ["prefixes"], guild_settings::list_prefixes);
+    dispatcher.register(
+        "list-prefixes",
+        ["prefixes", "listprefixes", "prefixlist"],
+        guild_settings::list_prefixes,
+    );
     dispatcher.register("warn", ["add-warn", "create-warn"], moderation::warn);
+    dispatcher.register(
+        "list-cases",
+        ["cases", "caselist", "listcases"],
+        cases::list_cases,
+    );
+    dispatcher.register("case-info", ["case"], cases::case_info);
 }
