@@ -259,6 +259,32 @@ impl DatabaseManager {
             None => Ok(None),
         }
     }
+
+    pub async fn get_last_guild_moderation_case_made_by_user(
+        &self,
+        guild_id: Id<GuildMarker>,
+        user_id: Id<UserMarker>,
+    ) -> Result<Option<GuildModerationCase>, DatabaseError> {
+        let case = query_as!(
+            RawGuildModerationCase,
+            "SELECT * FROM guild_moderation_cases
+            WHERE guild_id = $1 AND moderator_id = $2
+            ORDER BY case_id DESC
+            LIMIT 1",
+            guild_id.into_inner().cast_signed(),
+            user_id.into_inner().cast_signed(),
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        match case {
+            Some(case) => match GuildModerationCase::from_raw(case) {
+                Some(case) => Ok(Some(case)),
+                None => Err(DatabaseError::ParseError),
+            },
+            None => Ok(None),
+        }
+    }
 }
 
 pub mod schema {

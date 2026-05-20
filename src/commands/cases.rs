@@ -111,28 +111,38 @@ fn case_details(case: GuildModerationCase) -> String {
 pub async fn case_info(ctx: CommandContext<'_>, args: &str) -> Result<(), EventError> {
     let (case_id_str, _rest) = args.split_once(' ').unwrap_or((args, ""));
 
-    let Some(case_id) = CaseId::from_str(case_id_str) else {
-        ctx.message
-            .reply(
-                ctx.ctx,
-                embed_default_footer!(
-                    ctx,
-                    {
-                        description: "Provide a valid case ID.",
-                        color: 0xff0000,
-                    }
-                ),
-            )
-            .await?;
-        return Ok(());
-    };
+    let case_id = CaseId::from_str(case_id_str);
 
-    let case = try_db!(
-        ctx,
-        ctx.db
-            .get_guild_moderation_case(ctx.guild_id, case_id)
-            .await
-    );
+    let case = if let Some(case_id) = case_id {
+        try_db!(
+            ctx,
+            ctx.db
+                .get_guild_moderation_case(ctx.guild_id, case_id)
+                .await
+        )
+    } else {
+        let Some(case) = try_db!(
+            ctx,
+            ctx.db
+                .get_last_guild_moderation_case_made_by_user(ctx.guild_id, ctx.message.author.id)
+                .await
+        ) else {
+            ctx.message
+                    .reply(
+                        ctx.ctx,
+                        embed_default_footer!(
+                            ctx,
+                            {
+                                description: "You did not create any cases before, so no case can be displayed. Please provide a case ID.",
+                                color: 0xff0000,
+                            }
+                        ),
+                    )
+                    .await?;
+            return Ok(());
+        };
+        Some(case)
+    };
 
     match case {
         Some(case) => {
