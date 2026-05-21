@@ -1,7 +1,22 @@
 use std::time::Duration;
 
-use fluxer_neptunium::model::id::{Id, marker::UserMarker};
+use fluxer_neptunium::{
+    exts::MessageExt,
+    model::id::{Id, marker::UserMarker},
+};
 use nom::{Parser, error::ErrorKind};
+
+use crate::{commands::CommandContext, db::DatabaseError};
+
+pub mod confirmation;
+pub mod user_arg;
+
+pub enum Expiry<T> {
+    NotExpired(T),
+    Expired,
+}
+
+pub type MaybeExpiringResult<T, E> = Result<Expiry<T>, E>;
 
 pub fn parse_mention_or_id(input: &str) -> Option<Id<UserMarker>> {
     Id::try_from(
@@ -37,4 +52,29 @@ pub fn parse_duration(input: &str) -> Option<Duration> {
         .collect::<Option<Vec<Duration>>>()?
         .into_iter()
         .try_fold(Duration::ZERO, std::time::Duration::checked_add)
+}
+
+pub async fn try_db<T>(
+    ctx: &CommandContext<'_>,
+    result: Result<T, DatabaseError>,
+) -> Result<T, DatabaseError> {
+    match result {
+        Ok(value) => Ok(value),
+        Err(e) => {
+            let _ = ctx
+                .message
+                .reply(
+                    ctx.ctx,
+                    crate::macros::embed_default_footer!(
+                        ctx,
+                        {
+                            description: "Database error.",
+                            color: 0xff0000,
+                        }
+                    ),
+                )
+                .await;
+            Err(e)
+        }
+    }
 }

@@ -61,7 +61,7 @@ impl DatabaseManager {
     pub async fn get_guild_command_prefixes(
         &self,
         guild_id: Id<GuildMarker>,
-    ) -> Result<Arc<Vec<String>>, sqlx::Error> {
+    ) -> Result<Arc<Vec<String>>, DatabaseError> {
         if let Some(cached_prefixes) = self.cached_prefixes.get(&guild_id) {
             return Ok(cached_prefixes);
         }
@@ -112,7 +112,7 @@ impl DatabaseManager {
         &self,
         guild_id: Id<GuildMarker>,
         prefix: &str,
-    ) -> Result<(), sqlx::Error> {
+    ) -> Result<(), DatabaseError> {
         let prefixes = query_scalar!(
             "INSERT INTO guilds (guild_id, command_prefixes)
             VALUES ($1, ARRAY[$2, $3])
@@ -136,7 +136,7 @@ impl DatabaseManager {
         &self,
         guild_id: Id<GuildMarker>,
         prefix: &str,
-    ) -> Result<Arc<Vec<String>>, sqlx::Error> {
+    ) -> Result<Arc<Vec<String>>, DatabaseError> {
         let inserted_prefixes_vec = if prefix == self.default_prefix {
             Vec::new()
         } else {
@@ -162,8 +162,8 @@ impl DatabaseManager {
     pub async fn create_moderation_case(
         &self,
         data: CreateGuildModerationCaseData<'_>,
-    ) -> Result<PgQueryResult, sqlx::Error> {
-        query!(
+    ) -> Result<PgQueryResult, DatabaseError> {
+        Ok(query!(
             "INSERT INTO guild_moderation_cases (guild_id, target_id, moderator_id, moderation_kind, expires_at, reason, duration, created_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
             data.guild_id.into_inner().cast_signed(),
@@ -174,7 +174,7 @@ impl DatabaseManager {
             data.reason,
             data.expiry.map(|value| value.1),
             data.created_at,
-        ).execute(&self.pool).await
+        ).execute(&self.pool).await?)
     }
 
     pub async fn list_guild_moderation_cases(
@@ -214,8 +214,8 @@ impl DatabaseManager {
         &self,
         guild_id: Id<GuildMarker>,
         involving_user: Option<Id<UserMarker>>,
-    ) -> Result<i64, sqlx::Error> {
-        if let Some(involving_user) = involving_user {
+    ) -> Result<i64, DatabaseError> {
+        Ok(if let Some(involving_user) = involving_user {
             query_scalar!(
                 "SELECT COUNT(case_id) FROM guild_moderation_cases
                 WHERE guild_id = $1 AND (target_id = $2 OR moderator_id = $2)",
@@ -223,7 +223,7 @@ impl DatabaseManager {
                 involving_user.into_inner().cast_signed(),
             )
             .fetch_one(&self.pool)
-            .await
+            .await?
         } else {
             query_scalar!(
                 "SELECT COUNT(case_id) FROM guild_moderation_cases
@@ -231,9 +231,9 @@ impl DatabaseManager {
                 guild_id.into_inner().cast_signed(),
             )
             .fetch_one(&self.pool)
-            .await
+            .await?
         }
-        .map(|value| value.unwrap_or(0))
+        .unwrap_or(0))
     }
 
     pub async fn get_guild_moderation_case(

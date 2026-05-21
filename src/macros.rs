@@ -9,25 +9,6 @@ macro_rules! embed_default_footer {
     };
 }
 
-macro_rules! try_db {
-    ($ctx:expr, $db_result:expr) => {
-        match $db_result {
-            Ok(value) => value,
-            Err(e) => {
-                tracing::error!("Database error: {e}");
-                ::fluxer_neptunium::exts::MessageExt::reply($ctx.message, $ctx.ctx, $crate::macros::embed_default_footer!(
-                    $ctx,
-                    {
-                        description: "Database error.",
-                        color: 0xff0000,
-                    }
-                )).await?;
-                return Ok(());
-            }
-        }
-    };
-}
-
 macro_rules! try_parse_mention_or_id {
     ($ctx:expr, $args:expr) => {{
         let Some(target_id) = parse_mention_or_id($args) else {
@@ -58,4 +39,4 @@ macro_rules! debug_panic {
     };
 }
 
-pub(crate) use {debug_panic, embed_default_footer, try_db, try_parse_mention_or_id};
+pub(crate) use {debug_panic, embed_default_footer, try_parse_mention_or_id};

@@ -7,12 +7,20 @@ use fluxer_neptunium::{
     exts::{GuildExt, GuildMemberExt, MessageExt},
     model::{
         guild::permissions::Permissions,
-        id::{Id, marker::GuildMarker},
+        id::{
+            Id,
+            marker::{GuildMarker, MessageMarker},
+        },
     },
 };
+use time::OffsetDateTime;
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    db::{DatabaseManager, schema::GuildCommandConfiguration},
+    db::{DatabaseError, DatabaseManager, schema::GuildCommandConfiguration},
+    event_handler::reactions::{
+        ReactionExpiryHandlerFn, ReactionHandler, ReactionsEventHandlerMessage,
+    },
     macros::debug_panic,
 };
 
@@ -26,19 +34,19 @@ pub trait CommandExecuteFn<'a>: Send + Sync + 'static {
         &self,
         ctx: CommandContext<'a>,
         args: &'a str,
-    ) -> Pin<Box<dyn Future<Output = Result<(), EventError>> + Send + 'a>>;
+    ) -> Pin<Box<dyn Future<Output = Result<(), CommandError>> + Send + 'a>>;
 }
 
 impl<'a, F, Fut> CommandExecuteFn<'a> for F
 where
     F: Fn(CommandContext<'a>, &'a str) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = Result<(), EventError>> + Send + 'a,
+    Fut: Future<Output = Result<(), CommandError>> + Send + 'a,
 {
     fn call(
         &self,
         ctx: CommandContext<'a>,
         args: &'a str,
-    ) -> Pin<Box<dyn Future<Output = Result<(), EventError>> + Send + 'a>> {
+    ) -> Pin<Box<dyn Future<Output = Result<(), CommandError>> + Send + 'a>> {
         Box::pin(self(ctx, args))
     }
 }
@@ -52,12 +60,85 @@ pub struct CommandContext<'a> {
     pub guild_id: Id<GuildMarker>,
     pub default_command_configuration: &'a HashMap<String, Permissions>,
     pub max_command_prefix_len: usize,
+    pub reaction_handler_tx: &'a UnboundedSender<ReactionsEventHandlerMessage>,
+}
+
+#[derive(Debug)]
+pub enum CommandError {
+    EventError(EventError),
+    DatabaseError(DatabaseError),
+}
+
+impl std::error::Error for CommandError {}
+
+impl std::fmt::Display for CommandError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::EventError(e) => f.write_fmt(format_args!("Event error: {e}")),
+            Self::DatabaseError(e) => f.write_fmt(format_args!("Database error: {e}")),
+        }
+    }
+}
+
+impl<T> From<T> for CommandError
+where
+    T: Into<EventError>,
+{
+    fn from(value: T) -> Self {
+        Self::EventError(value.into())
+    }
+}
+
+impl From<DatabaseError> for CommandError {
+    fn from(value: DatabaseError) -> Self {
+        Self::DatabaseError(value)
+    }
 }
 
 pub struct CommandDispatcher {
     /// (alias, primary).
     aliases: HashMap<&'static str, &'static str>,
     commands: HashMap<&'static str, Box<dyn for<'a> CommandExecuteFn<'a>>>,
+}
+
+impl CommandContext<'_> {
+    /// Helper for registering a reaction handler. For more control, use `reaction_handler_tx` on this struct.
+    ///
+    /// If an error occurs, it is logged but no panics will happen.
+    pub fn register_reaction_handler(
+        &self,
+        message_id: Id<MessageMarker>,
+        handler: impl ReactionHandler + 'static,
+        expiry: Option<(ReactionExpiryHandlerFn, std::time::Duration)>,
+    ) {
+        let expiry = match expiry {
+            Some((f, expires_in)) => {
+                let expires_in: time::Duration = match expires_in.try_into() {
+                    Ok(expires_in) => expires_in,
+                    Err(e) => {
+                        tracing::error!(
+                            "Overflow converting std::time::Duration to time::Duration: {e}"
+                        );
+                        return;
+                    }
+                };
+                let now = OffsetDateTime::now_utc();
+                let Some(expires_at) = now.checked_add(expires_in) else {
+                    tracing::error!("Overflow calculating expires_at.");
+                    return;
+                };
+                Some((f, expires_at))
+            }
+            None => None,
+        };
+        if self
+            .reaction_handler_tx
+            .send((message_id, Box::new(handler), expiry))
+            .is_err()
+        {
+            tracing::error!("The reaction handler is gone.");
+        }
+    }
 }
 
 impl CommandDispatcher {
@@ -88,7 +169,7 @@ impl CommandDispatcher {
         }
     }
 
-    pub async fn execute(&self, ctx: CommandContext<'_>, input: &str) -> Result<(), EventError> {
+    pub async fn execute(&self, ctx: CommandContext<'_>, input: &str) -> Result<(), CommandError> {
         let (command_name, args) = input.split_once(' ').unwrap_or((input, ""));
         let command_name = if let Some(primary_name) = self.aliases.get(command_name) {
             primary_name
@@ -185,5 +266,5 @@ pub fn register_commands(dispatcher: &mut CommandDispatcher) {
         ["cases", "caselist", "listcases"],
         cases::list_cases,
     );
-    dispatcher.register("case-info", ["case"], cases::case_info);
+    // dispatcher.register("case-info", ["case"], cases::case_info);
 }

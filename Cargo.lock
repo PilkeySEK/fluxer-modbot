@@ -498,6 +498,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "dashmap"
+version = "6.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6361d5c062261c78a176addb82d4c821ae42bed6089de0e12603cd25de2059c"
+dependencies = [
+ "cfg-if",
+ "crossbeam-utils",
+ "hashbrown 0.14.5",
+ "lock_api",
+ "once_cell",
+ "parking_lot_core",
+]
+
+[[package]]
 name = "data-encoding"
 version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -592,9 +606,9 @@ checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
 
 [[package]]
 name = "either"
-version = "1.15.0"
+version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
+checksum = "91622ff5e7162018101f2fea40d6ebf4a78bbe5a49736a2020649edf9693679e"
 dependencies = [
  "serde",
 ]
@@ -692,8 +706,8 @@ dependencies = [
 
 [[package]]
 name = "fluxer-neptunium"
-version = "0.6.2"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#7bb3a95fb1c58f4c37d6c77f93247035e136caab"
+version = "0.6.3"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#38b5e2be660f4e5fcec5b01975587e8c7e8c73f9"
 dependencies = [
  "async-trait",
  "bon",
@@ -1458,7 +1472,7 @@ checksum = "c325dfab65f261f386debee8b0969da215b3fa0037e74c8a1234db7ba986d803"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-utils",
- "dashmap",
+ "dashmap 5.5.3",
  "skeptic",
  "smallvec",
  "tagptr",
@@ -1480,6 +1494,7 @@ dependencies = [
 name = "neptune-bot"
 version = "0.1.0"
 dependencies = [
+ "dashmap 6.2.1",
  "dotenvy",
  "enumset",
  "fluxer-neptunium",
@@ -1500,8 +1515,8 @@ dependencies = [
 
 [[package]]
 name = "neptunium-cache-inmemory"
-version = "0.6.2"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#7bb3a95fb1c58f4c37d6c77f93247035e136caab"
+version = "0.6.3"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#38b5e2be660f4e5fcec5b01975587e8c7e8c73f9"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -1518,8 +1533,8 @@ dependencies = [
 
 [[package]]
 name = "neptunium-gateway"
-version = "0.6.2"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#7bb3a95fb1c58f4c37d6c77f93247035e136caab"
+version = "0.6.3"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#38b5e2be660f4e5fcec5b01975587e8c7e8c73f9"
 dependencies = [
  "bon",
  "futures-util",
@@ -1535,8 +1550,8 @@ dependencies = [
 
 [[package]]
 name = "neptunium-http"
-version = "0.6.2"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#7bb3a95fb1c58f4c37d6c77f93247035e136caab"
+version = "0.6.3"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#38b5e2be660f4e5fcec5b01975587e8c7e8c73f9"
 dependencies = [
  "async-trait",
  "bon",
@@ -1559,8 +1574,8 @@ dependencies = [
 
 [[package]]
 name = "neptunium-model"
-version = "0.6.2"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#7bb3a95fb1c58f4c37d6c77f93247035e136caab"
+version = "0.6.3"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#38b5e2be660f4e5fcec5b01975587e8c7e8c73f9"
 dependencies = [
  "bitflags",
  "bon",

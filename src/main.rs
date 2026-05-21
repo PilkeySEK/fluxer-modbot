@@ -1,6 +1,9 @@
 use std::{collections::HashSet, env, sync::LazyLock};
 
-use fluxer_neptunium::client::Client;
+use fluxer_neptunium::{
+    client::{Client, ClientConfig},
+    http::endpoints::channel::AllowedMentions,
+};
 use pretty_duration::{PrettyDurationOptions, PrettyDurationOutputFormat};
 use sqids::{Sqids, SqidsBuilder};
 
@@ -92,7 +95,17 @@ async fn main() {
         config.max_command_prefix_len,
         config.user_id,
     );
-    let mut client = Client::new(config.token);
+    let mut client = Client::new_with_config(
+        config.token,
+        ClientConfig::builder()
+            .default_allowed_mentions(AllowedMentions {
+                parse: Some(Vec::new()),
+                users: Some(Vec::new()),
+                roles: Some(Vec::new()),
+                replied_user: false,
+            })
+            .build(),
+    );
     client.register_event_handler(event_handler);
 
     if let Err(e) = client.start().await {

@@ -1,11 +1,14 @@
 use std::time::{Duration, SystemTime};
 
-use fluxer_neptunium::{events::EventError, exts::MessageExt};
+use fluxer_neptunium::exts::MessageExt;
 use pretty_duration::pretty_duration;
 
-use crate::{commands::CommandContext, macros::embed_default_footer};
+use crate::{
+    commands::{CommandContext, CommandError},
+    macros::embed_default_footer,
+};
 
-pub async fn ping(ctx: CommandContext<'_>, _args: &str) -> Result<(), EventError> {
+pub async fn ping(ctx: CommandContext<'_>, _args: &str) -> Result<(), CommandError> {
     ctx.message.reply(
         ctx.ctx,
         embed_default_footer!(

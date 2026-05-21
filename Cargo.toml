@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+dashmap = "6.2.1"
 dotenvy = "0.15.7"
 enumset = "1.1.12"
 fluxer-neptunium = { git = "https://github.com/PilkeySEK/fluxer-neptunium.git", features = [

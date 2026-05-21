@@ -1,11 +1,12 @@
-use fluxer_neptunium::{events::EventError, exts::MessageExt};
+use fluxer_neptunium::exts::MessageExt;
 
 use crate::{
-    commands::CommandContext,
-    macros::{embed_default_footer, try_db},
+    commands::{CommandContext, CommandError},
+    macros::embed_default_footer,
+    util::try_db,
 };
 
-pub async fn add_prefix(ctx: CommandContext<'_>, args: &str) -> Result<(), EventError> {
+pub async fn add_prefix(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandError> {
     let prefix = args.trim();
     if prefix.is_empty() {
         ctx.message
@@ -38,12 +39,13 @@ pub async fn add_prefix(ctx: CommandContext<'_>, args: &str) -> Result<(), Event
         return Ok(());
     }
 
-    try_db!(
-        ctx,
+    try_db(
+        &ctx,
         ctx.db
             .add_guild_command_prefix_upsert(ctx.guild_id, prefix)
-            .await
-    );
+            .await,
+    )
+    .await?;
 
     ctx.message
         .reply(
@@ -61,7 +63,7 @@ pub async fn add_prefix(ctx: CommandContext<'_>, args: &str) -> Result<(), Event
     Ok(())
 }
 
-pub async fn remove_prefix(ctx: CommandContext<'_>, args: &str) -> Result<(), EventError> {
+pub async fn remove_prefix(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandError> {
     let prefix = args.trim();
     if prefix.is_empty() {
         ctx.message
@@ -78,12 +80,13 @@ pub async fn remove_prefix(ctx: CommandContext<'_>, args: &str) -> Result<(), Ev
             .await?;
         return Ok(());
     }
-    let new_prefixes = try_db!(
-        ctx,
+    let new_prefixes = try_db(
+        &ctx,
         ctx.db
             .remove_guild_command_prefix_upsert(ctx.guild_id, prefix)
-            .await
-    );
+            .await,
+    )
+    .await?;
 
     ctx.message.reply(ctx.ctx, embed_default_footer!(
         ctx,
@@ -99,8 +102,8 @@ pub async fn remove_prefix(ctx: CommandContext<'_>, args: &str) -> Result<(), Ev
     Ok(())
 }
 
-pub async fn list_prefixes(ctx: CommandContext<'_>, _args: &str) -> Result<(), EventError> {
-    let prefixes = try_db!(ctx, ctx.db.get_guild_command_prefixes(ctx.guild_id).await);
+pub async fn list_prefixes(ctx: CommandContext<'_>, _args: &str) -> Result<(), CommandError> {
+    let prefixes = try_db(&ctx, ctx.db.get_guild_command_prefixes(ctx.guild_id).await).await?;
 
     ctx.message
         .reply(

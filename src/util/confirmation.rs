@@ -1,0 +1,86 @@
+use std::{sync::Arc, time::Duration};
+
+use fluxer_neptunium::{
+    cache::{Cached, CachedMessage},
+    cached_payload::CachedMessageReactionAdd,
+    exts::MessageExt,
+    model::{
+        guild::Emoji,
+        id::{Id, marker::UserMarker},
+    },
+};
+use tokio::sync::mpsc::unbounded_channel;
+
+use crate::{
+    commands::{CommandContext, CommandError},
+    macros::debug_panic,
+    util::{Expiry, MaybeExpiringResult},
+};
+
+pub async fn confirmation(
+    ctx: &CommandContext<'_>,
+    confirmation_message: Cached<CachedMessage>,
+    allowed_reactor: Id<UserMarker>,
+) -> MaybeExpiringResult<bool, CommandError> {
+    const CONFIRM: &str = "✅";
+    const CANCEL: &str = "❌";
+
+    enum ConfirmationMessage {
+        Ok(bool),
+        Expired,
+    }
+
+    if let Err(e) = confirmation_message.add_reaction(ctx.ctx, CONFIRM).await {
+        return MaybeExpiringResult::Err(e.into());
+    }
+    if let Err(e) = confirmation_message.add_reaction(ctx.ctx, CANCEL).await {
+        return MaybeExpiringResult::Err(e.into());
+    }
+
+    let (handler_tx, mut rx) = unbounded_channel();
+    let expiry_handler_tx = handler_tx.clone();
+    ctx.register_reaction_handler(
+        confirmation_message.id,
+        move |event: Arc<CachedMessageReactionAdd>| {
+            if event.user_id != allowed_reactor {
+                return (false, Ok(()));
+            }
+            let Emoji::Default(emoji) = &event.emoji else {
+                return (false, Ok(()));
+            };
+            if emoji == CONFIRM {
+                // If there is an error it means that it expired right after this function was called.
+                let _ = handler_tx.send(ConfirmationMessage::Ok(true));
+                (true, Ok(()))
+            } else if emoji == CANCEL {
+                // If there is an error it means that it expired right after this function was called.
+                let _ = handler_tx.send(ConfirmationMessage::Ok(false));
+                (true, Ok(()))
+            } else {
+                (false, Ok(()))
+            }
+        },
+        Some((
+            Box::new(move || {
+                Box::pin(async move {
+                    let _ = expiry_handler_tx.send(ConfirmationMessage::Expired);
+                    Ok(())
+                })
+            }),
+            Duration::from_mins(10),
+        )),
+    );
+
+    if let Some(message) = rx.recv().await {
+        match message {
+            ConfirmationMessage::Expired => Ok(Expiry::Expired),
+            ConfirmationMessage::Ok(confirmed) => {
+                confirmation_message.delete(ctx.ctx).await?;
+                Ok(Expiry::NotExpired(confirmed))
+            }
+        }
+    } else {
+        debug_panic!("The channel should not close.");
+        Ok(Expiry::Expired)
+    }
+}

@@ -1,20 +1,19 @@
 use std::time::Duration;
 
 use fluxer_neptunium::{
-    events::EventError,
     exts::MessageExt,
     model::time::timestamp::{Timestamp, TimestampDisplayType, representations::UnixMillis},
 };
 use time::OffsetDateTime;
 
 use crate::{
-    commands::CommandContext,
+    commands::{CommandContext, CommandError},
     db::schema::{CreateGuildModerationCaseData, ModerationKind},
-    macros::{embed_default_footer, try_db, try_parse_mention_or_id},
-    util::{parse_duration, parse_mention_or_id},
+    macros::{embed_default_footer, try_parse_mention_or_id},
+    util::{parse_duration, parse_mention_or_id, try_db},
 };
 
-pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), EventError> {
+pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandError> {
     let (user_mention_or_id_str, rest) = args.split_once(' ').unwrap_or((args, ""));
 
     let target_id = try_parse_mention_or_id!(ctx, user_mention_or_id_str);
@@ -66,8 +65,8 @@ pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), EventError>
     let rest = rest.trim();
     let reason = if rest.is_empty() { None } else { Some(rest) };
 
-    try_db!(
-        ctx,
+    try_db(
+        &ctx,
         ctx.db
             .create_moderation_case(CreateGuildModerationCaseData {
                 guild_id: ctx.guild_id,
@@ -88,8 +87,9 @@ pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), EventError>
                 reason,
                 created_at: now,
             })
-            .await
-    );
+            .await,
+    )
+    .await?;
 
     ctx.message
         .reply(

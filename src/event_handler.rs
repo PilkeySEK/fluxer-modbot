@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc, time::SystemTime};
 use fluxer_neptunium::{
     async_trait,
     cache::{CachedMessage, Guard},
-    cached_payload::{CachedMessageCreate, CachedReady},
+    cached_payload::{CachedMessageCreate, CachedMessageReactionAdd, CachedReady},
     events::{EventError, EventHandler, context::Context},
     exts::ChannelExt,
     model::{
@@ -18,7 +18,10 @@ use fluxer_neptunium::{
 use crate::{
     commands::{CommandContext, CommandDispatcher},
     db::DatabaseManager,
+    event_handler::reactions::ReactionsEventHandler,
 };
+
+pub mod reactions;
 
 pub struct BotEventHandler {
     dispatcher: CommandDispatcher,
@@ -28,6 +31,7 @@ pub struct BotEventHandler {
     default_command_configuration: HashMap<String, Permissions>,
     max_command_prefix_len: usize,
     my_id: Id<UserMarker>,
+    reactions_event_handler: ReactionsEventHandler,
 }
 
 impl BotEventHandler {
@@ -47,6 +51,7 @@ impl BotEventHandler {
             default_command_configuration,
             max_command_prefix_len,
             my_id,
+            reactions_event_handler: ReactionsEventHandler::new(),
         }
     }
 }
@@ -100,6 +105,16 @@ impl EventHandler for BotEventHandler {
 
         Ok(())
     }
+
+    async fn on_message_reaction_add(
+        &self,
+        _ctx: Context,
+        event: Arc<CachedMessageReactionAdd>,
+    ) -> Result<(), EventError> {
+        self.reactions_event_handler
+            .handle_reaction_add(event)
+            .await
+    }
 }
 
 impl BotEventHandler {
@@ -122,6 +137,7 @@ impl BotEventHandler {
                     guild_id,
                     default_command_configuration: &self.default_command_configuration,
                     max_command_prefix_len: self.max_command_prefix_len,
+                    reaction_handler_tx: &self.reactions_event_handler.tx,
                 },
                 content.trim_start(),
             )
