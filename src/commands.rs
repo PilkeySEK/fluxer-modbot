@@ -266,5 +266,5 @@ pub fn register_commands(dispatcher: &mut CommandDispatcher) {
         ["cases", "caselist", "listcases"],
         cases::list_cases,
     );
-    // dispatcher.register("case-info", ["case"], cases::case_info);
+    dispatcher.register("case-info", ["case"], cases::case_info);
 }
