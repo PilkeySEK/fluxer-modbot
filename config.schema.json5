@@ -28,6 +28,9 @@
         "prefix_cache_capacity": {
             "type": "number",
         },
+        "log_level": {
+            "enum": ["error", "warn", "info", "debug", "trace"],
+        },
         "$schema": {
             "type": "string"
         }
@@ -41,6 +44,7 @@
         "max_command_prefix_len",
         "user_id",
         "prefix_cache_capacity",
+        "log_level",
         "$schema",
     ],
     "additionalProperties": false,
