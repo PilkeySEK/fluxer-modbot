@@ -181,14 +181,11 @@ impl DatabaseManager {
         &self,
         guild_id: Id<GuildMarker>,
         limit: i64,
-        after: Option<CaseId>,
+        offset: Option<i64>,
         involving_user: Option<Id<UserMarker>>,
     ) -> Result<Vec<GuildModerationCase>, DatabaseError> {
         let mut qb = QueryBuilder::new("SELECT * FROM guild_moderation_cases WHERE guild_id = ");
         qb.push_bind(guild_id.into_inner().cast_signed());
-        if let Some(after) = after {
-            qb.push(" AND case_id < ").push_bind(after.0);
-        }
         if let Some(involving_user) = involving_user {
             let involving_user = involving_user.into_inner().cast_signed();
             qb.push(" AND (target_id = ").push_bind(involving_user);
@@ -197,6 +194,9 @@ impl DatabaseManager {
         }
 
         qb.push(" ORDER BY case_id DESC LIMIT ").push_bind(limit);
+        if let Some(offset) = offset {
+            qb.push(" OFFSET ").push_bind(offset);
+        }
 
         let raw_cases = qb.build_query_as().fetch_all(&self.pool).await?;
 

@@ -38,6 +38,7 @@ pub struct Config {
     pub max_command_prefix_len: usize,
     pub user_id: Id<UserMarker>,
     pub prefix_cache_capacity: u64,
+    pub log_level: String,
 }
 
 pub enum ConfigLoadError {

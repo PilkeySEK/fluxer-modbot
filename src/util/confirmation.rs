@@ -49,11 +49,9 @@ pub async fn confirmation(
                 return (false, Ok(()));
             };
             if emoji == CONFIRM {
-                // If there is an error it means that it expired right after this function was called.
                 let _ = handler_tx.send(ConfirmationMessage::Ok(true));
                 (true, Ok(()))
             } else if emoji == CANCEL {
-                // If there is an error it means that it expired right after this function was called.
                 let _ = handler_tx.send(ConfirmationMessage::Ok(false));
                 (true, Ok(()))
             } else {

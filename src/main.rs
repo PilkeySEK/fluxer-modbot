@@ -1,4 +1,4 @@
-use std::{collections::HashSet, env, sync::LazyLock};
+use std::{collections::HashSet, env, str::FromStr, sync::LazyLock};
 
 use fluxer_neptunium::{
     client::{Client, ClientConfig},
@@ -6,6 +6,7 @@ use fluxer_neptunium::{
 };
 use pretty_duration::{PrettyDurationOptions, PrettyDurationOutputFormat};
 use sqids::{Sqids, SqidsBuilder};
+use tracing::Level;
 
 use crate::{
     commands::{CommandDispatcher, register_commands},
@@ -56,20 +57,28 @@ static SQIDS_NO_BLOCKLIST: LazyLock<Sqids> = LazyLock::new(|| {
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt().init();
-
     let config_file_path = env::var("CONFIG_FILE_PATH").unwrap_or(String::from("config.json5"));
 
     let config = match Config::load(config_file_path) {
         Ok(config) => config,
         Err(e) => {
             match e {
-                ConfigLoadError::Io(e) => tracing::error!("I/O error loading config: {e}"),
-                ConfigLoadError::Parse(e) => tracing::error!("Failed to parse config: {e}"),
+                ConfigLoadError::Io(e) => println!("I/O error loading config: {e}"),
+                ConfigLoadError::Parse(e) => println!("Failed to parse config: {e}"),
             }
             return;
         }
     };
+
+    let log_level = match Level::from_str(&config.log_level) {
+        Ok(level) => level,
+        Err(e) => {
+            println!("Failed to parse log level from config: {e}");
+            return;
+        }
+    };
+
+    tracing_subscriber::fmt().with_max_level(log_level).init();
 
     let db_manager = match DatabaseManager::connect(
         &config.database_url,

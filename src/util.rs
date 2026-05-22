@@ -9,6 +9,7 @@ use nom::{Parser, error::ErrorKind};
 use crate::{commands::CommandContext, db::DatabaseError};
 
 pub mod confirmation;
+pub mod pages;
 pub mod user_arg;
 
 pub enum Expiry<T> {

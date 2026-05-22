@@ -1,4 +1,5 @@
 use fluxer_neptunium::{
+    cache::Cached,
     exts::MessageExt,
     http::endpoints::channel::EditMessageBody,
     model::{
@@ -10,8 +11,12 @@ use fluxer_neptunium::{
 use crate::{
     commands::{CommandContext, CommandError},
     db::schema::GuildModerationCase,
-    macros::{embed_default_footer, get_user_arg},
-    util::try_db,
+    macros::{debug_panic, embed_default_footer, get_user_arg},
+    util::{
+        Expiry, MaybeExpiringResult,
+        pages::{PageAction, pages},
+        try_db,
+    },
 };
 
 const MAX_GUILD_MODERATION_CASES_PER_MESSAGE: i64 = 10;
@@ -32,14 +37,78 @@ pub async fn list_cases(ctx: CommandContext<'_>, args: &str) -> Result<(), Comma
     let cases = try_db(&ctx, cases).await?;
     let case_count = try_db(&ctx, case_count).await?;
 
-    ctx.message
+    let message = ctx
+        .message
         .reply(
             ctx.ctx,
-            format_case_list(&ctx, cases, case_count, involving_user),
+            format_case_list(&ctx, cases, case_count, involving_user, 0),
         )
         .await?;
 
-    Ok(())
+    if case_count > MAX_GUILD_MODERATION_CASES_PER_MESSAGE {
+        let mut current_offset: i64 = 0;
+        loop {
+            let page_action = match pages(
+                &ctx,
+                Cached::clone(&message),
+                ctx.message.author.id,
+                if current_offset + MAX_GUILD_MODERATION_CASES_PER_MESSAGE >= case_count {
+                    [PageAction::Back].into()
+                } else if current_offset <= 0 {
+                    if current_offset < 0 {
+                        debug_panic!("current_offset = {current_offset} < 0");
+                    }
+                    [PageAction::Continue].into()
+                } else {
+                    [PageAction::Back, PageAction::Continue].into()
+                },
+            )
+            .await
+            {
+                MaybeExpiringResult::Err(e) => break Err(e),
+                MaybeExpiringResult::Ok(Expiry::Expired) => break Ok(()),
+                MaybeExpiringResult::Ok(Expiry::NotExpired(action)) => action,
+            };
+
+            match page_action {
+                PageAction::Back => {
+                    current_offset -= 10;
+                    if current_offset < 0 {
+                        debug_panic!("Offset of {current_offset} > 0");
+                    }
+                }
+                PageAction::Continue => {
+                    current_offset += 10;
+                    if current_offset >= case_count {
+                        debug_panic!("Offset of {current_offset} > case count {case_count}");
+                    }
+                }
+            }
+
+            let cases = try_db(
+                &ctx,
+                ctx.db
+                    .list_guild_moderation_cases(
+                        ctx.guild_id,
+                        MAX_GUILD_MODERATION_CASES_PER_MESSAGE,
+                        Some(current_offset),
+                        involving_user,
+                    )
+                    .await,
+            )
+            .await?;
+
+            let result = message
+                .edit(
+                    ctx.ctx,
+                    format_case_list(&ctx, cases, case_count, involving_user, current_offset),
+                )
+                .await?;
+            tracing::info!(?result);
+        }
+    } else {
+        Ok(())
+    }
 }
 
 fn format_case_list(
@@ -47,6 +116,7 @@ fn format_case_list(
     cases: Vec<GuildModerationCase>,
     case_count: i64,
     involving_user: Option<Id<UserMarker>>,
+    offset: i64,
 ) -> EditMessageBody {
     fn format_case_oneline(case: GuildModerationCase) -> String {
         format!(
@@ -93,7 +163,7 @@ fn format_case_list(
                     String::new()
                 },
                 cases_string,
-                1,
+                ((offset as f64) / MAX_GUILD_MODERATION_CASES_PER_MESSAGE as f64).ceil() as i64 + 1,
                 ((case_count as f64) / (MAX_GUILD_MODERATION_CASES_PER_MESSAGE as f64)).ceil() as i64
             ),
             color: 0xffffff,

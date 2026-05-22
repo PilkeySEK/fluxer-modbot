@@ -29,7 +29,18 @@
             "type": "number",
         },
         "log_level": {
-            "enum": ["error", "warn", "info", "debug", "trace"],
+            "enum": [
+                "error",
+                "warn",
+                "info",
+                "debug",
+                "trace",
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+            ],
         },
         "$schema": {
             "type": "string"
