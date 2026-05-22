@@ -9,14 +9,12 @@ use time::OffsetDateTime;
 use crate::{
     commands::{CommandContext, CommandError},
     db::schema::{CreateGuildModerationCaseData, ModerationKind},
-    macros::{embed_default_footer, try_parse_mention_or_id},
-    util::{parse_duration, parse_mention_or_id, try_db},
+    macros::{embed_default_footer, get_user_arg},
+    util::{parse_duration, try_db},
 };
 
 pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandError> {
-    let (user_mention_or_id_str, rest) = args.split_once(' ').unwrap_or((args, ""));
-
-    let target_id = try_parse_mention_or_id!(ctx, user_mention_or_id_str);
+    let (target_id, rest) = get_user_arg!(ctx, args, required);
 
     let (maybe_duration, reason) = rest.split_once(' ').unwrap_or((rest, ""));
 

@@ -1,44 +1,23 @@
 use fluxer_neptunium::{
     exts::MessageExt,
     http::endpoints::channel::EditMessageBody,
-    model::time::timestamp::{Timestamp, TimestampDisplayType, representations::UnixMillis},
+    model::{
+        id::{Id, marker::UserMarker},
+        time::timestamp::{Timestamp, TimestampDisplayType, representations::UnixMillis},
+    },
 };
 
 use crate::{
     commands::{CommandContext, CommandError},
     db::schema::GuildModerationCase,
-    macros::embed_default_footer,
-    util::{Expiry, try_db, user_arg::parse_user_arg},
+    macros::{embed_default_footer, get_user_arg},
+    util::try_db,
 };
 
 const MAX_GUILD_MODERATION_CASES_PER_MESSAGE: i64 = 10;
 
 pub async fn list_cases(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandError> {
-    let (involving_user_str, _rest) = args.split_once(' ').unwrap_or((args, ""));
-    let involving_user_str = involving_user_str.trim();
-    let involving_user = if involving_user_str.is_empty() {
-        None
-    } else {
-        Some(match parse_user_arg(&ctx, involving_user_str).await? {
-            Expiry::Expired => return Ok(()),
-            Expiry::NotExpired(Some(id)) => id,
-            Expiry::NotExpired(None) => {
-                ctx.message
-                    .reply(
-                        ctx.ctx,
-                        embed_default_footer!(
-                            ctx,
-                            {
-                                description: "Could not find a user matching your query.",
-                                color: 0xff0000,
-                            }
-                        ),
-                    )
-                    .await?;
-                return Ok(());
-            }
-        })
-    };
+    let (involving_user, _rest) = get_user_arg!(ctx, args, not required);
 
     let (cases, case_count) = tokio::join!(
         ctx.db.list_guild_moderation_cases(
@@ -54,7 +33,10 @@ pub async fn list_cases(ctx: CommandContext<'_>, args: &str) -> Result<(), Comma
     let case_count = try_db(&ctx, case_count).await?;
 
     ctx.message
-        .reply(ctx.ctx, format_case_list(&ctx, cases, case_count))
+        .reply(
+            ctx.ctx,
+            format_case_list(&ctx, cases, case_count, involving_user),
+        )
         .await?;
 
     Ok(())
@@ -64,6 +46,7 @@ fn format_case_list(
     ctx: &CommandContext<'_>,
     cases: Vec<GuildModerationCase>,
     case_count: i64,
+    involving_user: Option<Id<UserMarker>>,
 ) -> EditMessageBody {
     fn format_case_oneline(case: GuildModerationCase) -> String {
         format!(
@@ -101,9 +84,14 @@ fn format_case_list(
         ctx,
         {
             description: format!(
-                "Displaying `{}` out of `{}` cases matching the current filters:\n\n{}\n-# Page {}/{}",
+                "Displaying `{}` out of `{}` cases{}:\n\n{}\n-# Page {}/{}",
                 cases_formatted.len(),
                 case_count,
+                if let Some(involving_user) = involving_user {
+                    format!(" involving <@{involving_user}>")
+                } else {
+                    String::new()
+                },
                 cases_string,
                 1,
                 ((case_count as f64) / (MAX_GUILD_MODERATION_CASES_PER_MESSAGE as f64)).ceil() as i64
