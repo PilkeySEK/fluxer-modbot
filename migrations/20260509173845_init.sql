@@ -56,5 +56,5 @@ CREATE TABLE guild_moderation_cases (
 );
 
 CREATE UNIQUE INDEX idx_guild_moderation_cases_by_guild_id_and_case_id ON guild_moderation_cases (case_id, guild_id);
-CREATE UNIQUE INDEX idx_guild_moderation_cases_by_guild_id_and_target_id ON guild_moderation_cases (guild_id, target_id);
-CREATE UNIQUE INDEX idx_guild_moderation_cases_by_guild_id_and_moderator_id ON guild_moderation_cases (guild_id, moderator_id);
+CREATE INDEX idx_guild_moderation_cases_by_guild_id_and_target_id ON guild_moderation_cases (guild_id, target_id);
+CREATE INDEX idx_guild_moderation_cases_by_guild_id_and_moderator_id ON guild_moderation_cases (guild_id, moderator_id);
