@@ -15,7 +15,7 @@ use crate::{
     db::schema::{CaseId, GuildModerationCase},
     macros::{debug_panic, embed_default_footer, get_user_arg},
     util::{
-        Expiry, MaybeExpiringResult,
+        MaybeExpired, MaybeExpiringResult,
         pages::{PageAction, pages},
         user_arg::parse_user_arg,
     },
@@ -68,8 +68,8 @@ pub async fn list_cases(ctx: CommandContext<'_>, args: &str) -> Result<(), Comma
             .await
             {
                 MaybeExpiringResult::Err(e) => break Err(e),
-                MaybeExpiringResult::Ok(Expiry::Expired) => break Ok(()),
-                MaybeExpiringResult::Ok(Expiry::NotExpired(action)) => action,
+                MaybeExpiringResult::Ok(MaybeExpired::Expired) => break Ok(()),
+                MaybeExpiringResult::Ok(MaybeExpired::NotExpired(action)) => action,
             };
 
             match page_action {
@@ -144,7 +144,7 @@ pub async fn case_info(ctx: CommandContext<'_>, args: &str) -> Result<(), Comman
         case
     } else {
         match parse_user_arg(&ctx, maybe_case_id_or_user_str).await? {
-            Expiry::NotExpired(Some(user_id)) => {
+            MaybeExpired::NotExpired(Some(user_id)) => {
                 if let Some(case) = ctx
                     .db
                     .get_last_guild_moderation_case_involving_user(ctx.guild_id, user_id)
@@ -162,7 +162,7 @@ pub async fn case_info(ctx: CommandContext<'_>, args: &str) -> Result<(), Comman
                     return Ok(());
                 }
             }
-            Expiry::NotExpired(None) | Expiry::Expired => return Ok(()),
+            MaybeExpired::NotExpired(None) | MaybeExpired::Expired => return Ok(()),
         }
     };
 

@@ -7,12 +7,12 @@ pub mod confirmation;
 pub mod pages;
 pub mod user_arg;
 
-pub enum Expiry<T> {
+pub enum MaybeExpired<T> {
     NotExpired(T),
     Expired,
 }
 
-pub type MaybeExpiringResult<T, E> = Result<Expiry<T>, E>;
+pub type MaybeExpiringResult<T, E> = Result<MaybeExpired<T>, E>;
 
 pub fn parse_mention_or_id(input: &str) -> Option<Id<UserMarker>> {
     Id::try_from(

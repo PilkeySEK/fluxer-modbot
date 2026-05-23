@@ -15,7 +15,7 @@ use tokio::sync::mpsc::unbounded_channel;
 use crate::{
     commands::{CommandContext, CommandError},
     macros::debug_panic,
-    util::{Expiry, MaybeExpiringResult},
+    util::{MaybeExpired, MaybeExpiringResult},
 };
 
 #[derive(EnumSetType)]
@@ -103,16 +103,16 @@ pub async fn pages(
 
     if let Some(message) = rx.recv().await {
         match message {
-            PageMessage::Expired => Ok(Expiry::Expired),
+            PageMessage::Expired => Ok(MaybeExpired::Expired),
             PageMessage::Ok(action) => {
                 if !allowed_actions.contains(action) {
                     debug_panic!("allowed_actions does not contain the action.");
                 }
-                Ok(Expiry::NotExpired(action))
+                Ok(MaybeExpired::NotExpired(action))
             }
         }
     } else {
         debug_panic!("The channel should not close.");
-        Ok(Expiry::Expired)
+        Ok(MaybeExpired::Expired)
     }
 }

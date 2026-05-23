@@ -9,7 +9,7 @@ use fluxer_neptunium::{
 use crate::{
     commands::{CommandContext, CommandError},
     macros::embed_default_footer,
-    util::{Expiry, MaybeExpiringResult, confirmation::confirmation, parse_mention_or_id},
+    util::{MaybeExpired, MaybeExpiringResult, confirmation::confirmation, parse_mention_or_id},
 };
 
 /// Expect the input to already be split from the rest of the args, so have no spaces.
@@ -21,7 +21,7 @@ pub async fn parse_user_arg(
 ) -> MaybeExpiringResult<Option<Id<UserMarker>>, CommandError> {
     // Result<Option<Id<UserMarker>>, CommandError> {
     if let Some(user_id) = parse_mention_or_id(input) {
-        Ok(Expiry::NotExpired(Some(user_id)))
+        Ok(MaybeExpired::NotExpired(Some(user_id)))
     } else {
         let users = ctx
             .ctx
@@ -35,7 +35,7 @@ pub async fn parse_user_arg(
             .await?;
 
         let Some(member) = users.first() else {
-            return Ok(Expiry::NotExpired(None));
+            return Ok(MaybeExpired::NotExpired(None));
         };
 
         let confirmation_reply = ctx
@@ -59,8 +59,8 @@ pub async fn parse_user_arg(
         let confirmation_result =
             confirmation(ctx, confirmation_reply, ctx.message.author.id).await?;
         match confirmation_result {
-            Expiry::NotExpired(true) => Ok(Expiry::NotExpired(Some(member.id))),
-            Expiry::Expired | Expiry::NotExpired(false) => Ok(Expiry::Expired),
+            MaybeExpired::NotExpired(true) => Ok(MaybeExpired::NotExpired(Some(member.id))),
+            MaybeExpired::Expired | MaybeExpired::NotExpired(false) => Ok(MaybeExpired::Expired),
         }
     }
 }

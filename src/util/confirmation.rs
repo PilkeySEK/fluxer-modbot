@@ -14,7 +14,7 @@ use tokio::sync::mpsc::unbounded_channel;
 use crate::{
     commands::{CommandContext, CommandError},
     macros::debug_panic,
-    util::{Expiry, MaybeExpiringResult},
+    util::{MaybeExpired, MaybeExpiringResult},
 };
 
 pub async fn confirmation(
@@ -71,14 +71,14 @@ pub async fn confirmation(
 
     if let Some(message) = rx.recv().await {
         match message {
-            ConfirmationMessage::Expired => Ok(Expiry::Expired),
+            ConfirmationMessage::Expired => Ok(MaybeExpired::Expired),
             ConfirmationMessage::Ok(confirmed) => {
                 confirmation_message.delete(ctx.ctx).await?;
-                Ok(Expiry::NotExpired(confirmed))
+                Ok(MaybeExpired::NotExpired(confirmed))
             }
         }
     } else {
         debug_panic!("The channel should not close.");
-        Ok(Expiry::Expired)
+        Ok(MaybeExpired::Expired)
     }
 }
