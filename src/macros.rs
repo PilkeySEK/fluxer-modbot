@@ -1,13 +1,25 @@
 macro_rules! embed_default_footer {
     ($ctx:expr, { $($tt:tt)* } $(,)?) => {
+        $crate::macros::embed_default_footer_raw!(
+            $ctx.bot_name,
+            {
+                $($tt)*
+            }
+        )
+    };
+}
+
+macro_rules! embed_default_footer_raw {
+    ($bot_name:expr, { $($tt:tt)* } $(,)?) => {
         ::fluxer_neptunium::create_embed!(
             $($tt)*,
             footer: {
-                text: $ctx.bot_name,
+                text: $bot_name,
                 timestamp: ::fluxer_neptunium::model::time::OffsetDateTime::now_utc().into(),
             })
     };
 }
+
 /*
 macro_rules! try_parse_mention_or_id {
     ($ctx:expr, $args:expr) => {{
@@ -135,4 +147,4 @@ macro_rules! debug_panic {
     };
 }
 
-pub(crate) use {debug_panic, embed_default_footer, get_user_arg};
+pub(crate) use {debug_panic, embed_default_footer, embed_default_footer_raw, get_user_arg};

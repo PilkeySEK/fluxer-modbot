@@ -3,7 +3,6 @@ use fluxer_neptunium::exts::MessageExt;
 use crate::{
     commands::{CommandContext, CommandError},
     macros::embed_default_footer,
-    util::try_db,
 };
 
 pub async fn add_prefix(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandError> {
@@ -39,13 +38,9 @@ pub async fn add_prefix(ctx: CommandContext<'_>, args: &str) -> Result<(), Comma
         return Ok(());
     }
 
-    try_db(
-        &ctx,
-        ctx.db
-            .add_guild_command_prefix_upsert(ctx.guild_id, prefix)
-            .await,
-    )
-    .await?;
+    ctx.db
+        .add_guild_command_prefix_upsert(ctx.guild_id, prefix)
+        .await?;
 
     ctx.message
         .reply(
@@ -80,13 +75,10 @@ pub async fn remove_prefix(ctx: CommandContext<'_>, args: &str) -> Result<(), Co
             .await?;
         return Ok(());
     }
-    let new_prefixes = try_db(
-        &ctx,
-        ctx.db
-            .remove_guild_command_prefix_upsert(ctx.guild_id, prefix)
-            .await,
-    )
-    .await?;
+    let new_prefixes = ctx
+        .db
+        .remove_guild_command_prefix_upsert(ctx.guild_id, prefix)
+        .await?;
 
     ctx.message.reply(ctx.ctx, embed_default_footer!(
         ctx,
@@ -103,7 +95,7 @@ pub async fn remove_prefix(ctx: CommandContext<'_>, args: &str) -> Result<(), Co
 }
 
 pub async fn list_prefixes(ctx: CommandContext<'_>, _args: &str) -> Result<(), CommandError> {
-    let prefixes = try_db(&ctx, ctx.db.get_guild_command_prefixes(ctx.guild_id).await).await?;
+    let prefixes = ctx.db.get_guild_command_prefixes(ctx.guild_id).await?;
 
     ctx.message
         .reply(

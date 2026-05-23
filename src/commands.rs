@@ -21,7 +21,7 @@ use crate::{
     event_handler::reactions::{
         ReactionExpiryHandlerFn, ReactionHandler, ReactionsEventHandlerMessage,
     },
-    macros::debug_panic,
+    macros::{debug_panic, embed_default_footer_raw},
 };
 
 mod cases;
@@ -167,7 +167,7 @@ impl CommandDispatcher {
         }
     }
 
-    pub async fn execute(&self, ctx: CommandContext<'_>, input: &str) -> Result<(), CommandError> {
+    pub async fn execute(&self, ctx: CommandContext<'_>, input: &str) -> Result<(), EventError> {
         let (command_name, args) = input.split_once(' ').unwrap_or((input, ""));
         let command_name = if let Some(primary_name) = self.aliases.get(command_name) {
             primary_name
@@ -238,10 +238,32 @@ impl CommandDispatcher {
         }
 
         if let Some(execute_fn) = self.commands.get(command_name) {
-            execute_fn.call(ctx, args.trim_start()).await
-        } else {
-            Ok(())
+            let ctx_backup = ctx.ctx;
+            let bot_name_backup = ctx.bot_name;
+            let message_backup = ctx.message;
+            match execute_fn.call(ctx, args.trim_start()).await {
+                Ok(()) => {}
+                Err(CommandError::DatabaseError(e)) => {
+                    tracing::error!("Database error: {e}");
+                    message_backup
+                        .reply(
+                            ctx_backup,
+                            embed_default_footer_raw!(
+                                bot_name_backup,
+                                {
+                                    description: "Database error.",
+                                    color: 0xff0000,
+                                }
+                            ),
+                        )
+                        .await?;
+                }
+                Err(CommandError::EventError(e)) => {
+                    return Err(e);
+                }
+            }
         }
+        Ok(())
     }
 }
 

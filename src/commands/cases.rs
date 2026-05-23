@@ -17,7 +17,6 @@ use crate::{
     util::{
         Expiry, MaybeExpiringResult,
         pages::{PageAction, pages},
-        try_db,
         user_arg::parse_user_arg,
     },
 };
@@ -37,8 +36,8 @@ pub async fn list_cases(ctx: CommandContext<'_>, args: &str) -> Result<(), Comma
         ctx.db
             .count_guild_moderation_cases(ctx.guild_id, involving_user)
     );
-    let cases = try_db(&ctx, cases).await?;
-    let case_count = try_db(&ctx, case_count).await?;
+    let cases = cases?;
+    let case_count = case_count?;
 
     let message = ctx
         .message
@@ -88,18 +87,15 @@ pub async fn list_cases(ctx: CommandContext<'_>, args: &str) -> Result<(), Comma
                 }
             }
 
-            let cases = try_db(
-                &ctx,
-                ctx.db
-                    .list_guild_moderation_cases(
-                        ctx.guild_id,
-                        MAX_GUILD_MODERATION_CASES_PER_MESSAGE,
-                        Some(current_offset),
-                        involving_user,
-                    )
-                    .await,
-            )
-            .await?;
+            let cases = ctx
+                .db
+                .list_guild_moderation_cases(
+                    ctx.guild_id,
+                    MAX_GUILD_MODERATION_CASES_PER_MESSAGE,
+                    Some(current_offset),
+                    involving_user,
+                )
+                .await?;
 
             let result = message
                 .edit(
@@ -118,13 +114,10 @@ pub async fn case_info(ctx: CommandContext<'_>, args: &str) -> Result<(), Comman
     let (maybe_case_id_or_user_str, _rest) = args.split_once(' ').unwrap_or((args, ""));
 
     let case = if maybe_case_id_or_user_str.is_empty() {
-        if let Some(case) = try_db(
-            &ctx,
-            ctx.db
-                .get_last_guild_moderation_case_involving_user(ctx.guild_id, ctx.message.author.id)
-                .await,
-        )
-        .await?
+        if let Some(case) = ctx
+            .db
+            .get_last_guild_moderation_case_involving_user(ctx.guild_id, ctx.message.author.id)
+            .await?
         {
             case
         } else {
@@ -143,25 +136,19 @@ pub async fn case_info(ctx: CommandContext<'_>, args: &str) -> Result<(), Comman
             return Ok(());
         }
     } else if let Some(case_id) = CaseId::from_str(maybe_case_id_or_user_str)
-        && let Some(case) = try_db(
-            &ctx,
-            ctx.db
-                .get_guild_moderation_case(ctx.guild_id, case_id)
-                .await,
-        )
-        .await?
+        && let Some(case) = ctx
+            .db
+            .get_guild_moderation_case(ctx.guild_id, case_id)
+            .await?
     {
         case
     } else {
         match parse_user_arg(&ctx, maybe_case_id_or_user_str).await? {
             Expiry::NotExpired(Some(user_id)) => {
-                if let Some(case) = try_db(
-                    &ctx,
-                    ctx.db
-                        .get_last_guild_moderation_case_involving_user(ctx.guild_id, user_id)
-                        .await,
-                )
-                .await?
+                if let Some(case) = ctx
+                    .db
+                    .get_last_guild_moderation_case_involving_user(ctx.guild_id, user_id)
+                    .await?
                 {
                     case
                 } else {

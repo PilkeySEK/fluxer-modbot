@@ -10,7 +10,7 @@ use crate::{
     commands::{CommandContext, CommandError},
     db::schema::{CreateGuildModerationCaseData, ModerationKind},
     macros::{embed_default_footer, get_user_arg},
-    util::{parse_duration, try_db},
+    util::parse_duration,
 };
 
 pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandError> {
@@ -64,31 +64,27 @@ pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandErro
     let rest = rest.trim();
     let reason = if rest.is_empty() { None } else { Some(rest) };
 
-    try_db(
-        &ctx,
-        ctx.db
-            .create_moderation_case(CreateGuildModerationCaseData {
-                guild_id: ctx.guild_id,
-                target_id,
-                moderator_id: Some(ctx.message.author.id),
-                moderation_kind: ModerationKind::Warn,
-                expiry: match expires_at_and_duration {
-                    Some((expires_at, duration)) => {
-                        if let Ok(value) = i64::try_from(duration.as_secs()) {
-                            Some((expires_at, value))
-                        } else {
-                            tracing::error!(?duration, "Failed to convert seconds to i64.");
-                            return Ok(());
-                        }
+    ctx.db
+        .create_moderation_case(CreateGuildModerationCaseData {
+            guild_id: ctx.guild_id,
+            target_id,
+            moderator_id: Some(ctx.message.author.id),
+            moderation_kind: ModerationKind::Warn,
+            expiry: match expires_at_and_duration {
+                Some((expires_at, duration)) => {
+                    if let Ok(value) = i64::try_from(duration.as_secs()) {
+                        Some((expires_at, value))
+                    } else {
+                        tracing::error!(?duration, "Failed to convert seconds to i64.");
+                        return Ok(());
                     }
-                    None => None,
-                },
-                reason,
-                created_at: now,
-            })
-            .await,
-    )
-    .await?;
+                }
+                None => None,
+            },
+            reason,
+            created_at: now,
+        })
+        .await?;
 
     ctx.message
         .reply(
@@ -122,19 +118,16 @@ pub async fn unwarn(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandEr
     let rest = rest.trim();
     let reason = if rest.is_empty() { None } else { Some(rest) };
 
-    let case_id = try_db(
-        &ctx,
-        ctx.db
-            .close_latest_guild_moderation_case_of_kind(
-                ctx.guild_id,
-                target_id,
-                ModerationKind::Warn,
-                reason,
-                Some(ctx.message.author.id),
-            )
-            .await,
-    )
-    .await?;
+    let case_id = ctx
+        .db
+        .close_latest_guild_moderation_case_of_kind(
+            ctx.guild_id,
+            target_id,
+            ModerationKind::Warn,
+            reason,
+            Some(ctx.message.author.id),
+        )
+        .await?;
 
     if let Some(case_id) = case_id {
         ctx.message
