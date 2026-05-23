@@ -400,6 +400,11 @@ pub mod schema {
         pub closed_by: Option<i64>,
     }
 
+    pub struct GuildModerationCaseCloseData {
+        pub reason: Option<String>,
+        pub closed_by: Option<Id<UserMarker>>,
+    }
+
     pub struct GuildModerationCase {
         pub case_id: CaseId,
         #[expect(unused)]
@@ -409,11 +414,10 @@ pub mod schema {
         pub moderation_kind: ModerationKind,
         pub expires_at: Option<time::OffsetDateTime>,
         pub reason: Option<String>,
-        pub closed: bool,
         pub duration: Option<Duration>,
         pub created_at: time::OffsetDateTime,
-        pub close_reason: Option<String>,
-        pub closed_by: Option<Id<UserMarker>>,
+        /// `None` if the case is not closed.
+        pub close_data: Option<GuildModerationCaseCloseData>,
     }
 
     impl GuildModerationCase {
@@ -426,7 +430,6 @@ pub mod schema {
                 moderation_kind: ModerationKind::from_str(&raw.moderation_kind).ok()?,
                 expires_at: raw.expires_at,
                 reason: raw.reason,
-                closed: raw.closed,
                 duration: match raw.duration {
                     Some(duration_i64) => {
                         Some(Duration::from_secs(u64::try_from(duration_i64).ok()?))
@@ -434,8 +437,14 @@ pub mod schema {
                     None => None,
                 },
                 created_at: raw.created_at,
-                close_reason: raw.close_reason,
-                closed_by: raw.closed_by.map(|id| id.cast_unsigned().into()),
+                close_data: if raw.closed {
+                    Some(GuildModerationCaseCloseData {
+                        reason: raw.close_reason,
+                        closed_by: raw.closed_by.map(|id| id.cast_unsigned().into()),
+                    })
+                } else {
+                    None
+                },
             })
         }
     }

@@ -188,7 +188,7 @@ pub async fn case_info(ctx: CommandContext<'_>, args: &str) -> Result<(), Comman
 
 fn format_case_info(ctx: &CommandContext<'_>, case: GuildModerationCase) -> CreateMessageBody {
     let case_string = format!(
-        "> **Type:** `{}`\n> **User:** <@{}> ({})\n> **Reason:** {}\n> **Duration:** {}{}\n> **Moderator:** {}",
+        "> **Type:** `{}`\n> **User:** <@{}> ({})\n> **Reason:** {}\n> **Duration:** {}{}\n> **Moderator:** {}\n> **Closed:** {}",
         case.moderation_kind,
         case.target_id,
         case.target_id,
@@ -216,6 +216,23 @@ fn format_case_info(ctx: &CommandContext<'_>, case: GuildModerationCase) -> Crea
             || "*Automated action.*".to_string(),
             |moderator_id| format!("<@{moderator_id}>")
         ),
+        if let Some(close_data) = case.close_data {
+            format!(
+                "yes{}\n> **Closed by:** {}",
+                if let Some(close_reason) = close_data.reason {
+                    format!("\n> **Close reason:** {close_reason}")
+                } else {
+                    String::new()
+                },
+                if let Some(closed_by) = close_data.closed_by {
+                    format!("<@{closed_by}>")
+                } else {
+                    "*Automated action.*".to_owned()
+                }
+            )
+        } else {
+            "no".to_owned()
+        },
     );
 
     embed_default_footer!(
@@ -252,7 +269,11 @@ fn format_case_list(
             } else {
                 "permanent".to_owned()
             },
-            if case.closed { " (**closed**)" } else { "" },
+            if case.close_data.is_some() {
+                " (**closed**)"
+            } else {
+                ""
+            },
             case.reason.unwrap_or_else(|| "*No reason.*".to_owned()),
         )
     }
