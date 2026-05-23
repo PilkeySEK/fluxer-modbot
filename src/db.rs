@@ -13,7 +13,7 @@ use sqlx::{
 
 use crate::db::schema::{
     CaseId, CreateGuildModerationCaseData, GuildCommandConfiguration, GuildModerationCase,
-    RawGuildCommandConfiguration, RawGuildModerationCase,
+    ModerationKind, RawGuildCommandConfiguration, RawGuildModerationCase,
 };
 
 pub struct DatabaseManager {
@@ -285,6 +285,33 @@ impl DatabaseManager {
             None => Ok(None),
         }
     }
+
+    pub async fn close_latest_guild_moderation_case_of_kind(
+        &self,
+        guild_id: Id<GuildMarker>,
+        user_id: Id<UserMarker>,
+        moderation_kind: ModerationKind,
+        reason: Option<&str>,
+        closed_by: Option<Id<UserMarker>>,
+    ) -> Result<Option<CaseId>, DatabaseError> {
+        let case_id = query_scalar!(
+            "UPDATE guild_moderation_cases
+            SET closed = true, close_reason = $1, closed_by = $2
+            WHERE case_id=(
+              SELECT case_id FROM guild_moderation_cases
+              WHERE guild_id = $3 AND target_id = $4 AND closed = false AND (expires_at IS NULL OR expires_at > NOW()) AND moderation_kind = $5
+              ORDER BY case_id DESC
+              LIMIT 1
+            )
+            RETURNING case_id",
+            reason,
+            closed_by.map(|id| id.into_inner().cast_signed()),
+            guild_id.into_inner().cast_signed(),
+            user_id.into_inner().cast_signed(),
+            moderation_kind.to_string(),
+        ).fetch_optional(&self.pool).await?;
+        Ok(case_id.map(CaseId))
+    }
 }
 
 pub mod schema {
@@ -369,6 +396,8 @@ pub mod schema {
         pub closed: bool,
         pub duration: Option<i64>,
         pub created_at: time::OffsetDateTime,
+        pub close_reason: Option<String>,
+        pub closed_by: Option<i64>,
     }
 
     pub struct GuildModerationCase {
@@ -383,6 +412,8 @@ pub mod schema {
         pub closed: bool,
         pub duration: Option<Duration>,
         pub created_at: time::OffsetDateTime,
+        pub close_reason: Option<String>,
+        pub closed_by: Option<Id<UserMarker>>,
     }
 
     impl GuildModerationCase {
@@ -403,6 +434,8 @@ pub mod schema {
                     None => None,
                 },
                 created_at: raw.created_at,
+                close_reason: raw.close_reason,
+                closed_by: raw.closed_by.map(|id| id.cast_unsigned().into()),
             })
         }
     }

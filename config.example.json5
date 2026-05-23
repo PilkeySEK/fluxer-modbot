@@ -16,6 +16,8 @@
         "list-prefixes": "32",
         // Time out members
         "warn": "1099511627776",
+        // Time out members
+        "unwarn": "1099511627776",
         // Manage guild
         "list-cases": "32",
         // Manage guild

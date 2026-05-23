@@ -49,7 +49,10 @@ CREATE TABLE guild_moderation_cases (
     -- The initially set duration in seconds
     -- NULL if permanent
     duration BIGINT,
-    created_at TIMESTAMPTZ NOT NULL
+    created_at TIMESTAMPTZ NOT NULL,
+    close_reason TEXT,
+    -- NULL if the case automatically expired
+    closed_by BIGINT
 );
 
 CREATE UNIQUE INDEX idx_guild_moderation_cases_by_guild_id_and_case_id ON guild_moderation_cases (case_id, guild_id);

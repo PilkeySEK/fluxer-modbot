@@ -262,6 +262,11 @@ pub fn register_commands(dispatcher: &mut CommandDispatcher) {
     );
     dispatcher.register("warn", ["add-warn", "create-warn"], moderation::warn);
     dispatcher.register(
+        "unwarn",
+        ["remove-warn", "delwarn", "rmwarn"],
+        moderation::unwarn,
+    );
+    dispatcher.register(
         "list-cases",
         ["cases", "caselist", "listcases"],
         cases::list_cases,

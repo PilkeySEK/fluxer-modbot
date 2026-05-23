@@ -114,3 +114,54 @@ pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandErro
 
     Ok(())
 }
+
+pub async fn unwarn(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandError> {
+    let (target_id, rest) = get_user_arg!(ctx, args, required);
+
+    let rest = rest.trim();
+    let reason = if rest.is_empty() { None } else { Some(rest) };
+
+    let case_id = try_db(
+        &ctx,
+        ctx.db
+            .close_latest_guild_moderation_case_of_kind(
+                ctx.guild_id,
+                target_id,
+                ModerationKind::Warn,
+                reason,
+                Some(ctx.message.author.id),
+            )
+            .await,
+    )
+    .await?;
+
+    if let Some(case_id) = case_id {
+        ctx.message
+            .reply(
+                ctx.ctx,
+                embed_default_footer!(
+                    ctx,
+                    {
+                        description: format!("Case `{case_id}` closed."),
+                        color: 0xffffff,
+                    }
+                ),
+            )
+            .await?;
+    } else {
+        ctx.message
+            .reply(
+                ctx.ctx,
+                embed_default_footer!(
+                    ctx,
+                    {
+                        description: "The user does not have any open warn cases.",
+                        color: 0xff0000,
+                    }
+                ),
+            )
+            .await?;
+    }
+
+    Ok(())
+}
