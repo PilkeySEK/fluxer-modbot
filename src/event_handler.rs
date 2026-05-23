@@ -27,7 +27,7 @@ pub struct BotEventHandler {
     dispatcher: CommandDispatcher,
     bot_name: String,
     started_at: SystemTime,
-    db_manager: DatabaseManager,
+    db_manager: Arc<DatabaseManager>,
     default_command_configuration: HashMap<String, Permissions>,
     max_command_prefix_len: usize,
     my_id: Id<UserMarker>,
@@ -38,7 +38,7 @@ impl BotEventHandler {
     pub fn new(
         dispatcher: CommandDispatcher,
         bot_name: String,
-        db_manager: DatabaseManager,
+        db_manager: Arc<DatabaseManager>,
         default_command_configuration: HashMap<String, Permissions>,
         max_command_prefix_len: usize,
         my_id: Id<UserMarker>,

@@ -1,5 +1,6 @@
 use std::{collections::HashMap, pin::Pin, time::SystemTime};
 
+use chrono::{TimeDelta, Utc};
 use fluxer_neptunium::{
     cache::CachedMessage,
     create_embed,
@@ -13,7 +14,6 @@ use fluxer_neptunium::{
         },
     },
 };
-use time::OffsetDateTime;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
@@ -113,17 +113,15 @@ impl CommandContext<'_> {
     ) {
         let expiry = match expiry {
             Some((f, expires_in)) => {
-                let expires_in: time::Duration = match expires_in.try_into() {
+                let expires_in: TimeDelta = match TimeDelta::from_std(expires_in) {
                     Ok(expires_in) => expires_in,
                     Err(e) => {
-                        tracing::error!(
-                            "Overflow converting std::time::Duration to time::Duration: {e}"
-                        );
+                        tracing::error!("Failed to convert Duration to TimeDelta: {e}");
                         return;
                     }
                 };
-                let now = OffsetDateTime::now_utc();
-                let Some(expires_at) = now.checked_add(expires_in) else {
+                let now = Utc::now();
+                let Some(expires_at) = now.checked_add_signed(expires_in) else {
                     tracing::error!("Overflow calculating expires_at.");
                     return;
                 };

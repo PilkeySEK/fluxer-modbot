@@ -1,3 +1,4 @@
+use chrono::Utc;
 use fluxer_neptunium::{
     cache::Cached,
     exts::MessageExt,
@@ -8,7 +9,6 @@ use fluxer_neptunium::{
     },
 };
 use pretty_duration::pretty_duration;
-use time::OffsetDateTime;
 
 use crate::{
     commands::{CommandContext, CommandError},
@@ -199,7 +199,7 @@ fn format_case_info(ctx: &CommandContext<'_>, case: GuildModerationCase) -> Crea
             |duration| pretty_duration(&duration, crate::PRETTY_DURATION_OPTIONS)
         ),
         case.expires_at.map_or_else(String::new, |expires_at| {
-            let now = OffsetDateTime::now_utc();
+            let now = Utc::now();
             let word = if expires_at > now {
                 "expires"
             } else {

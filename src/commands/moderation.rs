@@ -1,10 +1,10 @@
 use std::time::Duration;
 
+use chrono::{TimeDelta, Utc};
 use fluxer_neptunium::{
     exts::MessageExt,
     model::time::timestamp::{Timestamp, TimestampDisplayType, representations::UnixMillis},
 };
-use time::OffsetDateTime;
 
 use crate::{
     commands::{CommandContext, CommandError},
@@ -18,7 +18,7 @@ pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandErro
 
     let (maybe_duration, reason) = rest.split_once(' ').unwrap_or((rest, ""));
 
-    let now = OffsetDateTime::now_utc();
+    let now = Utc::now();
 
     let (expires_at_and_duration, rest) = match parse_duration(maybe_duration) {
         Some(std_duration) => {
@@ -37,19 +37,20 @@ pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandErro
                     .await?;
                 return Ok(());
             }
-            let duration = match std_duration.try_into() {
-                Ok(duration) => duration,
-                Err(e) => {
-                    tracing::error!("{e}");
-                    return Ok(());
-                }
-            };
             (
                 Some((
-                    if let Some(time) = now.checked_add(duration) {
+                    if let Some(time) =
+                        now.checked_add_signed(match TimeDelta::from_std(std_duration) {
+                            Ok(delta) => delta,
+                            Err(e) => {
+                                tracing::error!("Failed to convert Duration to TimeDelta: {e}");
+                                return Ok(());
+                            }
+                        })
+                    {
                         time
                     } else {
-                        tracing::error!(%duration, %now, "Duration add overflow!");
+                        tracing::error!(?std_duration, %now, "Duration add overflow!");
                         return Ok(());
                     },
                     std_duration,

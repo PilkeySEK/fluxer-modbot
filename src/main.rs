@@ -1,4 +1,9 @@
-use std::{collections::HashSet, env, str::FromStr, sync::LazyLock};
+use std::{
+    collections::HashSet,
+    env,
+    str::FromStr,
+    sync::{Arc, LazyLock},
+};
 
 use fluxer_neptunium::{
     client::{Client, ClientConfig},
@@ -9,12 +14,14 @@ use sqids::{Sqids, SqidsBuilder};
 use tracing::Level;
 
 use crate::{
+    case_expiration::{case_expiry_listener, start_case_expiration_actor},
     commands::{CommandDispatcher, register_commands},
     config::{Config, ConfigLoadError},
     db::DatabaseManager,
     event_handler::BotEventHandler,
 };
 
+mod case_expiration;
 mod commands;
 mod config;
 mod db;
@@ -80,7 +87,7 @@ async fn main() {
 
     tracing_subscriber::fmt().with_max_level(log_level).init();
 
-    let db_manager = match DatabaseManager::connect(
+    let mut db_manager = match DatabaseManager::connect(
         &config.database_url,
         config.prefix_cache_capacity,
         config.default_command_prefix,
@@ -93,6 +100,26 @@ async fn main() {
             return;
         }
     };
+
+    let existing_expiring_cases = match db_manager.get_all_expiring_case_ids().await {
+        Ok(cases) => cases,
+        Err(e) => {
+            tracing::error!("Error getting existing expiring cases from database: {e}");
+            return;
+        }
+    };
+
+    let (expired_cases_rx, expiring_cases_tx) =
+        start_case_expiration_actor(existing_expiring_cases);
+
+    db_manager.expiring_cases_tx = Some(expiring_cases_tx);
+
+    let db_manager = Arc::new(db_manager);
+
+    tokio::spawn(case_expiry_listener(
+        expired_cases_rx,
+        Arc::clone(&db_manager),
+    ));
 
     let mut dispatcher = CommandDispatcher::new();
     register_commands(&mut dispatcher);

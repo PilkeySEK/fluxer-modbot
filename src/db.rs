@@ -10,16 +10,22 @@ use sqlx::{
     postgres::{PgPoolOptions, PgQueryResult},
     query, query_as, query_scalar,
 };
+use tokio::sync::mpsc::UnboundedSender;
 
-use crate::db::schema::{
-    CaseId, CreateGuildModerationCaseData, GuildCommandConfiguration, GuildModerationCase,
-    ModerationKind, RawGuildCommandConfiguration, RawGuildModerationCase,
+use crate::{
+    case_expiration::ExpiringCase,
+    db::schema::{
+        CaseId, CreateGuildModerationCaseData, GuildCommandConfiguration, GuildModerationCase,
+        ModerationKind, RawGuildCommandConfiguration, RawGuildModerationCase,
+    },
+    macros::debug_panic,
 };
 
 pub struct DatabaseManager {
     pool: PgPool,
     cached_prefixes: mini_moka::sync::Cache<Id<GuildMarker>, std::sync::Arc<Vec<String>>>,
     default_prefix: String,
+    pub(super) expiring_cases_tx: Option<UnboundedSender<ExpiringCase>>,
 }
 
 #[derive(Debug)]
@@ -55,7 +61,18 @@ impl DatabaseManager {
             pool: PgPoolOptions::new().connect(url).await?,
             cached_prefixes: Cache::new(prefix_cache_capacity),
             default_prefix,
+            expiring_cases_tx: None,
         })
+    }
+
+    fn send_expiring_case(
+        &self,
+        expires_at: Option<chrono::DateTime<chrono::Utc>>,
+        case_id: CaseId,
+    ) {
+        if let Some(tx) = &self.expiring_cases_tx {
+            let _ = tx.send((expires_at, case_id));
+        }
     }
 
     pub async fn get_guild_command_prefixes(
@@ -162,10 +179,11 @@ impl DatabaseManager {
     pub async fn create_moderation_case(
         &self,
         data: CreateGuildModerationCaseData<'_>,
-    ) -> Result<PgQueryResult, DatabaseError> {
-        Ok(query!(
+    ) -> Result<CaseId, DatabaseError> {
+        let case_id = query_scalar!(
             "INSERT INTO guild_moderation_cases (guild_id, target_id, moderator_id, moderation_kind, expires_at, reason, duration, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING case_id",
             data.guild_id.into_inner().cast_signed(),
             data.target_id.into_inner().cast_signed(),
             data.moderator_id.map(|id| id.into_inner().cast_signed()),
@@ -174,7 +192,14 @@ impl DatabaseManager {
             data.reason,
             data.expiry.map(|value| value.1),
             data.created_at,
-        ).execute(&self.pool).await?)
+        ).fetch_one(&self.pool).await?;
+        let case_id = CaseId(case_id);
+
+        if let Some(expiry) = data.expiry {
+            self.send_expiring_case(Some(expiry.0), case_id);
+        }
+
+        Ok(case_id)
     }
 
     pub async fn list_guild_moderation_cases(
@@ -310,7 +335,62 @@ impl DatabaseManager {
             user_id.into_inner().cast_signed(),
             moderation_kind.to_string(),
         ).fetch_optional(&self.pool).await?;
-        Ok(case_id.map(CaseId))
+        if let Some(case_id) = case_id {
+            let case_id = CaseId(case_id);
+
+            self.send_expiring_case(None, case_id);
+
+            Ok(Some(case_id))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Does not notify the case expiration actor.
+    pub async fn close_guild_moderation_case_by_id_silently(
+        &self,
+        case_id: CaseId,
+        reason: Option<&str>,
+        closed_by: Option<Id<UserMarker>>,
+    ) -> Result<PgQueryResult, DatabaseError> {
+        Ok(query!(
+            "UPDATE guild_moderation_cases
+            SET closed = true, close_reason = $1, closed_by = $2
+            WHERE case_id = $3",
+            reason,
+            closed_by.map(|id| id.into_inner().cast_signed()),
+            case_id.0,
+        )
+        .execute(&self.pool)
+        .await?)
+    }
+
+    pub async fn get_all_expiring_case_ids(
+        &self,
+    ) -> Result<Vec<(chrono::DateTime<chrono::Utc>, CaseId)>, DatabaseError> {
+        struct CaseExpiryInfo {
+            expires_at: Option<chrono::DateTime<chrono::Utc>>,
+            case_id: i64,
+        }
+        let cases = query_as!(
+            CaseExpiryInfo,
+            "SELECT expires_at, case_id FROM guild_moderation_cases
+            WHERE expires_at IS NOT NULL"
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(cases
+            .into_iter()
+            .filter_map(|info| {
+                if let Some(expires_at) = info.expires_at {
+                    Some((expires_at, CaseId(info.case_id)))
+                } else {
+                    debug_panic!("Database returned a case where expires_at is null");
+                    None
+                }
+            })
+            .collect())
     }
 }
 
@@ -378,10 +458,11 @@ pub mod schema {
         pub moderator_id: Option<Id<UserMarker>>,
         pub moderation_kind: ModerationKind,
         pub reason: Option<&'a str>,
-        pub expiry: Option<(time::OffsetDateTime, i64)>,
-        pub created_at: time::OffsetDateTime,
+        pub expiry: Option<(chrono::DateTime<chrono::Utc>, i64)>,
+        pub created_at: chrono::DateTime<chrono::Utc>,
     }
 
+    #[derive(Copy, Clone, PartialEq, Eq)]
     pub struct CaseId(pub i64);
 
     #[derive(sqlx::FromRow)]
@@ -391,11 +472,11 @@ pub mod schema {
         pub target_id: i64,
         pub moderator_id: Option<i64>,
         pub moderation_kind: String,
-        pub expires_at: Option<time::OffsetDateTime>,
+        pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
         pub reason: Option<String>,
         pub closed: bool,
         pub duration: Option<i64>,
-        pub created_at: time::OffsetDateTime,
+        pub created_at: chrono::DateTime<chrono::Utc>,
         pub close_reason: Option<String>,
         pub closed_by: Option<i64>,
     }
@@ -412,10 +493,10 @@ pub mod schema {
         pub target_id: Id<UserMarker>,
         pub moderator_id: Option<Id<UserMarker>>,
         pub moderation_kind: ModerationKind,
-        pub expires_at: Option<time::OffsetDateTime>,
+        pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
         pub reason: Option<String>,
         pub duration: Option<Duration>,
-        pub created_at: time::OffsetDateTime,
+        pub created_at: chrono::DateTime<chrono::Utc>,
         /// `None` if the case is not closed.
         pub close_data: Option<GuildModerationCaseCloseData>,
     }

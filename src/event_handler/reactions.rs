@@ -1,11 +1,11 @@
 use std::{collections::HashMap, pin::Pin, sync::Arc};
 
+use chrono::Utc;
 use fluxer_neptunium::{
     cached_payload::CachedMessageReactionAdd,
     events::EventError,
     model::id::{Id, marker::MessageMarker},
 };
-use time::OffsetDateTime;
 use tokio::sync::{
     Mutex,
     mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
@@ -52,7 +52,7 @@ pub type ReactionExpiryHandlerFn =
 pub type ReactionsEventHandlerMessage = (
     Id<MessageMarker>,
     Box<dyn ReactionHandler>,
-    Option<(ReactionExpiryHandlerFn, OffsetDateTime)>,
+    Option<(ReactionExpiryHandlerFn, chrono::DateTime<chrono::Utc>)>,
 );
 
 pub(super) struct ReactionsEventHandler {
@@ -64,7 +64,7 @@ pub(super) struct ReactionsEventHandler {
             Id<MessageMarker>,
             (
                 Box<dyn ReactionHandler>,
-                Option<(ReactionExpiryHandlerFn, OffsetDateTime)>,
+                Option<(ReactionExpiryHandlerFn, chrono::DateTime<chrono::Utc>)>,
             ),
         >,
     >,
@@ -112,7 +112,7 @@ impl ReactionsEventHandler {
                 debug_panic!("Multiple reaction handlers for message {message_id}");
             }
         }
-        let now = OffsetDateTime::now_utc();
+        let now = Utc::now();
         let removed_handlers = reaction_handlers.extract_if(|_, (_, expiry)| {
             if let Some(expiry) = expiry
                 && expiry.1 < now
