@@ -3,7 +3,6 @@ use std::{collections::HashMap, pin::Pin, time::SystemTime};
 use chrono::{TimeDelta, Utc};
 use fluxer_neptunium::{
     cache::CachedMessage,
-    create_embed,
     events::{EventError, context::Context},
     exts::{GuildExt, GuildMemberExt, MessageExt},
     model::{
@@ -21,7 +20,7 @@ use crate::{
     event_handler::reactions::{
         ReactionExpiryHandlerFn, ReactionHandler, ReactionsEventHandlerMessage,
     },
-    macros::{debug_panic, embed_default_footer_raw},
+    macros::{debug_panic, embed_default_footer, embed_default_footer_raw},
 };
 
 mod cases;
@@ -230,9 +229,12 @@ impl CommandDispatcher {
                 has_role
             }
         {
-            ctx.message.reply(ctx.ctx, create_embed!(
-                description: "You do not have the permissions required to execute this command.",
-                color: 0xff0000,
+            ctx.message.reply(ctx.ctx, embed_default_footer!(
+                ctx,
+                {
+                    description: "You do not have the permissions required to execute this command.",
+                    color: 0xff0000,
+                }
             )).await?;
             return Ok(());
         }
