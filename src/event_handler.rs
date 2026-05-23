@@ -143,7 +143,14 @@ impl BotEventHandler {
             )
             .await
         {
-            tracing::error!("Error executing command: {e}");
+            tracing::debug!("Error executing command: {e}");
+            if let Err(e) = self
+                .db_manager
+                .create_guild_error_entry(guild_id, &e.to_string())
+                .await
+            {
+                tracing::error!("Database error creating guild error entry: {e}");
+            }
         }
     }
 }

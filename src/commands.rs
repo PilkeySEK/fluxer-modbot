@@ -24,6 +24,7 @@ use crate::{
 };
 
 mod cases;
+mod guild_errors;
 mod guild_settings;
 mod misc;
 mod moderation;
@@ -294,4 +295,5 @@ pub fn register_commands(dispatcher: &mut CommandDispatcher) {
         cases::list_cases,
     );
     dispatcher.register("case-info", ["case"], cases::case_info);
+    dispatcher.register("errors", ["list-errors"], guild_errors::list_guild_errors);
 }

@@ -29,6 +29,7 @@ pub async fn pages(
     pages_message: Cached<CachedMessage>,
     allowed_reactor: Id<UserMarker>,
     allowed_actions: EnumSet<PageAction>,
+    add_reactions: bool,
 ) -> MaybeExpiringResult<PageAction, CommandError> {
     const BACK: &str = "⬅️";
     const CONTINUE: &str = "➡️";
@@ -38,11 +39,13 @@ pub async fn pages(
         Expired,
     }
 
-    if let Err(e) = pages_message.add_reaction(ctx.ctx, BACK).await {
-        return MaybeExpiringResult::Err(e.into());
-    }
-    if let Err(e) = pages_message.add_reaction(ctx.ctx, CONTINUE).await {
-        return MaybeExpiringResult::Err(e.into());
+    if add_reactions {
+        if let Err(e) = pages_message.add_reaction(ctx.ctx, BACK).await {
+            return MaybeExpiringResult::Err(e.into());
+        }
+        if let Err(e) = pages_message.add_reaction(ctx.ctx, CONTINUE).await {
+            return MaybeExpiringResult::Err(e.into());
+        }
     }
 
     let (handler_tx, mut rx) = unbounded_channel();

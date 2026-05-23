@@ -49,6 +49,7 @@ pub async fn list_cases(ctx: CommandContext<'_>, args: &str) -> Result<(), Comma
 
     if case_count > MAX_GUILD_MODERATION_CASES_PER_MESSAGE {
         let mut current_offset: i64 = 0;
+        let mut is_first_loop_iteration = true;
         loop {
             let page_action = match pages(
                 &ctx,
@@ -64,6 +65,7 @@ pub async fn list_cases(ctx: CommandContext<'_>, args: &str) -> Result<(), Comma
                 } else {
                     [PageAction::Back, PageAction::Continue].into()
                 },
+                is_first_loop_iteration,
             )
             .await
             {
@@ -71,6 +73,7 @@ pub async fn list_cases(ctx: CommandContext<'_>, args: &str) -> Result<(), Comma
                 MaybeExpiringResult::Ok(MaybeExpired::Expired) => break Ok(()),
                 MaybeExpiringResult::Ok(MaybeExpired::NotExpired(action)) => action,
             };
+            is_first_loop_iteration = false;
 
             match page_action {
                 PageAction::Back => {

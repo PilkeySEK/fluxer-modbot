@@ -15,8 +15,8 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use crate::{
     case_expiration::{ExpiringCase, start_case_expiration_actor},
     db::schema::{
-        CaseId, CreateGuildModerationCaseData, GuildCommandConfiguration, GuildModerationCase,
-        ModerationKind, RawGuildCommandConfiguration, RawGuildModerationCase,
+        CaseId, CreateGuildModerationCaseData, GuildCommandConfiguration, GuildError,
+        GuildModerationCase, ModerationKind, RawGuildCommandConfiguration, RawGuildModerationCase,
     },
     macros::debug_panic,
 };
@@ -388,6 +388,61 @@ impl DatabaseManager {
             })
             .collect())
     }
+
+    pub async fn create_guild_error_entry(
+        &self,
+        guild_id: Id<GuildMarker>,
+        message: &str,
+    ) -> Result<i64, DatabaseError> {
+        Ok(query_scalar!(
+            "INSERT INTO guild_errors (guild_id, message)
+            VALUES ($1, $2)
+            RETURNING log_entry_id",
+            guild_id.into_inner().cast_signed(),
+            message,
+        )
+        .fetch_one(&self.pool)
+        .await?)
+    }
+
+    pub async fn list_guild_errors(
+        &self,
+        guild_id: Id<GuildMarker>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<GuildError>, DatabaseError> {
+        let raw = query_as!(
+            schema::GuildErrorRaw,
+            "SELECT * FROM guild_errors
+            WHERE guild_id = $1
+            ORDER BY log_entry_id DESC
+            LIMIT $2
+            OFFSET $3",
+            guild_id.into_inner().cast_signed(),
+            limit,
+            offset,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(raw
+            .into_iter()
+            .map(|raw| GuildError::from_raw(raw))
+            .collect())
+    }
+
+    pub async fn count_guild_errors(
+        &self,
+        guild_id: Id<GuildMarker>,
+    ) -> Result<i64, DatabaseError> {
+        let count = query_scalar!(
+            "SELECT COUNT(log_entry_id) FROM guild_errors
+            WHERE guild_id = $1",
+            guild_id.into_inner().cast_signed(),
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(count.unwrap_or(0))
+    }
 }
 
 /// Because both of these depend partially on each other they can only be created cleanly at the same time,
@@ -421,6 +476,31 @@ pub mod schema {
             marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
         },
     };
+
+    pub(super) struct GuildErrorRaw {
+        pub log_entry_id: i64,
+        pub guild_id: i64,
+        pub message: String,
+        pub created_at: chrono::DateTime<chrono::Utc>,
+    }
+
+    pub struct GuildError {
+        pub log_entry_id: i64,
+        pub guild_id: Id<GuildMarker>,
+        pub message: String,
+        pub created_at: chrono::DateTime<chrono::Utc>,
+    }
+
+    impl GuildError {
+        pub(super) fn from_raw(raw: GuildErrorRaw) -> Self {
+            Self {
+                log_entry_id: raw.log_entry_id,
+                guild_id: raw.guild_id.cast_unsigned().into(),
+                message: raw.message,
+                created_at: raw.created_at,
+            }
+        }
+    }
 
     pub struct GuildCommandConfiguration {
         #[expect(unused)]
