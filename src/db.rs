@@ -10,10 +10,10 @@ use sqlx::{
     postgres::{PgPoolOptions, PgQueryResult},
     query, query_as, query_scalar,
 };
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::{
-    case_expiration::ExpiringCase,
+    case_expiration::{ExpiringCase, start_case_expiration_actor},
     db::schema::{
         CaseId, CreateGuildModerationCaseData, GuildCommandConfiguration, GuildModerationCase,
         ModerationKind, RawGuildCommandConfiguration, RawGuildModerationCase,
@@ -25,7 +25,7 @@ pub struct DatabaseManager {
     pool: PgPool,
     cached_prefixes: mini_moka::sync::Cache<Id<GuildMarker>, std::sync::Arc<Vec<String>>>,
     default_prefix: String,
-    pub(super) expiring_cases_tx: Option<UnboundedSender<ExpiringCase>>,
+    expiring_cases_tx: UnboundedSender<ExpiringCase>,
 }
 
 #[derive(Debug)]
@@ -52,6 +52,7 @@ impl From<sqlx::Error> for DatabaseError {
 }
 
 impl DatabaseManager {
+    /*
     pub async fn connect(
         url: &str,
         prefix_cache_capacity: u64,
@@ -64,16 +65,7 @@ impl DatabaseManager {
             expiring_cases_tx: None,
         })
     }
-
-    fn send_expiring_case(
-        &self,
-        expires_at: Option<chrono::DateTime<chrono::Utc>>,
-        case_id: CaseId,
-    ) {
-        if let Some(tx) = &self.expiring_cases_tx {
-            let _ = tx.send((expires_at, case_id));
-        }
-    }
+    */
 
     pub async fn get_guild_command_prefixes(
         &self,
@@ -195,8 +187,10 @@ impl DatabaseManager {
         ).fetch_one(&self.pool).await?;
         let case_id = CaseId(case_id);
 
-        if let Some(expiry) = data.expiry {
-            self.send_expiring_case(Some(expiry.0), case_id);
+        if let Some(expiry) = data.expiry
+            && let Err(e) = self.expiring_cases_tx.send((Some(expiry.0), case_id))
+        {
+            tracing::error!("{e}");
         }
 
         Ok(case_id)
@@ -338,7 +332,9 @@ impl DatabaseManager {
         if let Some(case_id) = case_id {
             let case_id = CaseId(case_id);
 
-            self.send_expiring_case(None, case_id);
+            if let Err(e) = self.expiring_cases_tx.send((None, case_id)) {
+                tracing::error!("{e}");
+            }
 
             Ok(Some(case_id))
         } else {
@@ -365,8 +361,8 @@ impl DatabaseManager {
         .await?)
     }
 
-    pub async fn get_all_expiring_case_ids(
-        &self,
+    async fn get_all_expiring_case_ids(
+        pool: &PgPool,
     ) -> Result<Vec<(chrono::DateTime<chrono::Utc>, CaseId)>, DatabaseError> {
         struct CaseExpiryInfo {
             expires_at: Option<chrono::DateTime<chrono::Utc>>,
@@ -377,7 +373,7 @@ impl DatabaseManager {
             "SELECT expires_at, case_id FROM guild_moderation_cases
             WHERE expires_at IS NOT NULL"
         )
-        .fetch_all(&self.pool)
+        .fetch_all(pool)
         .await?;
 
         Ok(cases
@@ -392,6 +388,27 @@ impl DatabaseManager {
             })
             .collect())
     }
+}
+
+/// Because both of these depend partially on each other they can only be created cleanly at the same time,
+/// which this function handles.
+pub async fn create_db_manager_and_case_expiration_actor(
+    url: &str,
+    prefix_cache_capacity: u64,
+    default_prefix: String,
+) -> Result<(DatabaseManager, UnboundedReceiver<CaseId>), DatabaseError> {
+    let pool = PgPoolOptions::new().connect(url).await?;
+    let existing_cases = DatabaseManager::get_all_expiring_case_ids(&pool).await?;
+    let (expired_cases_rx, expiring_cases_tx) = start_case_expiration_actor(existing_cases);
+    Ok((
+        DatabaseManager {
+            pool,
+            expiring_cases_tx,
+            cached_prefixes: Cache::new(prefix_cache_capacity),
+            default_prefix,
+        },
+        expired_cases_rx,
+    ))
 }
 
 pub mod schema {

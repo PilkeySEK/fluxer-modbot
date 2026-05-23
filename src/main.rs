@@ -14,10 +14,10 @@ use sqids::{Sqids, SqidsBuilder};
 use tracing::Level;
 
 use crate::{
-    case_expiration::{case_expiry_listener, start_case_expiration_actor},
+    case_expiration::case_expiry_listener,
     commands::{CommandDispatcher, register_commands},
     config::{Config, ConfigLoadError},
-    db::DatabaseManager,
+    db::create_db_manager_and_case_expiration_actor,
     event_handler::BotEventHandler,
 };
 
@@ -87,32 +87,19 @@ async fn main() {
 
     tracing_subscriber::fmt().with_max_level(log_level).init();
 
-    let mut db_manager = match DatabaseManager::connect(
+    let (db_manager, expired_cases_rx) = match create_db_manager_and_case_expiration_actor(
         &config.database_url,
         config.prefix_cache_capacity,
         config.default_command_prefix,
     )
     .await
     {
-        Ok(db_manager) => db_manager,
+        Ok(value) => value,
         Err(e) => {
             tracing::error!("Error connecting to database: {e}");
             return;
         }
     };
-
-    let existing_expiring_cases = match db_manager.get_all_expiring_case_ids().await {
-        Ok(cases) => cases,
-        Err(e) => {
-            tracing::error!("Error getting existing expiring cases from database: {e}");
-            return;
-        }
-    };
-
-    let (expired_cases_rx, expiring_cases_tx) =
-        start_case_expiration_actor(existing_expiring_cases);
-
-    db_manager.expiring_cases_tx = Some(expiring_cases_tx);
 
     let db_manager = Arc::new(db_manager);
 
