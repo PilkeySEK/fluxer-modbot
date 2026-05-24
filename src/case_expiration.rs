@@ -1,3 +1,5 @@
+// TODO: Optimize code here and also it should be able to handle very large amounts of cases by not having all of those in memory at the same time
+
 use std::{sync::Arc, time::Duration};
 
 use chrono::Utc;

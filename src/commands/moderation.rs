@@ -2,6 +2,8 @@ use std::time::Duration;
 
 use chrono::{TimeDelta, Utc};
 use fluxer_neptunium::{
+    cache::Cached,
+    client::error::ClientErrorKind,
     exts::{GuildExt, MessageExt},
     model::{
         id::{Id, marker::UserMarker},
@@ -195,9 +197,61 @@ pub async fn mute(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandErro
     Ok(())
 }
 
+#[expect(clippy::too_many_lines)]
 pub async fn unmute(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandError> {
     let (target_id, rest) = get_user_arg!(ctx, args, required);
     let reason = rest.trim();
+
+    let mut member = match ctx.guild_id.get_member(ctx.ctx, target_id).await {
+        Ok(member) => member,
+        Err(e) => {
+            if let ClientErrorKind::HttpNotFound(_) = e.kind() {
+                ctx.message
+                    .reply(
+                        ctx.ctx,
+                        embed_default_footer!(
+                            ctx,
+                            {
+                                description: "That user is not a member of this community.",
+                                color: 0xff0000
+                            }
+                        ),
+                    )
+                    .await?;
+                return Ok(());
+            }
+            return Err(e.into());
+        }
+    };
+
+    // Refresh the cached value
+    Cached::refresh(&mut member);
+
+    let mut member_is_timed_out = true;
+
+    if let Some(communication_disabled_until) = member.communication_disabled_until
+        && chrono::DateTime::from(communication_disabled_until) < Utc::now()
+    {
+        member_is_timed_out = false;
+    } else if member.communication_disabled_until.is_none() {
+        member_is_timed_out = false;
+    }
+
+    if !member_is_timed_out {
+        ctx.message
+            .reply(
+                ctx.ctx,
+                embed_default_footer!(
+                    ctx,
+                    {
+                        description: "The member is not timed out.",
+                        color: 0xff0000
+                    }
+                ),
+            )
+            .await?;
+        return Ok(());
+    }
 
     let _member = ctx
         .guild_id
