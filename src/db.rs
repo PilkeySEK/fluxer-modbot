@@ -187,13 +187,107 @@ impl DatabaseManager {
         ).fetch_one(&self.pool).await?;
         let case_id = CaseId(case_id);
 
-        if let Some(expiry) = data.expiry
+        if data.moderation_kind.manual_expiration()
+            && let Some(expiry) = data.expiry
             && let Err(e) = self.expiring_cases_tx.send((Some(expiry.0), case_id))
         {
             tracing::error!("{e}");
         }
 
         Ok(case_id)
+    }
+
+    pub async fn close_existing_cases_by_kind_and_user(
+        &self,
+        guild_id: Id<GuildMarker>,
+        target_id: Id<UserMarker>,
+        kind: ModerationKind,
+        reason: Option<&str>,
+        exclude_id: CaseId,
+    ) -> Result<Vec<CaseId>, DatabaseError> {
+        let case_ids = query_scalar!(
+            "UPDATE guild_moderation_cases
+            SET closed = true, close_reason = $1, closed_by = NULL
+            WHERE guild_id = $2 AND target_id = $3 AND closed = false AND moderation_kind = $4 AND case_id != $5
+            RETURNING case_id",
+            reason,
+            guild_id.into_inner().cast_signed(),
+            target_id.into_inner().cast_signed(),
+            kind.to_string(),
+            exclude_id.0,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        let case_ids = case_ids.into_iter().map(CaseId).collect::<Vec<_>>();
+        if kind.manual_expiration() {
+            for &id in &case_ids {
+                if let Err(e) = self.expiring_cases_tx.send((None, id)) {
+                    tracing::error!("{e}");
+                }
+            }
+        }
+
+        Ok(case_ids)
+    }
+
+    /*
+    pub async fn get_latest_open_moderation_case_by_kind_and_user(
+        &self,
+        guild_id: Id<GuildMarker>,
+        target_id: Id<UserMarker>,
+        kind: ModerationKind,
+    ) -> Result<Option<GuildModerationCase>, DatabaseError> {
+        let raw = query_as!(
+            RawGuildModerationCase,
+            "SELECT * FROM guild_moderation_cases
+            WHERE guild_id = $1 AND target_id = $2 AND moderation_kind = $3 AND closed = false
+            ORDER BY case_id DESC
+            LIMIT 1",
+            guild_id.into_inner().cast_signed(),
+            target_id.into_inner().cast_signed(),
+            kind.to_string(),
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(match raw {
+            Some(raw) => match GuildModerationCase::from_raw(raw) {
+                Some(case) => Some(case),
+                None => return Err(DatabaseError::ParseError),
+            },
+            None => None,
+        })
+    }
+    */
+
+    pub async fn close_and_get_latest_open_moderation_case_by_kind_and_user(
+        &self,
+        guild_id: Id<GuildMarker>,
+        target_id: Id<UserMarker>,
+        kind: ModerationKind,
+        reason: Option<&str>,
+        closed_by: Option<Id<UserMarker>>,
+    ) -> Result<Option<CaseId>, DatabaseError> {
+        let case_id = query_scalar!(
+            "UPDATE guild_moderation_cases
+            SET closed = true, closed_by = $1, close_reason = $2
+            WHERE case_id=(
+                SELECT case_id FROM guild_moderation_cases
+                WHERE guild_id = $3 AND target_id = $4 AND moderation_kind = $5 AND closed = false
+                ORDER BY case_id DESC
+                LIMIT 1
+            )
+            RETURNING case_id",
+            closed_by.map(|id| id.into_inner().cast_signed()),
+            reason,
+            guild_id.into_inner().cast_signed(),
+            target_id.into_inner().cast_signed(),
+            kind.to_string(),
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(case_id.map(CaseId))
     }
 
     pub async fn list_guild_moderation_cases(
@@ -332,7 +426,9 @@ impl DatabaseManager {
         if let Some(case_id) = case_id {
             let case_id = CaseId(case_id);
 
-            if let Err(e) = self.expiring_cases_tx.send((None, case_id)) {
+            if moderation_kind.manual_expiration()
+                && let Err(e) = self.expiring_cases_tx.send((None, case_id))
+            {
                 tracing::error!("{e}");
             }
 
@@ -371,7 +467,7 @@ impl DatabaseManager {
         let cases = query_as!(
             CaseExpiryInfo,
             "SELECT expires_at, case_id FROM guild_moderation_cases
-            WHERE expires_at IS NOT NULL"
+            WHERE expires_at IS NOT NULL",
         )
         .fetch_all(pool)
         .await?;
@@ -461,12 +557,22 @@ pub mod schema {
         }
     }
 
-    #[derive(strum::Display, strum::EnumString)]
+    #[derive(strum::Display, strum::EnumString, PartialEq, Eq)]
     pub enum ModerationKind {
         Warn,
         Mute,
         Kick,
         Ban,
+    }
+
+    impl ModerationKind {
+        /// Whether the associated case should be sent to the case expiration actor.
+        pub fn manual_expiration(&self) -> bool {
+            match self {
+                Self::Warn | Self::Mute => true,
+                Self::Kick | Self::Ban => false,
+            }
+        }
     }
 
     pub struct CreateGuildModerationCaseData<'a> {

@@ -82,10 +82,10 @@ macro_rules! get_user_arg {
                         }
                     ),
                 ).await?;
-            return Ok(());
+            return Err($crate::commands::CommandError::Ignore);
         } else {
             match $crate::util::user_arg::parse_user_arg(&$ctx, user_arg_str).await? {
-                $crate::util::MaybeExpired::Expired => return Ok(()),
+                $crate::util::MaybeExpired::Expired => return Err($crate::commands::CommandError::Ignore),
                 $crate::util::MaybeExpired::NotExpired(Some(id)) => id,
                 $crate::util::MaybeExpired::NotExpired(None) => {
                     ::fluxer_neptunium::exts::MessageExt::reply(
@@ -99,7 +99,7 @@ macro_rules! get_user_arg {
                             }
                         )
                     ).await?;
-                    return Ok(());
+                    return Err($crate::commands::CommandError::Ignore);
                 }
             }
         };
@@ -111,7 +111,7 @@ macro_rules! get_user_arg {
             None
         } else {
             match $crate::util::user_arg::parse_user_arg(&$ctx, user_arg_str).await? {
-                $crate::util::MaybeExpired::Expired => return Ok(()),
+                $crate::util::MaybeExpired::Expired => return Err($crate::commands::CommandError::Ignore),
                 $crate::util::MaybeExpired::NotExpired(Some(id)) => Some(id),
                 $crate::util::MaybeExpired::NotExpired(None) => {
                     ::fluxer_neptunium::exts::MessageExt::reply(
@@ -125,7 +125,7 @@ macro_rules! get_user_arg {
                             }
                         )
                     ).await?;
-                    return Ok(());
+                    return Err($crate::commands::CommandError::Ignore);
                 }
             }
         };

@@ -22,6 +22,10 @@
         "list-cases": "32",
         // Manage guild
         "case-info": "32",
+        // Time out members
+        "mute": "1099511627776",
+        // Time out members
+        "unmute": "1099511627776",
     },
     "max_command_prefix_len": 10,
     "user_id": "",

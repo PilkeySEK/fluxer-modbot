@@ -3,8 +3,10 @@ use std::{collections::HashMap, pin::Pin, time::SystemTime};
 use chrono::{TimeDelta, Utc};
 use fluxer_neptunium::{
     cache::CachedMessage,
-    events::{EventError, context::Context},
+    client::error::ClientErrorKind,
+    events::{EventError, EventErrorKind, context::Context},
     exts::{GuildExt, GuildMemberExt, MessageExt},
+    http::error::error_code::ApiErrorCode,
     model::{
         guild::permissions::Permissions,
         id::{
@@ -66,6 +68,7 @@ pub struct CommandContext<'a> {
 pub enum CommandError {
     EventError(EventError),
     DatabaseError(DatabaseError),
+    Ignore,
 }
 
 impl std::error::Error for CommandError {}
@@ -75,6 +78,7 @@ impl std::fmt::Display for CommandError {
         match self {
             Self::EventError(e) => f.write_fmt(format_args!("Event error: {e}")),
             Self::DatabaseError(e) => f.write_fmt(format_args!("Database error: {e}")),
+            Self::Ignore => f.write_str("Ignored error, already handled"),
         }
     }
 }
@@ -166,6 +170,7 @@ impl CommandDispatcher {
         }
     }
 
+    #[expect(clippy::too_many_lines)]
     pub async fn execute(&self, ctx: CommandContext<'_>, input: &str) -> Result<(), EventError> {
         let (command_name, args) = input.split_once(' ').unwrap_or((input, ""));
         let command_name = if let Some(primary_name) = self.aliases.get(command_name) {
@@ -244,7 +249,6 @@ impl CommandDispatcher {
             let bot_name_backup = ctx.bot_name;
             let message_backup = ctx.message;
             match execute_fn.call(ctx, args.trim_start()).await {
-                Ok(()) => {}
                 Err(CommandError::DatabaseError(e)) => {
                     tracing::error!("Database error: {e}");
                     message_backup
@@ -261,8 +265,25 @@ impl CommandDispatcher {
                         .await?;
                 }
                 Err(CommandError::EventError(e)) => {
+                    #[expect(
+                        irrefutable_let_patterns,
+                        reason = "There might be other EventErrorKinds added."
+                    )]
+                    if let EventErrorKind::ClientError(e) = &e.kind
+                        && let ClientErrorKind::HttpForbidden(res) = e.kind()
+                        && res.code == ApiErrorCode::MissingPermissions
+                    {
+                        let _ = message_backup.reply(ctx_backup, embed_default_footer_raw!(
+                            bot_name_backup,
+                            {
+                                description: "I did not have the required permissions for that.",
+                                color: 0xff0000
+                            }
+                        )).await;
+                    }
                     return Err(e);
                 }
+                Ok(()) | Err(CommandError::Ignore) => {}
             }
         }
         Ok(())
@@ -294,4 +315,6 @@ pub fn register_commands(dispatcher: &mut CommandDispatcher) {
         cases::list_cases,
     );
     dispatcher.register("case-info", ["case"], cases::case_info);
+    dispatcher.register("mute", ["timeout"], moderation::mute);
+    dispatcher.register("unmute", ["untimeout"], moderation::unmute);
 }
