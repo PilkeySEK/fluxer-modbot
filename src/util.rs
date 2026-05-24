@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use fluxer_neptunium::model::id::{Id, marker::UserMarker};
+use fluxer_neptunium::model::id::{
+    Id,
+    marker::{UserMarker, WebhookMarker},
+};
 use nom::{Parser, error::ErrorKind};
 
 pub mod confirmation;
@@ -48,4 +51,12 @@ pub fn parse_duration(input: &str) -> Option<Duration> {
         .collect::<Option<Vec<Duration>>>()?
         .into_iter()
         .try_fold(Duration::ZERO, std::time::Duration::checked_add)
+}
+
+pub fn parse_webhook_url(url: &str) -> Option<(Id<WebhookMarker>, &str)> {
+    let mut parts = url.split('/').filter(|s| !s.is_empty());
+    let token = parts.next_back()?;
+    let id_str = parts.next_back()?;
+    let id = Id::try_from(id_str).ok()?;
+    Some((id, token))
 }

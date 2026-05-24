@@ -18,6 +18,7 @@ use crate::{
         CaseId, CreateGuildModerationCaseData, GuildCommandConfiguration, GuildModerationCase,
         ModerationKind, RawGuildCommandConfiguration, RawGuildModerationCase,
     },
+    logging::{Logger, ModLogEntry},
     macros::debug_panic,
 };
 
@@ -26,6 +27,7 @@ pub struct DatabaseManager {
     cached_prefixes: mini_moka::sync::Cache<Id<GuildMarker>, std::sync::Arc<Vec<String>>>,
     default_prefix: String,
     expiring_cases_tx: UnboundedSender<ExpiringCase>,
+    logger: Arc<Logger>,
 }
 
 #[derive(Debug)]
@@ -172,10 +174,11 @@ impl DatabaseManager {
         &self,
         data: CreateGuildModerationCaseData<'_>,
     ) -> Result<CaseId, DatabaseError> {
-        let case_id = query_scalar!(
+        let raw = query_as!(
+            RawGuildModerationCase,
             "INSERT INTO guild_moderation_cases (guild_id, target_id, moderator_id, moderation_kind, expires_at, reason, duration, created_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING case_id",
+            RETURNING *",
             data.guild_id.into_inner().cast_signed(),
             data.target_id.into_inner().cast_signed(),
             data.moderator_id.map(|id| id.into_inner().cast_signed()),
@@ -185,7 +188,11 @@ impl DatabaseManager {
             data.expiry.map(|value| value.1),
             data.created_at,
         ).fetch_one(&self.pool).await?;
-        let case_id = CaseId(case_id);
+        let Some(case) = GuildModerationCase::from_raw(raw) else {
+            return Err(DatabaseError::ParseError);
+        };
+
+        let case_id = case.case_id;
 
         if data.moderation_kind.manual_expiration()
             && let Some(expiry) = data.expiry
@@ -193,6 +200,10 @@ impl DatabaseManager {
         {
             tracing::error!("{e}");
         }
+
+        self.logger
+            .create_modlog_entry(self, case.guild_id, ModLogEntry::CaseCreated(case))
+            .await;
 
         Ok(case_id)
     }
@@ -484,6 +495,38 @@ impl DatabaseManager {
             })
             .collect())
     }
+
+    pub async fn get_guild_modlog_webhook(
+        &self,
+        guild_id: Id<GuildMarker>,
+    ) -> Result<Option<String>, DatabaseError> {
+        let result = query_scalar!(
+            "SELECT modlog_webhook FROM guilds
+            WHERE guild_id = $1",
+            guild_id.into_inner().cast_signed(),
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(result.flatten())
+    }
+
+    pub async fn set_guild_modlog_webhook_upsert(
+        &self,
+        guild_id: Id<GuildMarker>,
+        url: Option<&str>,
+    ) -> Result<PgQueryResult, DatabaseError> {
+        Ok(query!(
+            "INSERT INTO guilds (guild_id, command_prefixes, modlog_webhook)
+            VALUES ($1, ARRAY[$2], $3)
+            ON CONFLICT (guild_id) DO UPDATE
+            SET modlog_webhook = $3",
+            guild_id.into_inner().cast_signed(),
+            self.default_prefix,
+            url,
+        )
+        .execute(&self.pool)
+        .await?)
+    }
 }
 
 /// Because both of these depend partially on each other they can only be created cleanly at the same time,
@@ -492,6 +535,7 @@ pub async fn create_db_manager_and_case_expiration_actor(
     url: &str,
     prefix_cache_capacity: u64,
     default_prefix: String,
+    logger: Arc<Logger>,
 ) -> Result<(DatabaseManager, UnboundedReceiver<CaseId>), DatabaseError> {
     let pool = PgPoolOptions::new().connect(url).await?;
     let existing_cases = DatabaseManager::get_all_expiring_case_ids(&pool).await?;
@@ -502,6 +546,7 @@ pub async fn create_db_manager_and_case_expiration_actor(
             expiring_cases_tx,
             cached_prefixes: Cache::new(prefix_cache_capacity),
             default_prefix,
+            logger,
         },
         expired_cases_rx,
     ))
@@ -611,14 +656,12 @@ pub mod schema {
 
     pub struct GuildModerationCase {
         pub case_id: CaseId,
-        #[expect(unused)]
         pub guild_id: Id<GuildMarker>,
         pub target_id: Id<UserMarker>,
         pub moderator_id: Option<Id<UserMarker>>,
         pub moderation_kind: ModerationKind,
-        pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
+        pub expiry: Option<(chrono::DateTime<chrono::Utc>, Duration)>,
         pub reason: Option<String>,
-        pub duration: Option<Duration>,
         pub created_at: chrono::DateTime<chrono::Utc>,
         /// `None` if the case is not closed.
         pub close_data: Option<GuildModerationCaseCloseData>,
@@ -632,14 +675,16 @@ pub mod schema {
                 target_id: raw.target_id.cast_unsigned().into(),
                 moderator_id: raw.moderator_id.map(|id| id.cast_unsigned().into()),
                 moderation_kind: ModerationKind::from_str(&raw.moderation_kind).ok()?,
-                expires_at: raw.expires_at,
-                reason: raw.reason,
-                duration: match raw.duration {
-                    Some(duration_i64) => {
-                        Some(Duration::from_secs(u64::try_from(duration_i64).ok()?))
-                    }
-                    None => None,
+                expiry: if let Some(expires_at) = raw.expires_at {
+                    let duration = raw.duration?;
+                    Some((
+                        expires_at,
+                        Duration::from_secs(u64::try_from(duration).ok()?),
+                    ))
+                } else {
+                    None
                 },
+                reason: raw.reason,
                 created_at: raw.created_at,
                 close_data: if raw.closed {
                     Some(GuildModerationCaseCloseData {

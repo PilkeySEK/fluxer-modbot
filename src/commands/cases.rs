@@ -175,30 +175,29 @@ pub async fn case_info(ctx: CommandContext<'_>, args: &str) -> Result<(), Comman
 
 fn format_case_info(ctx: &CommandContext<'_>, case: GuildModerationCase) -> CreateMessageBody {
     let case_string = format!(
-        "> **Type:** `{}`\n> **User:** <@{}> ({})\n> **Reason:** {}\n> **Duration:** {}{}\n> **Moderator:** {}\n> **Closed:** {}",
+        "> **Type:** `{}`\n> **User:** <@{}> ({})\n> **Reason:** {}\n> **Duration:** {}\n> **Moderator:** {}\n> **Closed:** {}",
         case.moderation_kind,
         case.target_id,
         case.target_id,
         case.reason
             .unwrap_or_else(|| "*No reason provided.*".to_owned()),
-        case.duration.map_or_else(
+        case.expiry.map_or_else(
             || "Permanent".to_string(),
-            |duration| pretty_duration(&duration, crate::PRETTY_DURATION_OPTIONS)
+            |(expires_at, duration)| {
+                let now = Utc::now();
+                format!(
+                    "{} ({} {})",
+                    pretty_duration(&duration, crate::PRETTY_DURATION_OPTIONS),
+                    if expires_at > now {
+                        "expires"
+                    } else {
+                        "expired"
+                    },
+                    Timestamp::<UnixMillis>::from(expires_at)
+                        .time_string(TimestampDisplayType::Relative)
+                )
+            }
         ),
-        case.expires_at.map_or_else(String::new, |expires_at| {
-            let now = Utc::now();
-            let word = if expires_at > now {
-                "expires"
-            } else {
-                "expired"
-            };
-            format!(
-                " ({} {})",
-                word,
-                Timestamp::<UnixMillis>::from(expires_at)
-                    .time_string(TimestampDisplayType::Relative)
-            )
-        }),
         case.moderator_id.map_or_else(
             || "*Automated action.*".to_string(),
             |moderator_id| format!("<@{moderator_id}>")
@@ -247,7 +246,7 @@ fn format_case_list(
             case.moderation_kind,
             case.target_id,
             case.case_id,
-            if let Some(expires_at) = case.expires_at {
+            if let Some((expires_at, _duration)) = case.expiry {
                 format!(
                     "expires {}",
                     Timestamp::<UnixMillis>::from(expires_at)

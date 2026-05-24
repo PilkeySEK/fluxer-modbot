@@ -19,6 +19,7 @@ use crate::{
     commands::{CommandContext, CommandDispatcher},
     db::DatabaseManager,
     event_handler::reactions::ReactionsEventHandler,
+    logging::Logger,
 };
 
 pub mod reactions;
@@ -32,6 +33,7 @@ pub struct BotEventHandler {
     max_command_prefix_len: usize,
     my_id: Id<UserMarker>,
     reactions_event_handler: ReactionsEventHandler,
+    logger: Arc<Logger>,
 }
 
 impl BotEventHandler {
@@ -42,6 +44,7 @@ impl BotEventHandler {
         default_command_configuration: HashMap<String, Permissions>,
         max_command_prefix_len: usize,
         my_id: Id<UserMarker>,
+        logger: Arc<Logger>,
     ) -> Self {
         Self {
             dispatcher,
@@ -52,6 +55,7 @@ impl BotEventHandler {
             max_command_prefix_len,
             my_id,
             reactions_event_handler: ReactionsEventHandler::new(),
+            logger,
         }
     }
 }
@@ -138,6 +142,7 @@ impl BotEventHandler {
                     default_command_configuration: &self.default_command_configuration,
                     max_command_prefix_len: self.max_command_prefix_len,
                     reaction_handler_tx: &self.reactions_event_handler.tx,
+                    logger: &self.logger,
                 },
                 content.trim_start(),
             )

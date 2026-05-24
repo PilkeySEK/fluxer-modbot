@@ -19,6 +19,7 @@ use crate::{
     config::{Config, ConfigLoadError},
     db::create_db_manager_and_case_expiration_actor,
     event_handler::BotEventHandler,
+    logging::Logger,
 };
 
 mod case_expiration;
@@ -26,6 +27,7 @@ mod commands;
 mod config;
 mod db;
 mod event_handler;
+mod logging;
 mod macros;
 mod util;
 
@@ -85,12 +87,27 @@ async fn main() {
         }
     };
 
+    let mut client = Client::new_with_config(
+        config.token,
+        ClientConfig::builder()
+            .default_allowed_mentions(AllowedMentions {
+                parse: Some(Vec::new()),
+                users: Some(Vec::new()),
+                roles: Some(Vec::new()),
+                replied_user: false,
+            })
+            .build(),
+    );
+
+    let logger = Arc::new(Logger::new(client.context().clone()));
+
     tracing_subscriber::fmt().with_max_level(log_level).init();
 
     let (db_manager, expired_cases_rx) = match create_db_manager_and_case_expiration_actor(
         &config.database_url,
         config.prefix_cache_capacity,
         config.default_command_prefix,
+        Arc::clone(&logger),
     )
     .await
     {
@@ -110,6 +127,7 @@ async fn main() {
 
     let mut dispatcher = CommandDispatcher::new();
     register_commands(&mut dispatcher);
+
     let event_handler = BotEventHandler::new(
         dispatcher,
         config.bot_name,
@@ -117,18 +135,9 @@ async fn main() {
         config.default_command_configuration,
         config.max_command_prefix_len,
         config.user_id,
+        logger,
     );
-    let mut client = Client::new_with_config(
-        config.token,
-        ClientConfig::builder()
-            .default_allowed_mentions(AllowedMentions {
-                parse: Some(Vec::new()),
-                users: Some(Vec::new()),
-                roles: Some(Vec::new()),
-                replied_user: false,
-            })
-            .build(),
-    );
+
     client.register_event_handler(event_handler);
 
     if let Err(e) = client.start().await {

@@ -22,6 +22,7 @@ use crate::{
     event_handler::reactions::{
         ReactionExpiryHandlerFn, ReactionHandler, ReactionsEventHandlerMessage,
     },
+    logging::Logger,
     macros::{debug_panic, embed_default_footer, embed_default_footer_raw},
 };
 
@@ -62,6 +63,8 @@ pub struct CommandContext<'a> {
     pub default_command_configuration: &'a HashMap<String, Permissions>,
     pub max_command_prefix_len: usize,
     pub reaction_handler_tx: &'a UnboundedSender<ReactionsEventHandlerMessage>,
+    #[expect(unused)]
+    pub logger: &'a Logger,
 }
 
 #[derive(Debug)]
@@ -317,4 +320,5 @@ pub fn register_commands(dispatcher: &mut CommandDispatcher) {
     dispatcher.register("case-info", ["case"], cases::case_info);
     dispatcher.register("mute", ["timeout"], moderation::mute);
     dispatcher.register("unmute", ["untimeout"], moderation::unmute);
+    dispatcher.register("set-modlog-webhook", [], guild_settings::set_modlog_webhook);
 }

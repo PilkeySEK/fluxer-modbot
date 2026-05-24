@@ -1,8 +1,9 @@
-use fluxer_neptunium::exts::MessageExt;
+use fluxer_neptunium::{exts::MessageExt, http::endpoints::webhooks::GetWebhookWithToken};
 
 use crate::{
     commands::{CommandContext, CommandError},
     macros::embed_default_footer,
+    util::parse_webhook_url,
 };
 
 pub async fn add_prefix(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandError> {
@@ -115,6 +116,69 @@ pub async fn list_prefixes(ctx: CommandContext<'_>, _args: &str) -> Result<(), C
                                 .join("\n")
                         )
                     }
+                }
+            ),
+        )
+        .await?;
+
+    Ok(())
+}
+
+pub async fn set_modlog_webhook(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandError> {
+    let webhook_url = args.trim();
+    let Some((webhook_id, webhook_token)) = parse_webhook_url(webhook_url) else {
+        ctx.message
+            .reply(
+                ctx.ctx,
+                embed_default_footer!(
+                    ctx,
+                    {
+                        description: "That is not a valid webhook URL.",
+                        color: 0xff0000
+                    }
+                ),
+            )
+            .await?;
+        return Ok(());
+    };
+
+    let webhook_result = ctx
+        .ctx
+        .get_http_client()
+        .execute(GetWebhookWithToken {
+            webhook_id,
+            token: webhook_token.to_string().into(),
+        })
+        .await;
+
+    if webhook_result.is_err() {
+        ctx.message
+            .reply(
+                ctx.ctx,
+                embed_default_footer!(
+                    ctx,
+                    {
+                        description: "The webhook is invalid or could not be validated.",
+                        color: 0xff0000,
+                    }
+                ),
+            )
+            .await?;
+        return Ok(());
+    }
+
+    ctx.db
+        .set_guild_modlog_webhook_upsert(ctx.guild_id, Some(webhook_url))
+        .await?;
+
+    ctx.message
+        .reply(
+            ctx.ctx,
+            embed_default_footer!(
+                ctx,
+                {
+                    description: "Set the modlog webhook URL for this community.",
+                    color: 0xffffff,
                 }
             ),
         )
