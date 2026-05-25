@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use fluxer_neptunium::model::id::{
     Id,
-    marker::{GuildMarker, UserMarker},
+    marker::{GuildMarker, UserMarker, WebhookMarker},
 };
 use mini_moka::sync::Cache;
 use sqlx::{
@@ -499,30 +499,36 @@ impl DatabaseManager {
     pub async fn get_guild_modlog_webhook(
         &self,
         guild_id: Id<GuildMarker>,
-    ) -> Result<Option<String>, DatabaseError> {
-        let result = query_scalar!(
-            "SELECT modlog_webhook FROM guilds
+    ) -> Result<Option<(Id<WebhookMarker>, String)>, DatabaseError> {
+        let result = query!(
+            "SELECT modlog_webhook_id, modlog_webhook_token FROM guilds
             WHERE guild_id = $1",
             guild_id.into_inner().cast_signed(),
         )
         .fetch_optional(&self.pool)
         .await?;
-        Ok(result.flatten())
+        Ok(result.and_then(|result| {
+            Some((
+                Id::new(result.modlog_webhook_id?.cast_unsigned()),
+                result.modlog_webhook_token?,
+            ))
+        }))
     }
 
     pub async fn set_guild_modlog_webhook_upsert(
         &self,
         guild_id: Id<GuildMarker>,
-        url: Option<&str>,
+        value: Option<(Id<WebhookMarker>, &str)>,
     ) -> Result<PgQueryResult, DatabaseError> {
         Ok(query!(
-            "INSERT INTO guilds (guild_id, command_prefixes, modlog_webhook)
-            VALUES ($1, ARRAY[$2], $3)
+            "INSERT INTO guilds (guild_id, command_prefixes, modlog_webhook_id, modlog_webhook_token)
+            VALUES ($1, ARRAY[$2], $3, $4)
             ON CONFLICT (guild_id) DO UPDATE
-            SET modlog_webhook = $3",
+            SET modlog_webhook_id = $3, modlog_webhook_token = $4",
             guild_id.into_inner().cast_signed(),
             self.default_prefix,
-            url,
+            value.map(|value| value.0.into_inner().cast_signed()),
+            value.map(|value| value.1),
         )
         .execute(&self.pool)
         .await?)

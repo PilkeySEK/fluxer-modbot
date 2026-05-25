@@ -13,10 +13,7 @@ use fluxer_neptunium::{
 use pretty_duration::pretty_duration;
 use zeroize::Zeroizing;
 
-use crate::{
-    db::{DatabaseManager, schema::GuildModerationCase},
-    util::parse_webhook_url,
-};
+use crate::db::{DatabaseManager, schema::GuildModerationCase};
 
 pub enum ModLogEntry {
     CaseCreated(GuildModerationCase),
@@ -45,12 +42,7 @@ impl Logger {
             }
         };
 
-        let Some(modlog_webhook) = modlog_webhook else {
-            return;
-        };
-
-        let Some((webhook_id, webhook_token)) = parse_webhook_url(&modlog_webhook) else {
-            tracing::warn!("Failed to parse modlog webhook url of guild {guild_id}");
+        let Some((webhook_id, webhook_token)) = modlog_webhook else {
             return;
         };
 
@@ -59,7 +51,7 @@ impl Logger {
             .get_http_client()
             .execute(ExecuteWebhook {
                 webhook_id,
-                token: Zeroizing::new(webhook_token.to_string()),
+                token: Zeroizing::new(webhook_token),
                 message: WebhookMessage {
                     base: entry.into_message(),
                     username: None,

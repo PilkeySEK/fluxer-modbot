@@ -168,7 +168,7 @@ pub async fn set_modlog_webhook(ctx: CommandContext<'_>, args: &str) -> Result<(
     }
 
     ctx.db
-        .set_guild_modlog_webhook_upsert(ctx.guild_id, Some(webhook_url))
+        .set_guild_modlog_webhook_upsert(ctx.guild_id, Some((webhook_id, webhook_token)))
         .await?;
 
     ctx.message

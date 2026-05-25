@@ -4,8 +4,10 @@ CREATE TABLE guilds (
     guild_id BIGINT PRIMARY KEY,
     -- NULL if default prefix
     command_prefixes TEXT[] NOT NULL,
-    -- NULL if no modlog channel is set
-    modlog_webhook TEXT
+    -- NULL if no modlog webhook is set
+    modlog_webhook_id BIGINT,
+    -- NULL if no modlog webhook is set
+    modlog_webhook_token TEXT
 );
 
 CREATE UNIQUE INDEX idx_guilds ON guilds (guild_id);
