@@ -508,10 +508,35 @@ impl DatabaseManager {
         .fetch_optional(&self.pool)
         .await?;
         Ok(result.and_then(|result| {
-            Some((
-                Id::new(result.modlog_webhook_id?.cast_unsigned()),
-                result.modlog_webhook_token?,
-            ))
+            if cfg!(debug_assertions) {
+                // Perform additional checks (more inefficient) when in debug mode
+                // It will panic if exactly one of the values is None
+                let modlog_webhook_id =
+                    result.modlog_webhook_id.map(|id| id.cast_unsigned().into());
+                let modlog_webhook_token = result.modlog_webhook_token;
+                if let Some(modlog_webhook_id) = modlog_webhook_id {
+                    #[expect(clippy::panic, reason = "cfg!(debug_assertions) makes the code only panic when in debug mode.")]
+                    let Some(modlog_webhook_token) = modlog_webhook_token else {
+                        panic!("modlog_webhook_token is None while modlog_webhook_id is Some.");
+                    };
+                    Some((modlog_webhook_id, modlog_webhook_token))
+                } else if let Some(modlog_webhook_token) = modlog_webhook_token {
+                    #[expect(clippy::panic, reason = "cfg!(debug_assertions) makes the code only panic when in debug mode.")]
+                    let Some(modlog_webhook_id) = modlog_webhook_id else {
+                        panic!("modlog_webhook_id is None while modlog_webhook_token is Some.");
+                    };
+                    Some((modlog_webhook_id, modlog_webhook_token))
+                } else {
+                    None
+                }
+            } else {
+                // When in release mode, don't perform these additional checks for better performance
+                // It will ignore if exactly one of the values is None
+                Some((
+                    result.modlog_webhook_id?.cast_unsigned().into(),
+                    result.modlog_webhook_token?,
+                ))
+            }
         }))
     }
 
