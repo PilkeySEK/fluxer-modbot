@@ -126,6 +126,9 @@ pub async fn list_prefixes(ctx: CommandContext<'_>, _args: &str) -> Result<(), C
 
 pub async fn set_modlog_webhook(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandError> {
     let webhook_url = args.trim();
+    if webhook_url.is_empty() {
+        return clear_modlog_webhook(ctx, "").await;
+    }
     let Some((webhook_id, webhook_token)) = parse_webhook_url(webhook_url) else {
         ctx.message
             .reply(
@@ -184,5 +187,28 @@ pub async fn set_modlog_webhook(ctx: CommandContext<'_>, args: &str) -> Result<(
         )
         .await?;
 
+    Ok(())
+}
+
+pub async fn clear_modlog_webhook(
+    ctx: CommandContext<'_>,
+    _args: &str,
+) -> Result<(), CommandError> {
+    ctx.db
+        .set_guild_modlog_webhook_upsert(ctx.guild_id, None)
+        .await?;
+
+    ctx.message
+        .reply(
+            ctx.ctx,
+            embed_default_footer!(
+                ctx,
+                {
+                    description: "Cleared the modlog webhook URL.",
+                    color: 0xffffff,
+                }
+            ),
+        )
+        .await?;
     Ok(())
 }

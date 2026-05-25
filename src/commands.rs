@@ -320,5 +320,14 @@ pub fn register_commands(dispatcher: &mut CommandDispatcher) {
     dispatcher.register("case-info", ["case"], cases::case_info);
     dispatcher.register("mute", ["timeout"], moderation::mute);
     dispatcher.register("unmute", ["untimeout"], moderation::unmute);
-    dispatcher.register("set-modlog-webhook", [], guild_settings::set_modlog_webhook);
+    dispatcher.register(
+        "set-modlog-webhook",
+        ["modlog-webhook"],
+        guild_settings::set_modlog_webhook,
+    );
+    dispatcher.register(
+        "clear-modlog-webhook",
+        [],
+        guild_settings::clear_modlog_webhook,
+    );
 }
