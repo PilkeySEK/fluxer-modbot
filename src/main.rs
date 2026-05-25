@@ -136,6 +136,8 @@ async fn main() {
         config.max_command_prefix_len,
         config.user_id,
         logger,
+        config.webhook_avatar_b64,
+        config.bot_id,
     );
 
     client.register_event_handler(event_handler);

@@ -34,9 +34,12 @@ pub struct BotEventHandler {
     my_id: Id<UserMarker>,
     reactions_event_handler: ReactionsEventHandler,
     logger: Arc<Logger>,
+    webhook_avatar_b64: Option<String>,
+    bot_id: Id<UserMarker>,
 }
 
 impl BotEventHandler {
+    #[expect(clippy::too_many_arguments)]
     pub fn new(
         dispatcher: CommandDispatcher,
         bot_name: String,
@@ -45,6 +48,8 @@ impl BotEventHandler {
         max_command_prefix_len: usize,
         my_id: Id<UserMarker>,
         logger: Arc<Logger>,
+        webhook_avatar_b64: Option<String>,
+        bot_id: Id<UserMarker>,
     ) -> Self {
         Self {
             dispatcher,
@@ -56,6 +61,8 @@ impl BotEventHandler {
             my_id,
             reactions_event_handler: ReactionsEventHandler::new(),
             logger,
+            webhook_avatar_b64,
+            bot_id,
         }
     }
 }
@@ -143,6 +150,11 @@ impl BotEventHandler {
                     max_command_prefix_len: self.max_command_prefix_len,
                     reaction_handler_tx: &self.reactions_event_handler.tx,
                     logger: &self.logger,
+                    webhook_avatar_b64: match &self.webhook_avatar_b64 {
+                        Some(avatar) => Some(avatar),
+                        None => None,
+                    },
+                    bot_id: self.bot_id,
                 },
                 content.trim_start(),
             )

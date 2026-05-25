@@ -1,9 +1,15 @@
-use fluxer_neptunium::{exts::MessageExt, http::endpoints::webhooks::GetWebhookWithToken};
+use fluxer_neptunium::{
+    exts::{ChannelExt, GuildExt, MessageExt},
+    http::endpoints::webhooks::GetWebhookWithToken,
+};
 
 use crate::{
     commands::{CommandContext, CommandError},
     macros::embed_default_footer,
-    util::parse_webhook_url,
+    util::{
+        MaybeExpired, confirmation::confirmation, parse_channel_mention_or_id_or_link,
+        parse_webhook_url,
+    },
 };
 
 pub async fn add_prefix(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandError> {
@@ -210,5 +216,125 @@ pub async fn clear_modlog_webhook(
             ),
         )
         .await?;
+    Ok(())
+}
+
+#[expect(clippy::too_many_lines)]
+pub async fn modlog_channel(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandError> {
+    let (channel_mention_or_link, _rest) = args.split_once(' ').unwrap_or((args, ""));
+    let channel_id = if channel_mention_or_link.is_empty() {
+        ctx.message.channel_id
+    } else {
+        let Some((_, channel_id)) = parse_channel_mention_or_id_or_link(channel_mention_or_link)
+        else {
+            ctx.message
+                .reply(
+                    ctx.ctx,
+                    embed_default_footer!(
+                        ctx,
+                        {
+                            description: "Could not parse the channel link provided.",
+                            color: 0xff0000,
+                        }
+                    ),
+                )
+                .await?;
+            return Ok(());
+        };
+        channel_id
+    };
+
+    let guild_channels = ctx.guild_id.list_channels(ctx.ctx).await?;
+
+    for channel in guild_channels {
+        if channel.id == channel_id {
+            // This should be the same permission as the creating a webhook so it will return the same
+            // permission missing error if they are missing.
+            let webhooks = channel.list_webhooks(ctx.ctx).await?;
+
+            for webhook in webhooks {
+                if webhook.creator.id == ctx.bot_id {
+                    let confirmation_message = ctx.message.reply(ctx.ctx, embed_default_footer!(
+                        ctx,
+                        {
+                            description: format!(
+                                "There is already a webhook named \"{}\" in <#{}> created by me, should it be reused?\n-# The ID of that webhook is `{}`.",
+                                webhook.name,
+                                channel_id,
+                                webhook.id
+                            ),
+                            color: 0xffffff,
+                        }
+                    )).await?;
+                    match confirmation(&ctx, confirmation_message, ctx.message.author.id).await? {
+                        MaybeExpired::Expired => return Ok(()),
+                        MaybeExpired::NotExpired(false) => break,
+                        MaybeExpired::NotExpired(true) => {
+                            ctx.db
+                                .set_guild_modlog_webhook_upsert(
+                                    ctx.guild_id,
+                                    Some((webhook.id, &webhook.token)),
+                                )
+                                .await?;
+                            ctx.message
+                                .reply(
+                                    ctx.ctx,
+                                    embed_default_footer!(
+                                        ctx,
+                                        {
+                                            description: "Reused existing webhook for modlogs.",
+                                            color: 0xffffff,
+                                        }
+                                    ),
+                                )
+                                .await?;
+                            return Ok(());
+                        }
+                    }
+                }
+            }
+
+            let webhook = channel
+                .create_webhook(
+                    ctx.ctx,
+                    ctx.bot_name.to_string(),
+                    ctx.webhook_avatar_b64.map(String::from),
+                )
+                .await?;
+
+            ctx.db
+                .set_guild_modlog_webhook_upsert(ctx.guild_id, Some((webhook.id, &webhook.token)))
+                .await?;
+
+            ctx.message
+                .reply(
+                    ctx.ctx,
+                    embed_default_footer!(
+                        ctx,
+                        {
+                            description: format!("Added a webhook to <#{channel_id}> for modlogs. New modlogs will be sent there."),
+                            color: 0xffffff,
+                        }
+                    ),
+                )
+                .await?;
+
+            return Ok(());
+        }
+    }
+
+    ctx.message
+        .reply(
+            ctx.ctx,
+            embed_default_footer!(
+                ctx,
+                {
+                    description: "It seems like that channel doesn't exist in this community.",
+                    color: 0xff0000,
+                }
+            ),
+        )
+        .await?;
+
     Ok(())
 }

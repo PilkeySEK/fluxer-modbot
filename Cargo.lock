@@ -707,7 +707,7 @@ dependencies = [
 [[package]]
 name = "fluxer-neptunium"
 version = "0.6.3"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#688628fcd0f38f9f575d684ac2bfda0159cd7942"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#b87cfa9d9da95311e17339beaba080de153dede2"
 dependencies = [
  "async-trait",
  "bon",
@@ -1516,7 +1516,7 @@ dependencies = [
 [[package]]
 name = "neptunium-cache-inmemory"
 version = "0.6.3"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#688628fcd0f38f9f575d684ac2bfda0159cd7942"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#b87cfa9d9da95311e17339beaba080de153dede2"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -1534,7 +1534,7 @@ dependencies = [
 [[package]]
 name = "neptunium-gateway"
 version = "0.6.3"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#688628fcd0f38f9f575d684ac2bfda0159cd7942"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#b87cfa9d9da95311e17339beaba080de153dede2"
 dependencies = [
  "bon",
  "futures-util",
@@ -1551,7 +1551,7 @@ dependencies = [
 [[package]]
 name = "neptunium-http"
 version = "0.6.3"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#688628fcd0f38f9f575d684ac2bfda0159cd7942"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#b87cfa9d9da95311e17339beaba080de153dede2"
 dependencies = [
  "async-trait",
  "bon",
@@ -1575,7 +1575,7 @@ dependencies = [
 [[package]]
 name = "neptunium-model"
 version = "0.6.3"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#688628fcd0f38f9f575d684ac2bfda0159cd7942"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#b87cfa9d9da95311e17339beaba080de153dede2"
 dependencies = [
  "bitflags",
  "bon",

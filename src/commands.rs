@@ -11,7 +11,7 @@ use fluxer_neptunium::{
         guild::permissions::Permissions,
         id::{
             Id,
-            marker::{GuildMarker, MessageMarker},
+            marker::{GuildMarker, MessageMarker, UserMarker},
         },
     },
 };
@@ -65,6 +65,8 @@ pub struct CommandContext<'a> {
     pub reaction_handler_tx: &'a UnboundedSender<ReactionsEventHandlerMessage>,
     #[expect(unused)]
     pub logger: &'a Logger,
+    pub webhook_avatar_b64: Option<&'a str>,
+    pub bot_id: Id<UserMarker>,
 }
 
 #[derive(Debug)]
@@ -329,5 +331,14 @@ pub fn register_commands(dispatcher: &mut CommandDispatcher) {
         "clear-modlog-webhook",
         [],
         guild_settings::clear_modlog_webhook,
+    );
+    dispatcher.register(
+        "modlog-channel",
+        [
+            "set-modlog-channel",
+            "modlogs-channel",
+            "set-modlogs-channel",
+        ],
+        guild_settings::modlog_channel,
     );
 }

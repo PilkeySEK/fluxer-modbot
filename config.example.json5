@@ -30,9 +30,12 @@
         "set-modlog-webhook": "32",
         // Manage guild
         "clear-modlog-webhook": "32",
+        // Manage guild
+        "modlog-channel": "32",
     },
     "max_command_prefix_len": 10,
     "user_id": "",
     "prefix_cache_capacity": 1024,
     "log_level": "info",
+    "bot_id": "12345",
 }

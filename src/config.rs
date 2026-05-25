@@ -39,6 +39,8 @@ pub struct Config {
     pub user_id: Id<UserMarker>,
     pub prefix_cache_capacity: u64,
     pub log_level: String,
+    pub webhook_avatar_b64: Option<String>,
+    pub bot_id: Id<UserMarker>,
 }
 
 pub enum ConfigLoadError {
