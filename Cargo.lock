@@ -707,7 +707,7 @@ dependencies = [
 [[package]]
 name = "fluxer-neptunium"
 version = "0.6.3"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#0c476054e208bfefddab03d45e1b82664f4b3976"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#688628fcd0f38f9f575d684ac2bfda0159cd7942"
 dependencies = [
  "async-trait",
  "bon",
@@ -1416,9 +1416,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.29"
+version = "0.4.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
+checksum = "616ec5685824bcc94416c6d4a7a446eea774a31efd7062c8480ba6fd06d7a6e5"
 
 [[package]]
 name = "loom"
@@ -1516,7 +1516,7 @@ dependencies = [
 [[package]]
 name = "neptunium-cache-inmemory"
 version = "0.6.3"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#0c476054e208bfefddab03d45e1b82664f4b3976"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#688628fcd0f38f9f575d684ac2bfda0159cd7942"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -1534,7 +1534,7 @@ dependencies = [
 [[package]]
 name = "neptunium-gateway"
 version = "0.6.3"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#0c476054e208bfefddab03d45e1b82664f4b3976"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#688628fcd0f38f9f575d684ac2bfda0159cd7942"
 dependencies = [
  "bon",
  "futures-util",
@@ -1551,7 +1551,7 @@ dependencies = [
 [[package]]
 name = "neptunium-http"
 version = "0.6.3"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#0c476054e208bfefddab03d45e1b82664f4b3976"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#688628fcd0f38f9f575d684ac2bfda0159cd7942"
 dependencies = [
  "async-trait",
  "bon",
@@ -1575,7 +1575,7 @@ dependencies = [
 [[package]]
 name = "neptunium-model"
 version = "0.6.3"
-source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#0c476054e208bfefddab03d45e1b82664f4b3976"
+source = "git+https://github.com/PilkeySEK/fluxer-neptunium.git#688628fcd0f38f9f575d684ac2bfda0159cd7942"
 dependencies = [
  "bitflags",
  "bon",
