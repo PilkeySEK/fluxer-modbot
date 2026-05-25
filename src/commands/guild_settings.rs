@@ -8,6 +8,7 @@ use fluxer_neptunium::{
 
 use crate::{
     commands::{CommandContext, CommandError},
+    logging::ModLogEntry,
     macros::embed_default_footer,
     util::{
         MaybeExpired, confirmation::confirmation, parse_channel_mention_or_id_or_link,
@@ -318,6 +319,17 @@ pub async fn modlog_channel(ctx: CommandContext<'_>, args: &str) -> Result<(), C
                                     ),
                                 )
                                 .await?;
+
+                            ctx.logger
+                                .create_modlog_entry(
+                                    ctx.db,
+                                    ctx.guild_id,
+                                    ModLogEntry::ModLogChannelSet {
+                                        responsible: ctx.message.author.id,
+                                    },
+                                )
+                                .await;
+
                             return Ok(());
                         }
                     }
@@ -351,6 +363,16 @@ pub async fn modlog_channel(ctx: CommandContext<'_>, args: &str) -> Result<(), C
                     ),
                 )
                 .await?;
+
+            ctx.logger
+                .create_modlog_entry(
+                    ctx.db,
+                    ctx.guild_id,
+                    ModLogEntry::ModLogChannelSet {
+                        responsible: ctx.message.author.id,
+                    },
+                )
+                .await;
 
             return Ok(());
         }

@@ -6,7 +6,10 @@ use fluxer_neptunium::{
         webhooks::{ExecuteWebhook, WebhookMessage},
     },
     model::{
-        id::{Id, marker::GuildMarker},
+        id::{
+            Id,
+            marker::{GuildMarker, UserMarker},
+        },
         time::timestamp::{Timestamp, TimestampDisplayType, representations::UnixMillis},
     },
 };
@@ -17,6 +20,7 @@ use crate::db::{DatabaseManager, schema::GuildModerationCase};
 
 pub enum ModLogEntry {
     CaseCreated(GuildModerationCase),
+    ModLogChannelSet { responsible: Id<UserMarker> },
 }
 
 pub struct Logger {
@@ -97,6 +101,11 @@ impl ModLogEntry {
                 )
                 .into()
             }
+            ModLogEntry::ModLogChannelSet { responsible } => create_embed!(
+                title: "Modlog channel updated",
+                description: format!("<@{responsible}> set the modlog channel to this channel."),
+            )
+            .into(),
         }
     }
 }

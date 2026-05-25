@@ -63,7 +63,6 @@ pub struct CommandContext<'a> {
     pub default_command_configuration: &'a HashMap<String, Permissions>,
     pub max_command_prefix_len: usize,
     pub reaction_handler_tx: &'a UnboundedSender<ReactionsEventHandlerMessage>,
-    #[expect(unused)]
     pub logger: &'a Logger,
     pub webhook_avatar_b64: Option<&'a str>,
     pub bot_id: Id<UserMarker>,
