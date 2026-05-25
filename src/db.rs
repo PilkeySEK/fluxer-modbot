@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use fluxer_neptunium::model::id::{
     Id,
-    marker::{GuildMarker, UserMarker, WebhookMarker},
+    marker::{ChannelMarker, GuildMarker, UserMarker, WebhookMarker},
 };
 use mini_moka::sync::Cache;
 use sqlx::{
@@ -499,61 +499,41 @@ impl DatabaseManager {
     pub async fn get_guild_modlog_webhook(
         &self,
         guild_id: Id<GuildMarker>,
-    ) -> Result<Option<(Id<WebhookMarker>, String)>, DatabaseError> {
+    ) -> Result<Option<(Id<WebhookMarker>, String, Option<Id<ChannelMarker>>)>, DatabaseError> {
         let result = query!(
-            "SELECT modlog_webhook_id, modlog_webhook_token FROM guilds
+            "SELECT modlog_webhook_id, modlog_webhook_token, modlog_webhook_channel_id FROM guilds
             WHERE guild_id = $1",
             guild_id.into_inner().cast_signed(),
         )
         .fetch_optional(&self.pool)
         .await?;
         Ok(result.and_then(|result| {
-            if cfg!(debug_assertions) {
-                // Perform additional checks (more inefficient) when in debug mode
-                // It will panic if exactly one of the values is None
-                let modlog_webhook_id =
-                    result.modlog_webhook_id.map(|id| id.cast_unsigned().into());
-                let modlog_webhook_token = result.modlog_webhook_token;
-                if let Some(modlog_webhook_id) = modlog_webhook_id {
-                    #[expect(clippy::panic, reason = "cfg!(debug_assertions) makes the code only panic when in debug mode.")]
-                    let Some(modlog_webhook_token) = modlog_webhook_token else {
-                        panic!("modlog_webhook_token is None while modlog_webhook_id is Some.");
-                    };
-                    Some((modlog_webhook_id, modlog_webhook_token))
-                } else if let Some(modlog_webhook_token) = modlog_webhook_token {
-                    #[expect(clippy::panic, reason = "cfg!(debug_assertions) makes the code only panic when in debug mode.")]
-                    let Some(modlog_webhook_id) = modlog_webhook_id else {
-                        panic!("modlog_webhook_id is None while modlog_webhook_token is Some.");
-                    };
-                    Some((modlog_webhook_id, modlog_webhook_token))
-                } else {
-                    None
-                }
-            } else {
-                // When in release mode, don't perform these additional checks for better performance
-                // It will ignore if exactly one of the values is None
-                Some((
-                    result.modlog_webhook_id?.cast_unsigned().into(),
-                    result.modlog_webhook_token?,
-                ))
-            }
+            Some((
+                result.modlog_webhook_id?.cast_unsigned().into(),
+                result.modlog_webhook_token?,
+                result
+                    .modlog_webhook_channel_id
+                    .map(|value| value.cast_unsigned().into()),
+            ))
         }))
     }
 
+    #[expect(clippy::type_complexity)]
     pub async fn set_guild_modlog_webhook_upsert(
         &self,
         guild_id: Id<GuildMarker>,
-        value: Option<(Id<WebhookMarker>, &str)>,
+        value: Option<(Id<WebhookMarker>, &str, Option<Id<ChannelMarker>>)>,
     ) -> Result<PgQueryResult, DatabaseError> {
         Ok(query!(
-            "INSERT INTO guilds (guild_id, command_prefixes, modlog_webhook_id, modlog_webhook_token)
-            VALUES ($1, ARRAY[$2], $3, $4)
+            "INSERT INTO guilds (guild_id, command_prefixes, modlog_webhook_id, modlog_webhook_token, modlog_webhook_channel_id)
+            VALUES ($1, ARRAY[$2], $3, $4, $5)
             ON CONFLICT (guild_id) DO UPDATE
-            SET modlog_webhook_id = $3, modlog_webhook_token = $4",
+            SET modlog_webhook_id = $3, modlog_webhook_token = $4, modlog_webhook_channel_id = $5",
             guild_id.into_inner().cast_signed(),
             self.default_prefix,
             value.map(|value| value.0.into_inner().cast_signed()),
             value.map(|value| value.1),
+            value.map(|value| value.2.map(|value| value.into_inner().cast_signed())).flatten(),
         )
         .execute(&self.pool)
         .await?)

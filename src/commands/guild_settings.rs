@@ -1,6 +1,9 @@
 use fluxer_neptunium::{
     exts::{ChannelExt, GuildExt, MessageExt},
-    http::endpoints::webhooks::GetWebhookWithToken,
+    http::endpoints::{
+        ExecuteEndpointRequestError,
+        webhooks::{DeleteWebhookWithToken, GetWebhookWithToken},
+    },
 };
 
 use crate::{
@@ -177,7 +180,7 @@ pub async fn set_modlog_webhook(ctx: CommandContext<'_>, args: &str) -> Result<(
     }
 
     ctx.db
-        .set_guild_modlog_webhook_upsert(ctx.guild_id, Some((webhook_id, webhook_token)))
+        .set_guild_modlog_webhook_upsert(ctx.guild_id, Some((webhook_id, webhook_token, None)))
         .await?;
 
     ctx.message
@@ -244,6 +247,33 @@ pub async fn modlog_channel(ctx: CommandContext<'_>, args: &str) -> Result<(), C
         channel_id
     };
 
+    // Delete the existing webhook in the guild, if it exists and wasn't manually set
+    if let Some((webhook_id, token, webhook_channel_id)) =
+        ctx.db.get_guild_modlog_webhook(ctx.guild_id).await?
+        && {
+            if let Some(webhook_channel_id) = webhook_channel_id {
+                webhook_channel_id != channel_id
+            } else {
+                false
+            }
+        }
+        && let Err(e) = ctx
+            .ctx
+            .get_http_client()
+            .execute(DeleteWebhookWithToken {
+                webhook_id,
+                token: token.into(),
+            })
+            .await
+    {
+        match *e {
+            // The old webhook doesn't exist anymore, probably
+            ExecuteEndpointRequestError::Forbidden(_)
+            | ExecuteEndpointRequestError::NotFound(_) => {}
+            other => return Err(fluxer_neptunium::client::error::Error::from(other).into()),
+        }
+    }
+
     let guild_channels = ctx.guild_id.list_channels(ctx.ctx).await?;
 
     for channel in guild_channels {
@@ -273,7 +303,7 @@ pub async fn modlog_channel(ctx: CommandContext<'_>, args: &str) -> Result<(), C
                             ctx.db
                                 .set_guild_modlog_webhook_upsert(
                                     ctx.guild_id,
-                                    Some((webhook.id, &webhook.token)),
+                                    Some((webhook.id, &webhook.token, Some(channel_id))),
                                 )
                                 .await?;
                             ctx.message
@@ -303,7 +333,10 @@ pub async fn modlog_channel(ctx: CommandContext<'_>, args: &str) -> Result<(), C
                 .await?;
 
             ctx.db
-                .set_guild_modlog_webhook_upsert(ctx.guild_id, Some((webhook.id, &webhook.token)))
+                .set_guild_modlog_webhook_upsert(
+                    ctx.guild_id,
+                    Some((webhook.id, &webhook.token, Some(channel_id))),
+                )
                 .await?;
 
             ctx.message

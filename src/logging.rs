@@ -42,7 +42,7 @@ impl Logger {
             }
         };
 
-        let Some((webhook_id, webhook_token)) = modlog_webhook else {
+        let Some((webhook_id, webhook_token, _)) = modlog_webhook else {
             return;
         };
 

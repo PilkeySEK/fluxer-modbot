@@ -7,7 +7,9 @@ CREATE TABLE guilds (
     -- NULL if no modlog webhook is set
     modlog_webhook_id BIGINT,
     -- NULL if no modlog webhook is set
-    modlog_webhook_token TEXT
+    modlog_webhook_token TEXT,
+    -- NULL if no modlog webhook is set or the webhook was set manually
+    modlog_webhook_channel_id BIGINT
 );
 
 CREATE UNIQUE INDEX idx_guilds ON guilds (guild_id);
