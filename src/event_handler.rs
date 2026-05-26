@@ -126,6 +126,88 @@ impl EventHandler for BotEventHandler {
             .handle_reaction_add(event)
             .await
     }
+
+    // async fn on_guild_member_update(
+    //     &self,
+    //     ctx: Context,
+    //     member: Cached<CachedGuildMember>,
+    // ) -> Result<(), EventError> {
+    //     member.refresh();
+    //
+    //     let mute_case = self
+    //         .db_manager
+    //         .close_and_get_latest_open_moderation_case_by_kind_and_user(
+    //             member.guild_id,
+    //             member.id,
+    //             ModerationKind::Mute,
+    //             reason,
+    //             closed_by,
+    //         );
+    //
+    //     Ok(())
+    // }
+    /*
+        async fn on_guild_audit_log_entry_create(
+            &self,
+            _ctx: Context,
+            event: Arc<GuildAuditLogEntryCreate>,
+        ) -> Result<(), EventError> {
+            #[expect(clippy::single_match)]
+            match event.audit_log_entry.action_type {
+                AuditLogActionType::MemberUpdate => {
+                    let Some((new, _old)) = event.audit_log_entry.changes.iter().find_map(|change| {
+                        if let AuditLogChange::CommunicationDisabledUntil { new, old } = change {
+                            Some((new, old))
+                        } else {
+                            None
+                        }
+                    }) else {
+                        return Ok(());
+                    };
+
+                    let reason = if let Some(options) = &event.audit_log_entry.options
+                        && let Some(reason) = options.get("timeout_reason")
+                        && let serde_json::Value::String(s) = reason
+                    {
+                        Some(s)
+                    } else {
+                        None
+                    };
+
+                    match self
+                        .db_manager
+                        .maybe_create_case_for_external_timeout(
+                            event.guild_id,
+                            new.map(Into::into),
+                            reason.map(String::as_str),
+                        )
+                        .await
+                    {
+                        Ok(None) => {}
+                        Ok(Some(case)) => {
+                            self.logger
+                                .create_modlog_entry(
+                                    &self.db_manager,
+                                    case.guild_id,
+                                    ModLogEntry::CaseCreated(case),
+                                )
+                                .await;
+                        }
+                        Err(e) => {
+                            tracing::error!(
+                                "Database error maybe creating case for external timeout in guild {}: {}",
+                                event.guild_id,
+                                e
+                            );
+                        }
+                    }
+                }
+                _ => {}
+            }
+
+            Ok(())
+        }
+    */
 }
 
 impl BotEventHandler {

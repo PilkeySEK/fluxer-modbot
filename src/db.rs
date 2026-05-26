@@ -538,6 +538,35 @@ impl DatabaseManager {
         .execute(&self.pool)
         .await?)
     }
+    /*
+        pub async fn maybe_create_case_for_external_timeout(
+            &self,
+            data: CreateGuildModerationCaseData<'_>,
+        ) -> Result<Option<GuildModerationCase>, DatabaseError> {
+            let maybe_existing_case_raw = query_as!(
+                RawGuildModerationCase,
+                "SELECT * FROM guild_moderation_cases
+            WHERE guild_id = $1 AND target_id = $2 AND moderation_kind = $3 AND closed = false
+            ORDER BY case_id DESC
+            LIMIT 1",
+                data.guild_id.into_inner().cast_signed(),
+                data.target_id.into_inner().cast_signed(),
+                data.moderation_kind.to_string(),
+            ).fetch_optional(&self.pool).await?;
+
+            let Some(existing_case_raw) = maybe_existing_case_raw else {
+                return Ok(None);
+            };
+
+            if existing_case_raw.expires_at == data.expiry.map(|expiry| expiry.0) {
+                return Ok(None);
+            }
+
+
+
+            todo!()
+        }
+    */
 }
 
 /// Because both of these depend partially on each other they can only be created cleanly at the same time,
