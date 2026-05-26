@@ -312,6 +312,75 @@ pub async fn unmute(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandEr
     Ok(())
 }
 
+pub async fn kick(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandError> {
+    let (target_id, rest) = get_user_arg!(ctx, args, required);
+
+    if target_id == ctx.message.author.id {
+        ctx.message
+            .reply(
+                ctx.ctx,
+                embed_default_footer!(
+                    ctx,
+                    {
+                        description: "You can't kick yourself.",
+                        color: 0xff0000
+                    }
+                ),
+            )
+            .await?;
+        return Ok(());
+    }
+
+    let reason = rest.trim();
+    let reason = if reason.is_empty() {
+        None
+    } else {
+        Some(reason)
+    };
+
+    if let Err(e) = ctx.guild_id.kick_member(ctx.ctx, target_id).await {
+        if let ClientErrorKind::HttpNotFound(_) = e.kind() {
+            ctx.message.reply(ctx.ctx, embed_default_footer!(
+                ctx,
+                {
+                    description: format!("It seems like <@{target_id}> is not a member of this community."),
+                    color: 0xff0000
+                }
+            )).await?;
+            return Ok(());
+        }
+        return Err(e.into());
+    }
+
+    let case_id = ctx
+        .db
+        .create_moderation_case(CreateGuildModerationCaseData {
+            guild_id: ctx.guild_id,
+            target_id,
+            moderator_id: Some(ctx.message.author.id),
+            moderation_kind: ModerationKind::Kick,
+            reason,
+            expiry: None,
+            created_at: Utc::now(),
+        })
+        .await?;
+
+    ctx.message
+        .reply(
+            ctx.ctx,
+            embed_default_footer!(
+                ctx,
+                {
+                    description: format!("Kicked <@{target_id}>.\n**Case ID:** {case_id}"),
+                    color: 0xffffff,
+                }
+            ),
+        )
+        .await?;
+
+    Ok(())
+}
+
 async fn moderation_common_time_required<'a>(
     ctx: &CommandContext<'_>,
     args: &'a str,

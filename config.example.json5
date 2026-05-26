@@ -32,6 +32,8 @@
         "clear-modlog-webhook": "32",
         // Manage guild
         "modlog-channel": "32",
+        // Kick members
+        "kick": "2",
     },
     "max_command_prefix_len": 10,
     "user_id": "",

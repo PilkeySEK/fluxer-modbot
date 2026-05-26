@@ -340,4 +340,5 @@ pub fn register_commands(dispatcher: &mut CommandDispatcher) {
         ],
         guild_settings::modlog_channel,
     );
+    dispatcher.register("kick", [], moderation::kick);
 }
