@@ -1,3 +1,4 @@
+# compose file for the database
 services:
   db:
     image: postgres:16

@@ -1,6 +1,27 @@
 /target
+bot/target
 .env
 config.json5
 
 .vscode
 .zed
+
+node_modules
+
+dashboard/node_modules
+
+# Output
+dashboard.output
+dashboard.vercel
+dashboard.netlify
+dashboard.wrangler
+dashboard/.svelte-kit
+dashboard/build
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vite
+dashboard/vite.config.js.timestamp-*
+dashboard/vite.config.ts.timestamp-*

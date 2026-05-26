@@ -1,0 +1,14 @@
+{
+    "name": "monorepo",
+    "private": true,
+    "scripts": {
+        "dev": "docker compose up -d && concurrently -n bot,dashboard -c cyan,magenta \"cd bot && cargo run\" \"pnpm --dir dashboard dev\"",
+        "install:all": "pnpm install && pnpm install --prefix dashboard",
+        "fmt:all": "cd bot && cargo fmt && pnpm --dir ../dashboard run format",
+        "lint:all": "cd bot && cargo clippy && pnpm --dir ../dashboard run lint",
+        "sqlx-migrations": "cargo sqlx migrate run"
+    },
+    "devDependencies": {
+        "concurrently": "^9.2.1"
+    }
+}

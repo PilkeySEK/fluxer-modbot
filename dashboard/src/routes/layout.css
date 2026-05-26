@@ -1,0 +1,10 @@
+@import 'tailwindcss';
+
+:root {
+	background-color: black;
+	color: white;
+}
+
+button:hover {
+	cursor: pointer;
+}
