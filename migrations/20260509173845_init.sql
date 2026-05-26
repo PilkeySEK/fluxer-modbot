@@ -64,3 +64,14 @@ CREATE TABLE guild_moderation_cases (
 CREATE UNIQUE INDEX idx_guild_moderation_cases_by_guild_id_and_case_id ON guild_moderation_cases (case_id, guild_id);
 CREATE INDEX idx_guild_moderation_cases_by_guild_id_and_target_id ON guild_moderation_cases (guild_id, target_id);
 CREATE INDEX idx_guild_moderation_cases_by_guild_id_and_moderator_id ON guild_moderation_cases (guild_id, moderator_id);
+
+CREATE TABLE dashboard_oauth_sessions (
+    -- The Fluxer user ID
+    user_id BIGINT NOT NULL,
+    session_id UUID NOT NULL PRIMARY KEY,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL,
+    data JSONB NOT NULL
+);
+
+CREATE INDEX idx_dashboard_oauth_sessions_by_expires_at ON dashboard_oauth_sessions (expires_at);
