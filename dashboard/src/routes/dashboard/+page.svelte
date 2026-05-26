@@ -9,6 +9,7 @@
 	let loading = $state(true);
 	let error: string | null = $state(null);
 
+	// TODO: Don't do this, it's just a test that the API actually works
 	onMount(async () => {
 		try {
 			const response = await fetch(resolve('/api/users/@me'));
