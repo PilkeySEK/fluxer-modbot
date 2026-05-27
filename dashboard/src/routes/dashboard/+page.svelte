@@ -1,11 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { api } from '$lib';
-	import type { paths } from '$lib/api';
+	import { api, type ApiRes } from '$lib';
 
-	let guilds_promise: Promise<
-		paths['/users/@me/guilds']['get']['responses']['200']['content']['application/json'] | undefined
-	> = $state(
+	let guilds_promise: Promise<ApiRes<'/users/@me/guilds'> | undefined> = $state(
 		new Promise((fulfill, reject) => {
 			api
 				.GET('/users/@me/guilds')

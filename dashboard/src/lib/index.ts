@@ -16,3 +16,17 @@ import createClient from 'openapi-fetch';
 }*/
 
 export const api = createClient<paths>({ baseUrl: '/api/' });
+
+export type ApiRes<P extends keyof paths> = paths[P] extends {
+	get: {
+		responses: {
+			200: {
+				content: {
+					'application/json': infer R;
+				};
+			};
+		};
+	};
+}
+	? R
+	: never;
