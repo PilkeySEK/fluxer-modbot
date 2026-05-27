@@ -14,3 +14,5 @@ You can't rn
 # Resources
 
 CSS Loaders: https://cssloaders.github.io
+
+Generating the cookie secret: `openssl rand -base64 64`

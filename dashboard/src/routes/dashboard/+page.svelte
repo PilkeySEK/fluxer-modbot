@@ -1,23 +1,25 @@
 <script lang="ts">
-	import type { PageProps } from './$types';
 	import { resolve } from '$app/paths';
-	import type { GuildResponse } from '$lib/server/fluxer_types';
+	import { api } from '$lib';
+	import type { paths } from '$lib/api';
 
-	let { data }: PageProps = $props();
-
-	let guilds_promise: Promise<GuildResponse[]> = $state(
+	let guilds_promise: Promise<
+		paths['/users/@me/guilds']['get']['responses']['200']['content']['application/json'] | undefined
+	> = $state(
 		new Promise((fulfill, reject) => {
-			fetch(resolve('/api/users/@me/guilds'))
-				.then((res) => res.json())
-				.then((json) => fulfill(json))
-				.catch((err) => reject(err));
+			api
+				.GET('/users/@me/guilds')
+				.then(({ data }) => {
+					fulfill(data);
+				})
+				.catch(reject);
 		})
 	);
 </script>
 
-<h1 class="text-center text-2xl font-semibold">
+<!--<h1 class="text-center text-2xl font-semibold">
 	Welcome, {data.user.global_name ?? data.user.username}
-</h1>
+</h1>-->
 {#await guilds_promise}
 	<div class="mt-10 flex items-center justify-center gap-3">
 		<span class="loader"></span>

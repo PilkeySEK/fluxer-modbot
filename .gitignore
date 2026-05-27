@@ -1,5 +1,7 @@
 /target
-bot/target
+crates/target
+crates/.env
+crates/*/target
 .env
 config.json5
 
