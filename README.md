@@ -10,3 +10,7 @@ To start the bot after you have applied the initial sqlx migrations, you can do 
 # Building for production
 
 You can't rn
+
+# Resources
+
+CSS Loaders: https://cssloaders.github.io
