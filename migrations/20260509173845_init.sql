@@ -86,3 +86,14 @@ CREATE TABLE dash_sessions (
 
 CREATE INDEX idx_dash_sessions_expires_at ON dash_sessions (expires_at);
 CREATE INDEX idx_dash_sessions_session_token ON dash_sessions (session_token);
+
+CREATE TABLE guild_members (
+    guild_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    -- Fluxer permissions
+    permissions TEXT NOT NULL,
+    is_guild_owner BOOLEAN NOT NULL,
+    PRIMARY KEY (guild_id, user_id)
+);
+
+CREATE UNIQUE INDEX idx_guild_members_by_guild_id_and_user_id ON guild_members (guild_id, user_id);

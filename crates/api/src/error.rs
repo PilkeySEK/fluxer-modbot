@@ -5,13 +5,45 @@ use oauth2::{
 };
 use reqwest::StatusCode;
 
-pub type ApiResult<T> = Result<T, ApiError>;
+use crate::db::DbError;
+
+pub type ApiResult<T> = Result<T, ApiErrorResponse>;
+
+#[derive(Debug)]
+pub enum ApiErrorResponse {
+    ApiError(ApiError),
+    StatusCode(StatusCode),
+}
+
+impl<T> From<T> for ApiErrorResponse
+where
+    T: Into<ApiError>,
+{
+    fn from(value: T) -> Self {
+        Self::ApiError(value.into())
+    }
+}
+
+impl From<StatusCode> for ApiErrorResponse {
+    fn from(value: StatusCode) -> Self {
+        Self::StatusCode(value)
+    }
+}
+
+impl IntoResponse for ApiErrorResponse {
+    fn into_response(self) -> axum::response::Response {
+        match self {
+            Self::ApiError(e) => e.into_response(),
+            Self::StatusCode(code) => code.into_response(),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum ApiError {
     UrlParse(oauth2::url::ParseError),
     OAuthReqwest(oauth2::reqwest::Error),
-    Database(sqlx::Error),
+    Database(DbError),
     RequestToken(
         RequestTokenError<
             HttpClientError<oauth2::reqwest::Error>,
@@ -51,9 +83,15 @@ impl From<oauth2::url::ParseError> for ApiError {
     }
 }
 
+impl From<DbError> for ApiError {
+    fn from(value: DbError) -> Self {
+        Self::Database(value)
+    }
+}
+
 impl From<sqlx::Error> for ApiError {
     fn from(value: sqlx::Error) -> Self {
-        Self::Database(value)
+        Self::Database(DbError::Sqlx(value))
     }
 }
 

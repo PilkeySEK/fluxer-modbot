@@ -66,7 +66,7 @@ async fn callback(
         .ok_or(ApiError::OAuthInvalidState)?;
 
     if stored_csrf != params.state {
-        return Err(ApiError::OAuthInvalidState);
+        return Err(ApiError::OAuthInvalidState.into());
     }
 
     let jar = jar.remove(CSRF_COOKIE);
@@ -80,7 +80,7 @@ async fn callback(
         Ok(token) => token,
         Err(e) => {
             tracing::error!("Error exchanging code: {e}");
-            return Err(ApiError::RequestToken(e));
+            return Err(ApiError::RequestToken(e).into());
         }
     };
     let bearer_token = bearer_token.access_token().secret();
@@ -112,18 +112,20 @@ async fn callback(
     let Ok(std_expiry) = expiry.to_std() else {
         return Err(ApiError::GenericError(format!(
             "Time conversion to std out of range where delta={expiry}"
-        )));
+        ))
+        .into());
     };
     let Ok(time_expiry) = std_expiry.try_into() else {
         return Err(ApiError::GenericError(format!(
             "Time conversion to from StdDuration to time::Duration out of range where std={std_expiry:?}"
-        )));
+        )).into());
     };
     let now = Utc::now();
     let Some(expires_at) = now.checked_add_signed(expiry) else {
         return Err(ApiError::GenericError(format!(
             "Time addition out of range where now={now} and delta={expiry}"
-        )));
+        ))
+        .into());
     };
 
     state
@@ -134,6 +136,7 @@ async fn callback(
             expires_at,
             SessionData {
                 bearer_token: bearer_token.clone(),
+                user_id: user.id,
             },
         )
         .await?;

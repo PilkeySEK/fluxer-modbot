@@ -1,24 +1,33 @@
-use std::time::Duration;
+use std::{num::ParseIntError, time::Duration};
 
-use fluxer_neptunium::model::id::{Id, marker::UserMarker};
+use api_types::pg_notifications::{GuildPrefixesUpdate, NOTIFICATION_GUILD_PREFIXES_UPDATE};
+use fluxer_neptunium::model::{
+    guild::permissions::Permissions,
+    id::{
+        Id,
+        marker::{GuildMarker, UserMarker},
+    },
+};
 use sqlx::PgPool;
 use tokio::{
     sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
     task::JoinHandle,
 };
 
-use crate::db::schema::SessionData;
+use crate::db::schema::{GuildConfig, SessionData};
 
 pub struct DbManager {
     pool: sqlx::PgPool,
     session_expiry_thread_stop_tx: UnboundedSender<()>,
     session_expiry_thread_handle: JoinHandle<()>,
+    default_command_prefix: String,
 }
 
 #[derive(Debug)]
 pub enum DbError {
-    SqlxError(sqlx::Error),
-    ParseError(serde_json::Error),
+    Sqlx(sqlx::Error),
+    JsonParse(serde_json::Error),
+    ParseInt(ParseIntError),
 }
 
 impl std::error::Error for DbError {}
@@ -26,8 +35,9 @@ impl std::error::Error for DbError {}
 impl std::fmt::Display for DbError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::SqlxError(e) => f.write_fmt(format_args!("PostgreSQL error: {e}")),
-            Self::ParseError(e) => f.write_fmt(format_args!("Parse error: {e}")),
+            Self::Sqlx(e) => f.write_fmt(format_args!("PostgreSQL error: {e}")),
+            Self::JsonParse(e) => f.write_fmt(format_args!("Parse error: {e}")),
+            Self::ParseInt(e) => f.write_fmt(format_args!("Error converting string to int: {e}")),
         }
     }
 }
@@ -39,7 +49,7 @@ pub struct PgSessionStore {
 }
 */
 impl DbManager {
-    pub async fn new(url: &str) -> Result<Self, sqlx::Error> {
+    pub async fn new(url: &str, default_command_prefix: String) -> Result<Self, sqlx::Error> {
         let pool = PgPool::connect(url).await?;
 
         let (session_expiry_thread_stop_tx, session_expiry_thread_stop_rx) = unbounded_channel();
@@ -53,6 +63,7 @@ impl DbManager {
             pool,
             session_expiry_thread_stop_tx,
             session_expiry_thread_handle,
+            default_command_prefix,
         })
     }
 
@@ -88,15 +99,90 @@ impl DbManager {
         )
         .fetch_optional(&self.pool)
         .await
-        .map_err(DbError::SqlxError)?;
+        .map_err(DbError::Sqlx)?;
 
         let Some(json) = json else {
             return Ok(None);
         };
 
         Ok(Some(
-            serde_json::from_value(json).map_err(DbError::ParseError)?,
+            serde_json::from_value(json).map_err(DbError::JsonParse)?,
         ))
+    }
+
+    pub async fn update_guild_prefixes(
+        &self,
+        guild_id: Id<GuildMarker>,
+        prefixes: &[String],
+    ) -> Result<(), DbError> {
+        sqlx::query!(
+            "INSERT INTO guilds (guild_id, command_prefixes)
+            VALUES ($1, $2::TEXT[])
+            ON CONFLICT (guild_id) DO UPDATE
+            SET command_prefixes=$2::TEXT[]",
+            guild_id.into_inner().cast_signed(),
+            prefixes,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(DbError::Sqlx)?;
+        #[expect(clippy::unwrap_used)]
+        sqlx::query!(
+            "SELECT pg_notify($1, $2)",
+            NOTIFICATION_GUILD_PREFIXES_UPDATE,
+            serde_json::to_string(&GuildPrefixesUpdate(guild_id)).unwrap(),
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(DbError::Sqlx)?;
+        Ok(())
+    }
+
+    pub async fn get_guild_member_permissions(
+        &self,
+        guild_id: Id<GuildMarker>,
+        user_id: Id<UserMarker>,
+    ) -> Result<Option<(Permissions, bool)>, DbError> {
+        let record = sqlx::query!(
+            "SELECT permissions, is_guild_owner FROM guild_members
+            WHERE guild_id = $1 AND user_id = $2",
+            guild_id.into_inner().cast_signed(),
+            user_id.into_inner().cast_signed(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(DbError::Sqlx)?;
+
+        let Some(record) = record else {
+            return Ok(None);
+        };
+
+        Ok(Some((
+            Permissions::from_bits_truncate(record.permissions.parse().map_err(DbError::ParseInt)?),
+            record.is_guild_owner,
+        )))
+    }
+
+    pub async fn get_guild_config_upsert(
+        &self,
+        guild_id: Id<GuildMarker>,
+    ) -> Result<GuildConfig, DbError> {
+        let guild = sqlx::query!(
+            "INSERT INTO guilds (guild_id, command_prefixes)
+            VALUES ($1, ARRAY[$2]::TEXT[])
+            ON CONFLICT (guild_id) DO UPDATE
+            SET guild_id = EXCLUDED.guild_id
+            RETURNING *",
+            guild_id.into_inner().cast_signed(),
+            self.default_command_prefix,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(DbError::Sqlx)?;
+
+        Ok(GuildConfig {
+            command_prefixes: guild.command_prefixes,
+        })
     }
 
     pub async fn stop(self) {
@@ -138,10 +224,17 @@ async fn session_expiry_thread(
 }
 
 pub mod schema {
+    use fluxer_neptunium::model::id::{Id, marker::UserMarker};
     use serde::{Deserialize, Serialize};
 
     #[derive(Serialize, Deserialize)]
     pub struct SessionData {
         pub bearer_token: String,
+        pub user_id: Id<UserMarker>,
+    }
+
+    #[derive(Serialize, utoipa::ToSchema)]
+    pub struct GuildConfig {
+        pub command_prefixes: Vec<String>,
     }
 }

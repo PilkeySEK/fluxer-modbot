@@ -22,6 +22,7 @@ pub struct ApiConfig {
     pub fluxer_api_base: String,
     pub cookie_secret: String,
     pub dashboard_uri: String,
+    pub default_command_prefix: String,
 }
 
 impl ApiConfig {

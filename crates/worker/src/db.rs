@@ -1,10 +1,12 @@
 use std::sync::Arc;
 
-use fluxer_neptunium::model::id::{
-    Id,
-    marker::{ChannelMarker, GuildMarker, UserMarker, WebhookMarker},
+use fluxer_neptunium::model::{
+    guild::permissions::Permissions,
+    id::{
+        Id,
+        marker::{ChannelMarker, GuildMarker, UserMarker, WebhookMarker},
+    },
 };
-use mini_moka::sync::Cache;
 use sqlx::{
     PgPool, QueryBuilder,
     postgres::{PgPoolOptions, PgQueryResult},
@@ -13,6 +15,7 @@ use sqlx::{
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::{
+    caches::PrefixCache,
     case_expiration::{ExpiringCase, start_case_expiration_actor},
     db::schema::{
         CaseId, CreateGuildModerationCaseData, GuildCommandConfiguration, GuildModerationCase,
@@ -24,7 +27,7 @@ use crate::{
 
 pub struct DatabaseManager {
     pool: PgPool,
-    cached_prefixes: mini_moka::sync::Cache<Id<GuildMarker>, std::sync::Arc<Vec<String>>>,
+    cached_prefixes: PrefixCache,
     default_prefix: String,
     expiring_cases_tx: UnboundedSender<ExpiringCase>,
     logger: Arc<Logger>,
@@ -73,7 +76,7 @@ impl DatabaseManager {
         &self,
         guild_id: Id<GuildMarker>,
     ) -> Result<Arc<Vec<String>>, DatabaseError> {
-        if let Some(cached_prefixes) = self.cached_prefixes.get(&guild_id) {
+        if let Some(cached_prefixes) = self.cached_prefixes.get_guild_prefixes(guild_id) {
             return Ok(cached_prefixes);
         }
         let prefixes: Option<Vec<String>> = query_scalar!(
@@ -84,13 +87,11 @@ impl DatabaseManager {
         .fetch_optional(&self.pool)
         .await?;
         Ok(if let Some(prefixes) = prefixes {
-            let prefixes = Arc::new(prefixes);
-            self.cached_prefixes.insert(guild_id, Arc::clone(&prefixes));
-            prefixes
+            self.cached_prefixes
+                .update_guild_prefixes(guild_id, prefixes)
         } else {
-            let prefixes = Arc::new(vec![self.default_prefix.clone()]);
-            self.cached_prefixes.insert(guild_id, Arc::clone(&prefixes));
-            prefixes
+            self.cached_prefixes
+                .update_guild_prefixes(guild_id, vec![self.default_prefix.clone()])
         })
     }
 
@@ -123,7 +124,7 @@ impl DatabaseManager {
         &self,
         guild_id: Id<GuildMarker>,
         prefix: &str,
-    ) -> Result<(), DatabaseError> {
+    ) -> Result<Arc<Vec<String>>, DatabaseError> {
         let prefixes = query_scalar!(
             "INSERT INTO guilds (guild_id, command_prefixes)
             VALUES ($1, ARRAY[$2, $3])
@@ -139,8 +140,9 @@ impl DatabaseManager {
         )
         .fetch_one(&self.pool)
         .await?;
-        self.cached_prefixes.insert(guild_id, Arc::new(prefixes));
-        Ok(())
+        Ok(self
+            .cached_prefixes
+            .update_guild_prefixes(guild_id, prefixes))
     }
 
     pub async fn remove_guild_command_prefix_upsert(
@@ -165,9 +167,9 @@ impl DatabaseManager {
         )
         .fetch_one(&self.pool)
         .await?;
-        let prefixes = Arc::new(prefixes);
-        self.cached_prefixes.insert(guild_id, Arc::clone(&prefixes));
-        Ok(prefixes)
+        Ok(self
+            .cached_prefixes
+            .update_guild_prefixes(guild_id, prefixes))
     }
 
     pub async fn create_moderation_case(
@@ -538,6 +540,43 @@ impl DatabaseManager {
         .execute(&self.pool)
         .await?)
     }
+
+    pub async fn update_or_insert_guild_member(
+        &self,
+        guild_id: Id<GuildMarker>,
+        user_id: Id<UserMarker>,
+        permissions: Permissions,
+        is_guild_owner: bool,
+    ) -> Result<PgQueryResult, DatabaseError> {
+        #[expect(clippy::unwrap_used)]
+        Ok(query!(
+            "INSERT INTO guild_members (guild_id, user_id, permissions, is_guild_owner)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (guild_id, user_id) DO UPDATE
+            SET permissions=$3, is_guild_owner=$4",
+            guild_id.into_inner().cast_signed(),
+            user_id.into_inner().cast_signed(),
+            serde_json::to_string(&permissions).unwrap(),
+            is_guild_owner,
+        )
+        .execute(&self.pool)
+        .await?)
+    }
+
+    pub async fn remove_guild_member(
+        &self,
+        guild_id: Id<GuildMarker>,
+        user_id: Id<UserMarker>,
+    ) -> Result<PgQueryResult, DatabaseError> {
+        Ok(query!(
+            "DELETE FROM guild_members
+            WHERE guild_id = $1 AND user_id = $2",
+            guild_id.into_inner().cast_signed(),
+            user_id.into_inner().cast_signed(),
+        )
+        .execute(&self.pool)
+        .await?)
+    }
     /*
         pub async fn maybe_create_case_for_external_timeout(
             &self,
@@ -584,7 +623,7 @@ pub async fn create_db_manager_and_case_expiration_actor(
         DatabaseManager {
             pool,
             expiring_cases_tx,
-            cached_prefixes: Cache::new(prefix_cache_capacity),
+            cached_prefixes: PrefixCache::new(url, prefix_cache_capacity).await?,
             default_prefix,
             logger,
         },

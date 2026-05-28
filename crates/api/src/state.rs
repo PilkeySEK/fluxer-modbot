@@ -62,6 +62,7 @@ impl InnerAppState {
         fluxer_api_base: String,
         cookie_key: Key,
         dashboard_uri: String,
+        default_command_prefix: String,
     ) -> Result<Self, ApiError> {
         let oauth = BasicClient::new(ClientId::new(oauth_config.client_id))
             .set_client_secret(ClientSecret::new(oauth_config.client_secret))
@@ -69,7 +70,7 @@ impl InnerAppState {
             .set_token_uri(TokenUrl::new(oauth_config.token_uri)?)
             .set_redirect_uri(RedirectUrl::new(oauth_config.redirect_uri)?);
 
-        let db = DbManager::new(database_url).await?;
+        let db = DbManager::new(database_url, default_command_prefix).await?;
 
         Ok(Self {
             oauth,

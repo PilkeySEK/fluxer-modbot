@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use axum_extra::extract::cookie::Key;
 use base64::{Engine, engine::general_purpose::STANDARD};
+use tracing::Level;
 
 use crate::{
     config::{ApiConfig, ConfigLoadError},
@@ -27,7 +28,9 @@ async fn main() {
         return;
     }
 
-    tracing_subscriber::fmt().init();
+    tracing_subscriber::fmt()
+        .with_max_level(Level::DEBUG)
+        .init();
 
     let config_file_path =
         std::env::var("API_CONFIG_PATH").unwrap_or_else(|_| String::from("../../api-config.json5"));
@@ -68,6 +71,7 @@ async fn main() {
             config.fluxer_api_base,
             cookie_key,
             config.dashboard_uri,
+            config.default_command_prefix,
         )
         .await
         {

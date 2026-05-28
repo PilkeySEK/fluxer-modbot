@@ -7,3 +7,4 @@ edition = "2024"
 serde = "1.0.228"
 utoipa-axum = "0.2.0"
 utoipa = { version = "5.5.0", features = ["axum_extras", "time"] }
+fluxer-neptunium = { workspace = true }

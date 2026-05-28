@@ -1,12 +1,17 @@
 use std::{collections::HashMap, sync::Arc, time::SystemTime};
 
+use api_types::is_guild_manager_permissions;
 use fluxer_neptunium::{
     async_trait,
-    cache::{CachedMessage, Guard},
-    cached_payload::{CachedMessageCreate, CachedMessageReactionAdd, CachedReady},
+    cache::{Cached, CachedGuildMember, CachedMessage, Guard},
+    cached_payload::{
+        CachedGuildCreate, CachedMessageCreate, CachedMessageReactionAdd, CachedReady,
+    },
     events::{EventError, EventHandler, context::Context},
-    exts::ChannelExt,
+    exts::{ChannelExt, GuildExt, GuildMemberExt},
+    http::endpoints::guild::SearchGuildMembersBody,
     model::{
+        gateway::payload::incoming::GuildMemberRemove,
         guild::permissions::Permissions,
         id::{
             Id,
@@ -124,6 +129,88 @@ impl EventHandler for BotEventHandler {
             .await
     }
 
+    async fn on_guild_member_add(
+        &self,
+        ctx: Context,
+        member: Cached<CachedGuildMember>,
+    ) -> Result<(), EventError> {
+        update_guild_member_in_db(&self.db_manager, &ctx, &member).await?;
+        Ok(())
+    }
+
+    async fn on_guild_member_update(
+        &self,
+        ctx: Context,
+        member: Cached<CachedGuildMember>,
+    ) -> Result<(), EventError> {
+        update_guild_member_in_db(&self.db_manager, &ctx, &member).await?;
+
+        Ok(())
+    }
+
+    async fn on_guild_member_remove(
+        &self,
+        _ctx: Context,
+        event: Arc<GuildMemberRemove>,
+    ) -> Result<(), EventError> {
+        if let Err(e) = self
+            .db_manager
+            .remove_guild_member(event.guild_id, event.user.id)
+            .await
+        {
+            tracing::error!(
+                "DB Error removing guild member {} in guild {}: {}",
+                event.user.id,
+                event.guild_id,
+                e
+            );
+        }
+
+        Ok(())
+    }
+
+    // When the bot is added to a guild a guild create event is sent by the gateway
+    async fn on_guild_create(
+        &self,
+        ctx: Context,
+        event: Arc<CachedGuildCreate>,
+    ) -> Result<(), EventError> {
+        for member in &event.members {
+            update_guild_member_in_db(&self.db_manager, &ctx, member).await?;
+        }
+
+        // Complicated way of getting users which have a manager role and adding those users to the DB
+
+        let manager_roles = &event
+            .guild
+            .list_roles(&ctx)
+            .await?
+            .into_iter()
+            .filter_map(|role| {
+                if is_guild_manager_permissions(role.permissions) {
+                    Some(role.id)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        let members = event
+            .guild
+            .search_members_all(
+                &ctx,
+                SearchGuildMembersBody::builder()
+                    .role_ids(manager_roles.clone())
+                    .build(),
+            )
+            .await?;
+        for member in members {
+            let member = event.guild.get_member(&ctx, member.user_id).await?;
+            update_guild_member_in_db(&self.db_manager, &ctx, &member).await?;
+        }
+
+        Ok(())
+    }
+
     // async fn on_guild_member_update(
     //     &self,
     //     ctx: Context,
@@ -205,6 +292,36 @@ impl EventHandler for BotEventHandler {
             Ok(())
         }
     */
+}
+
+async fn update_guild_member_in_db(
+    db_manager: &DatabaseManager,
+    ctx: &Context,
+    member: &CachedGuildMember,
+) -> Result<(), EventError> {
+    let permissions = member.get_permissions(ctx).await?;
+
+    // Only fetches each guild once because of caching
+    let guild_owner = member.guild_id.fetch(ctx).await?.owner_id;
+
+    if let Err(e) = db_manager
+        .update_or_insert_guild_member(
+            member.guild_id,
+            member.id,
+            permissions,
+            member.id == guild_owner,
+        )
+        .await
+    {
+        tracing::error!(
+            "DB Error updating or inserting guild member {} in guild {}: {}",
+            member.id,
+            member.guild_id,
+            e
+        );
+    }
+
+    Ok(())
 }
 
 impl BotEventHandler {

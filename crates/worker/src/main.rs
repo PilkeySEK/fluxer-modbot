@@ -22,6 +22,7 @@ use crate::{
     logging::Logger,
 };
 
+mod caches;
 mod case_expiration;
 mod commands;
 mod config;
