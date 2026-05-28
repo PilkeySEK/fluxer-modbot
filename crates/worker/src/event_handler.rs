@@ -181,6 +181,9 @@ impl EventHandler for BotEventHandler {
 
         // Complicated way of getting users which have a manager role and adding those users to the DB
 
+        let guild_owner = event.guild.get_member(&ctx, event.guild.owner_id).await?;
+        update_guild_member_in_db(&self.db_manager, &ctx, &guild_owner).await?;
+
         let manager_roles = &event
             .guild
             .list_roles(&ctx)
