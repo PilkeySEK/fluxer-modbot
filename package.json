@@ -2,7 +2,7 @@
     "name": "monorepo",
     "private": true,
     "scripts": {
-        "dev": "docker compose up -d && concurrently -n api,dashboard -c cyan,magenta \"cd crates/api && cargo run\" \"pnpm --dir dashboard dev\"",
+        "dev": "docker compose up -d && concurrently -n bot,api,dashboard -c green,cyan,magenta \"cd crates/worker && cargo run\" \"cd crates/api && cargo run\" \"pnpm --dir dashboard dev\"",
         "install:all": "pnpm install && pnpm install --prefix dashboard",
         "fmt:all": "cd crates && cargo fmt && pnpm --dir ../dashboard run format",
         "lint:all": "cd bot && cargo clippy && pnpm --dir ../dashboard run lint",

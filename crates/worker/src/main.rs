@@ -33,7 +33,7 @@ mod util;
 
 // static PROD: LazyLock<bool> = LazyLock::new(|| {
 //     const IS_PROD_ENV: Option<&str> = option_env!("IS_PROD");
-// 
+//
 //     matches!(IS_PROD_ENV, Some("true"))
 // });
 const GIT_HASH: &str = match option_env!("GIT_HASH") {
