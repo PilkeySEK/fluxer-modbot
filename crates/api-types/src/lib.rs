@@ -1,7 +1,5 @@
-#[derive(ts_rs::TS)]
-#[ts(export)]
-#[derive(serde::Deserialize, serde::Serialize)]
-pub struct ApiGuild {
+#[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
+pub struct Guild {
     pub id: String,
     pub name: String,
     pub icon: Option<String>,
@@ -15,9 +13,7 @@ pub struct ApiGuild {
     pub online_count: Option<usize>,
 }
 
-#[derive(ts_rs::TS)]
-#[ts(export)]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, utoipa::ToResponse)]
 pub struct ApiErrorBody {
     pub error: String,
 }

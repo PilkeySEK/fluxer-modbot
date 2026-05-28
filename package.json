@@ -7,7 +7,7 @@
         "fmt:all": "cd crates && cargo fmt && pnpm --dir ../dashboard run format",
         "lint:all": "cd bot && cargo clippy && pnpm --dir ../dashboard run lint",
         "sqlx-migrations": "cargo sqlx migrate run",
-        "openapi-gen": "cd crates/api && cargo run -F openapi-gen > ../../openapi.json"
+        "openapi-gen": "cd crates/api && cargo run -F openapi-gen > ../../openapi.json && pnpm --dir ../../dashboard generate-openapi-types"
     },
     "devDependencies": {
         "concurrently": "^9.2.1"

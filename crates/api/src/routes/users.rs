@@ -1,24 +1,9 @@
 use std::sync::Arc;
 
+use api_types::Guild;
 use axum::{Extension, Json, Router, extract::State, middleware, routing::get};
-use utoipa::ToSchema;
 
 use crate::{db::schema::SessionData, error::ApiResult, state::AppState};
-
-#[derive(serde::Deserialize, serde::Serialize, ToSchema)]
-pub struct Guild {
-    pub id: String,
-    pub name: String,
-    pub icon: Option<String>,
-    pub banner: Option<String>,
-    pub splash: Option<String>,
-    pub vanity_url_code: Option<String>,
-    pub owner_id: String,
-    // #[serde(rename = "permissions")]
-    // pub current_user_permissions: Option<Permissions>,
-    pub member_count: Option<usize>,
-    pub online_count: Option<usize>,
-}
 
 pub fn router(state: AppState) -> Router<AppState> {
     Router::new().route(
@@ -33,7 +18,7 @@ pub fn router(state: AppState) -> Router<AppState> {
 #[utoipa::path(
     get,
     path = "/users/@me/guilds",
-    responses((status = OK, body = Vec<Guild>)),
+    responses((status = OK, body = Vec<api_types::Guild>)),
 )]
 pub async fn get_user_guilds(
     Extension(session_data): Extension<Arc<SessionData>>,

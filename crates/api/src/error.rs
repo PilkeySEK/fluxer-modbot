@@ -7,11 +7,6 @@ use reqwest::StatusCode;
 
 pub type ApiResult<T> = Result<T, ApiError>;
 
-#[derive(serde::Serialize, serde::Deserialize, utoipa::ToResponse)]
-pub struct ApiErrorBody {
-    pub error: String,
-}
-
 #[derive(Debug)]
 pub enum ApiError {
     UrlParse(oauth2::url::ParseError),
@@ -120,6 +115,6 @@ impl IntoResponse for ApiError {
             }
         };
 
-        (status, Json(ApiErrorBody { error: message })).into_response()
+        (status, Json(api_types::ApiErrorBody { error: message })).into_response()
     }
 }

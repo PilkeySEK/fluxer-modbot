@@ -101,26 +101,6 @@
           }
         }
       }
-    },
-    "responses": {
-      "ApiErrorBody": {
-        "description": "",
-        "content": {
-          "application/json": {
-            "schema": {
-              "type": "object",
-              "required": [
-                "error"
-              ],
-              "properties": {
-                "error": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
     }
   }
 }
