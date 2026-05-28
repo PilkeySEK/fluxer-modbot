@@ -22,9 +22,6 @@
         "max_command_prefix_len": {
             "type": "number",
         },
-        "user_id": {
-            type: "string",
-        },
         "prefix_cache_capacity": {
             "type": "number",
         },
@@ -59,7 +56,6 @@
         "bot_name",
         "default_command_configuration",
         "max_command_prefix_len",
-        "user_id",
         "prefix_cache_capacity",
         "log_level",
         "bot_id",
