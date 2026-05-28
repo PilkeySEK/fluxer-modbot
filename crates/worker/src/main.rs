@@ -31,6 +31,11 @@ mod logging;
 mod macros;
 mod util;
 
+// static PROD: LazyLock<bool> = LazyLock::new(|| {
+//     const IS_PROD_ENV: Option<&str> = option_env!("IS_PROD");
+// 
+//     matches!(IS_PROD_ENV, Some("true"))
+// });
 const GIT_HASH: &str = match option_env!("GIT_HASH") {
     Some(value) => value,
     None => "none", // idk
@@ -66,14 +71,19 @@ static SQIDS_NO_BLOCKLIST: LazyLock<Sqids> = LazyLock::new(|| {
 
 #[tokio::main]
 async fn main() {
-    let config_file_path = env::var("CONFIG_FILE_PATH").unwrap_or(String::from("../config.json5"));
+    let config_file_path =
+        env::var("CONFIG_FILE_PATH").unwrap_or_else(|_| String::from("../../worker-config.json5"));
 
-    let config = match Config::load(config_file_path) {
+    let config = match Config::load(&config_file_path) {
         Ok(config) => config,
         Err(e) => {
             match e {
-                ConfigLoadError::Io(e) => println!("I/O error loading config: {e}"),
-                ConfigLoadError::Parse(e) => println!("Failed to parse config: {e}"),
+                ConfigLoadError::Io(e) => {
+                    println!("I/O error loading config at {config_file_path}: {e}");
+                }
+                ConfigLoadError::Parse(e) => {
+                    println!("Failed to parse config at {config_file_path}: {e}");
+                }
             }
             return;
         }
@@ -134,7 +144,6 @@ async fn main() {
         db_manager,
         config.default_command_configuration,
         config.max_command_prefix_len,
-        config.user_id,
         logger,
         config.webhook_avatar_b64,
         config.bot_id,

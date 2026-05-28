@@ -31,7 +31,6 @@ pub struct BotEventHandler {
     db_manager: Arc<DatabaseManager>,
     default_command_configuration: HashMap<String, Permissions>,
     max_command_prefix_len: usize,
-    my_id: Id<UserMarker>,
     reactions_event_handler: ReactionsEventHandler,
     logger: Arc<Logger>,
     webhook_avatar_b64: Option<String>,
@@ -46,7 +45,6 @@ impl BotEventHandler {
         db_manager: Arc<DatabaseManager>,
         default_command_configuration: HashMap<String, Permissions>,
         max_command_prefix_len: usize,
-        my_id: Id<UserMarker>,
         logger: Arc<Logger>,
         webhook_avatar_b64: Option<String>,
         bot_id: Id<UserMarker>,
@@ -58,7 +56,6 @@ impl BotEventHandler {
             db_manager,
             default_command_configuration,
             max_command_prefix_len,
-            my_id,
             reactions_event_handler: ReactionsEventHandler::new(),
             logger,
             webhook_avatar_b64,
@@ -102,7 +99,7 @@ impl EventHandler for BotEventHandler {
                 }
             };
 
-        if let Some(content) = message.content.strip_prefix(&format!("<@{}>", self.my_id)) {
+        if let Some(content) = message.content.strip_prefix(&format!("<@{}>", self.bot_id)) {
             self.execute_command(ctx, &message, guild_id, content).await;
             return Ok(());
         }

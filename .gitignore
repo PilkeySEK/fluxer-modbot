@@ -4,6 +4,8 @@ crates/.env
 crates/*/target
 .env
 config.json5
+api-config.json5
+worker-config.json5
 
 .vscode
 .zed

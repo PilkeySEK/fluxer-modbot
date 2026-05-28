@@ -5,7 +5,7 @@
         "scopes": ["identify", "guilds"],
         "redirect_uri": "http://localhost:5173/api/oauth/callback",
         "auth_uri": "https://web.fluxer.app/oauth2/authorize",
-        "client_secret": "8y-y1PS5juo7Qb5FEGxJZ1TC-iNBNkGRUxszcTeoDX0",
+        "client_secret": "",
         "token_uri": "https://api.fluxer.app/v1/oauth2/token"
     },
     "fluxer_api_base": "https://api.fluxer.app/v1",

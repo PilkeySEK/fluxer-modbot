@@ -36,7 +36,6 @@ pub struct Config {
     pub bot_name: String,
     pub default_command_configuration: HashMap<String, Permissions>,
     pub max_command_prefix_len: usize,
-    pub user_id: Id<UserMarker>,
     pub prefix_cache_capacity: u64,
     pub log_level: String,
     pub webhook_avatar_b64: Option<String>,

@@ -1,0 +1,41 @@
+{
+    "database_url": "postgres://botuser:botpass@localhost:5433/neptune_bot_2",
+    "default_command_prefix": "!",
+    "token": "",
+    "bot_name": "",
+    "default_command_configuration": {
+        "ping": "8",
+        // Manage guild
+        "add-prefix": "32",
+        // Manage guild
+        "remove-prefix": "32",
+        // Manage guild
+        "list-prefixes": "32",
+        // Time out members
+        "warn": "1099511627776",
+        // Time out members
+        "unwarn": "1099511627776",
+        // Manage guild
+        "list-cases": "32",
+        // Manage guild
+        "case-info": "32",
+        // Manage guild
+        "errors": "32",
+        // Time out members
+        "mute": "1099511627776",
+        // Time out members
+        "unmute": "1099511627776",
+        // Manage guild
+        "set-modlog-webhook": "32",
+        // Manage guild
+        "clear-modlog-webhook": "32",
+        // Manage guild
+        "modlog-channel": "32",
+        // Kick members
+        "kick": "2",
+    },
+    "max_command_prefix_len": 10,
+    "prefix_cache_capacity": 1024,
+    "log_level": "debug",
+    "bot_id": "1498344999725150830",
+}
