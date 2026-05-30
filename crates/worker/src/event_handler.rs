@@ -175,6 +175,15 @@ impl EventHandler for BotEventHandler {
         ctx: Context,
         event: Arc<CachedGuildCreate>,
     ) -> Result<(), EventError> {
+        let me = event.guild.get_current_member(&ctx).await?;
+        if !me.has_permissions(&ctx, Permissions::MANAGE_GUILD).await? {
+            tracing::warn!(
+                "I do not have MANAGE_GUILD in {} (\"{}\"), so I can't search members.",
+                event.guild.id,
+                event.guild.name
+            );
+            return Ok(());
+        }
         let removed_members = match self
             .db_manager
             .remove_all_guild_members(event.guild.id)

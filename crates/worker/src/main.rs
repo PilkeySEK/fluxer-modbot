@@ -14,6 +14,7 @@ use sqids::{Sqids, SqidsBuilder};
 use tracing::Level;
 
 use crate::{
+    api_connection::api_connection,
     case_expiration::case_expiry_listener,
     commands::{CommandDispatcher, register_commands},
     config::{Config, ConfigLoadError},
@@ -22,6 +23,7 @@ use crate::{
     logging::Logger,
 };
 
+mod api_connection;
 mod caches;
 mod case_expiration;
 mod commands;
@@ -130,6 +132,12 @@ async fn main() {
     };
 
     let db_manager = Arc::new(db_manager);
+
+    tokio::spawn(api_connection(
+        config.api_worker_ws_url,
+        config.worker_api_token,
+        Arc::clone(&db_manager),
+    ));
 
     tokio::spawn(case_expiry_listener(
         expired_cases_rx,

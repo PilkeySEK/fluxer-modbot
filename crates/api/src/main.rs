@@ -72,6 +72,7 @@ async fn main() {
             cookie_key,
             config.dashboard_uri,
             config.default_command_prefix,
+            config.worker_api_token,
         )
         .await
         {

@@ -11,5 +11,6 @@
     "fluxer_api_base": "https://api.fluxer.app/v1",
     "cookie_secret": "fHienfH0haEbxmX6OFnzgMYaTLyS3iPsftJKBAvBOBrtif3Z4Wx/nOVXP1YSSO5YFFEgTiCCCn7oCi2w3TK1gw==",
     "dashboard_uri": "http://localhost:5173/dashboard",
-    "default_command_prefix": "!"
+    "default_command_prefix": "!",
+    "worker_api_token": "",
 }

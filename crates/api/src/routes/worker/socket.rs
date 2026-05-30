@@ -1,0 +1,119 @@
+use std::{ops::ControlFlow, time::Duration};
+
+use api_types::ws::{
+    ApiToWorkerMessage, WORKER_API_HEARTBEAT_INTERVAL, WorkerApiWsCloseCode, WorkerToApiMessage,
+};
+use axum::extract::ws::{CloseFrame, Message, WebSocket};
+use tokio::sync::mpsc::UnboundedReceiver;
+
+use crate::state::AppState;
+
+struct ApiWorkerSocket(WebSocket);
+
+impl ApiWorkerSocket {
+    async fn send(&mut self, message: ApiToWorkerMessage) -> ControlFlow<()> {
+        #[expect(clippy::unwrap_used)]
+        if let Err(e) = self
+            .0
+            .send(Message::text(serde_json::to_string(&message).unwrap()))
+            .await
+        {
+            tracing::error!("Error sending websocket message to worker: {e}");
+            ControlFlow::Break(())
+        } else {
+            ControlFlow::Continue(())
+        }
+    }
+
+    async fn recv(&mut self) -> ControlFlow<(), WorkerToApiMessage> {
+        let message = self
+            .0
+            .recv()
+            .await
+            .map_or(ControlFlow::Break(()), ControlFlow::Continue)?;
+        match message {
+            Ok(Message::Text(s)) => {
+                let s = s.as_str();
+                match serde_json::from_str(s) {
+                    Ok(message) => ControlFlow::Continue(message),
+                    Err(e) => {
+                        tracing::error!("Failed to parse socket message: {e}");
+                        ControlFlow::Break(())
+                    }
+                }
+            }
+            Ok(other) => {
+                tracing::error!("Invalid message encoding: {other:?}");
+                ControlFlow::Break(())
+            }
+            Err(e) => {
+                tracing::error!("Error receiving socket message: {e}");
+                ControlFlow::Break(())
+            }
+        }
+    }
+
+    async fn close(&mut self) {
+        let _ = tokio::time::timeout(
+            Duration::from_secs(30),
+            self.0.send(Message::Close(Some(CloseFrame {
+                code: WorkerApiWsCloseCode::HeartbeatTimeout as u16,
+                reason: "Heartbeat timeout.".into(),
+            }))),
+        )
+        .await;
+    }
+}
+
+pub(super) async fn handle_ws(
+    _state: AppState,
+    socket: WebSocket,
+    mut rx: UnboundedReceiver<ApiToWorkerMessage>,
+) {
+    let mut socket = ApiWorkerSocket(socket);
+    let mut interval = tokio::time::interval(WORKER_API_HEARTBEAT_INTERVAL);
+    interval.tick().await; // The first tick completes immediately
+    let mut expecting_heartbeat_res = false;
+
+    loop {
+        tokio::select! {
+            msg = socket.recv() => {
+                let ControlFlow::Continue(msg) = msg else {
+                    tracing::debug!("handle_ws returning");
+                    return;
+                };
+
+                match msg {
+                    WorkerToApiMessage::HeartbeatRes => {
+                        expecting_heartbeat_res = false;
+                    }
+                    WorkerToApiMessage::HeartbeatReq => {
+                        if socket.send(ApiToWorkerMessage::HeartbeatRes).await.is_break() {
+                            return;
+                        }
+                    }
+                }
+            },
+            _ = interval.tick() => {
+                if expecting_heartbeat_res {
+                    tracing::error!("Did not receive heartbeat response, returning from socket handler.");
+                    socket.close().await;
+                    return;
+                }
+                if socket.send(ApiToWorkerMessage::HeartbeatReq).await.is_break() {
+                    return;
+                }
+                expecting_heartbeat_res = true;
+            },
+            msg = rx.recv() => {
+                let Some(msg) = msg else {
+                    tracing::debug!("handle_ws returning");
+                    return;
+                };
+                if socket.send(msg).await.is_break() {
+                    return;
+                }
+            }
+        }
+    }
+}

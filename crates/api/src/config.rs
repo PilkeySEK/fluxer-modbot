@@ -23,6 +23,7 @@ pub struct ApiConfig {
     pub cookie_secret: String,
     pub dashboard_uri: String,
     pub default_command_prefix: String,
+    pub worker_api_token: String,
 }
 
 impl ApiConfig {

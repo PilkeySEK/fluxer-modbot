@@ -1,5 +1,6 @@
 use std::{ops::Deref, sync::Arc};
 
+use api_types::ws::ApiToWorkerMessage;
 use axum::extract::FromRef;
 use axum_extra::extract::cookie::Key;
 use oauth2::{
@@ -10,7 +11,7 @@ use oauth2::{
     reqwest::redirect::Policy,
 };
 use rand::rngs::ChaCha20Rng;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock, mpsc::UnboundedSender};
 
 use crate::{config::ApiOauth2Config, db::DbManager, error::ApiError};
 
@@ -53,6 +54,8 @@ pub struct InnerAppState {
     pub rng: Mutex<ChaCha20Rng>,
     pub dashboard_uri: String,
     pub http_client: reqwest::Client,
+    pub worker_api_token: String,
+    pub api_to_worker_tx: Arc<tokio::sync::RwLock<Option<UnboundedSender<ApiToWorkerMessage>>>>,
 }
 
 impl InnerAppState {
@@ -63,6 +66,7 @@ impl InnerAppState {
         cookie_key: Key,
         dashboard_uri: String,
         default_command_prefix: String,
+        worker_api_token: String,
     ) -> Result<Self, ApiError> {
         let oauth = BasicClient::new(ClientId::new(oauth_config.client_id))
             .set_client_secret(ClientSecret::new(oauth_config.client_secret))
@@ -70,7 +74,14 @@ impl InnerAppState {
             .set_token_uri(TokenUrl::new(oauth_config.token_uri)?)
             .set_redirect_uri(RedirectUrl::new(oauth_config.redirect_uri)?);
 
-        let db = DbManager::new(database_url, default_command_prefix).await?;
+        let api_to_worker_tx = Arc::new(RwLock::new(None));
+
+        let db = DbManager::new(
+            database_url,
+            default_command_prefix,
+            Arc::clone(&api_to_worker_tx),
+        )
+        .await?;
 
         Ok(Self {
             oauth,
@@ -88,6 +99,8 @@ impl InnerAppState {
             rng: Mutex::new(rand::make_rng()),
             dashboard_uri,
             http_client: reqwest::Client::new(),
+            worker_api_token,
+            api_to_worker_tx,
         })
     }
 }

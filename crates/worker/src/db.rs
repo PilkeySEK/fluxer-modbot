@@ -27,7 +27,7 @@ use crate::{
 
 pub struct DatabaseManager {
     pool: PgPool,
-    cached_prefixes: PrefixCache,
+    pub cached_prefixes: PrefixCache,
     default_prefix: String,
     expiring_cases_tx: UnboundedSender<ExpiringCase>,
     logger: Arc<Logger>,
@@ -636,7 +636,7 @@ pub async fn create_db_manager_and_case_expiration_actor(
         DatabaseManager {
             pool,
             expiring_cases_tx,
-            cached_prefixes: PrefixCache::new(url, prefix_cache_capacity).await?,
+            cached_prefixes: PrefixCache::new(prefix_cache_capacity),
             default_prefix,
             logger,
         },

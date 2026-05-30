@@ -1,6 +1,6 @@
-use std::{num::ParseIntError, time::Duration};
+use std::{num::ParseIntError, sync::Arc, time::Duration};
 
-use api_types::pg_notifications::{GuildPrefixesUpdate, NOTIFICATION_GUILD_PREFIXES_UPDATE};
+use api_types::ws::ApiToWorkerMessage;
 use fluxer_neptunium::model::{
     guild::permissions::Permissions,
     id::{
@@ -21,6 +21,7 @@ pub struct DbManager {
     session_expiry_thread_stop_tx: UnboundedSender<()>,
     session_expiry_thread_handle: JoinHandle<()>,
     default_command_prefix: String,
+    api_to_worker_tx: Arc<tokio::sync::RwLock<Option<UnboundedSender<ApiToWorkerMessage>>>>,
 }
 
 #[derive(Debug)]
@@ -49,7 +50,11 @@ pub struct PgSessionStore {
 }
 */
 impl DbManager {
-    pub async fn new(url: &str, default_command_prefix: String) -> Result<Self, sqlx::Error> {
+    pub async fn new(
+        url: &str,
+        default_command_prefix: String,
+        api_to_worker_tx: Arc<tokio::sync::RwLock<Option<UnboundedSender<ApiToWorkerMessage>>>>,
+    ) -> Result<Self, sqlx::Error> {
         let pool = PgPool::connect(url).await?;
 
         let (session_expiry_thread_stop_tx, session_expiry_thread_stop_rx) = unbounded_channel();
@@ -64,6 +69,7 @@ impl DbManager {
             session_expiry_thread_stop_tx,
             session_expiry_thread_handle,
             default_command_prefix,
+            api_to_worker_tx,
         })
     }
 
@@ -126,15 +132,18 @@ impl DbManager {
         .execute(&self.pool)
         .await
         .map_err(DbError::Sqlx)?;
-        #[expect(clippy::unwrap_used)]
-        sqlx::query!(
-            "SELECT pg_notify($1, $2)",
-            NOTIFICATION_GUILD_PREFIXES_UPDATE,
-            serde_json::to_string(&GuildPrefixesUpdate(guild_id)).unwrap(),
-        )
-        .execute(&self.pool)
-        .await
-        .map_err(DbError::Sqlx)?;
+        // #[expect(clippy::unwrap_used)]
+        // sqlx::query!(
+        //     "SELECT pg_notify($1, $2)",
+        //     NOTIFICATION_GUILD_PREFIXES_UPDATE,
+        //     serde_json::to_string(&GuildPrefixesUpdate(guild_id)).unwrap(),
+        // )
+        // .execute(&self.pool)
+        // .await
+        // .map_err(DbError::Sqlx)?;
+        if let Some(tx) = &*self.api_to_worker_tx.read().await {
+            let _ = tx.send(ApiToWorkerMessage::InvalidateGuildPrefixes(guild_id));
+        }
         Ok(())
     }
 

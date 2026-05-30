@@ -40,6 +40,8 @@ pub struct Config {
     pub log_level: String,
     pub webhook_avatar_b64: Option<String>,
     pub bot_id: Id<UserMarker>,
+    pub worker_api_token: String,
+    pub api_worker_ws_url: String,
 }
 
 pub enum ConfigLoadError {

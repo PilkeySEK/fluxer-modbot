@@ -45,6 +45,12 @@
         "bot_id": {
             "type": "string",
         },
+        "worker_api_token": {
+            "type": "string",
+        },
+        "api_worker_ws_url": {
+            "type": "string",
+        },
         "$schema": {
             "type": "string"
         }
@@ -59,6 +65,8 @@
         "prefix_cache_capacity",
         "log_level",
         "bot_id",
+        "worker_api_token",
+        "api_worker_ws_url",
         "$schema",
     ],
     "additionalProperties": false,

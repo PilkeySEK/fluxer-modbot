@@ -1,5 +1,7 @@
 use fluxer_neptunium::model::guild::permissions::Permissions;
 
+pub mod ws;
+
 #[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
 pub struct Guild {
     pub id: String,
@@ -20,6 +22,7 @@ pub struct ApiErrorBody {
     pub error: String,
 }
 
+/*
 pub mod pg_notifications {
     use fluxer_neptunium::model::id::{Id, marker::GuildMarker};
     use serde::{Deserialize, Serialize};
@@ -30,6 +33,7 @@ pub mod pg_notifications {
     #[serde(transparent)]
     pub struct GuildPrefixesUpdate(pub Id<GuildMarker>);
 }
+*/
 
 pub fn is_guild_manager_permissions(permissions: Permissions) -> bool {
     permissions.intersects(Permissions::ADMINISTRATOR)
