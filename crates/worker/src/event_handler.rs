@@ -175,9 +175,20 @@ impl EventHandler for BotEventHandler {
         ctx: Context,
         event: Arc<CachedGuildCreate>,
     ) -> Result<(), EventError> {
-        for member in &event.members {
-            update_guild_member_in_db(&self.db_manager, &ctx, member).await?;
-        }
+        let removed_members = match self
+            .db_manager
+            .remove_all_guild_members(event.guild.id)
+            .await
+        {
+            Err(e) => {
+                tracing::error!("Error removing all guild members in DB: {e}");
+                return Ok(());
+            }
+            Ok(query_result) => query_result.rows_affected(),
+        };
+        // for member in &event.members {
+        //     update_guild_member_in_db(&self.db_manager, &ctx, member).await?;
+        // }
 
         // Complicated way of getting users which have a manager role and adding those users to the DB
 
@@ -206,10 +217,14 @@ impl EventHandler for BotEventHandler {
                     .build(),
             )
             .await?;
+        let members_len = members.len();
         for member in members {
             let member = event.guild.get_member(&ctx, member.user_id).await?;
             update_guild_member_in_db(&self.db_manager, &ctx, &member).await?;
         }
+        tracing::debug!(
+            "Synced {members_len} guild managers with the database (removed {removed_members} before)."
+        );
 
         Ok(())
     }

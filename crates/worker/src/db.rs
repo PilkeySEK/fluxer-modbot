@@ -577,6 +577,19 @@ impl DatabaseManager {
         .execute(&self.pool)
         .await?)
     }
+
+    pub async fn remove_all_guild_members(
+        &self,
+        guild_id: Id<GuildMarker>,
+    ) -> Result<PgQueryResult, DatabaseError> {
+        Ok(query!(
+            "DELETE FROM guild_members
+            WHERE guild_id = $1",
+            guild_id.into_inner().cast_signed(),
+        )
+        .execute(&self.pool)
+        .await?)
+    }
     /*
         pub async fn maybe_create_case_for_external_timeout(
             &self,
