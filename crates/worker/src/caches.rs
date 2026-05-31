@@ -3,9 +3,7 @@ use mini_moka::sync::Cache;
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub struct PrefixCache(
-    pub Arc<mini_moka::sync::Cache<Id<GuildMarker>, std::sync::Arc<Vec<String>>>>,
-);
+pub struct PrefixCache(Arc<mini_moka::sync::Cache<Id<GuildMarker>, std::sync::Arc<Vec<String>>>>);
 
 impl PrefixCache {
     pub fn new(cache_capacity: u64) -> Self {
@@ -26,5 +24,10 @@ impl PrefixCache {
         let prefixes = Arc::new(prefixes);
         self.0.insert(guild_id, Arc::clone(&prefixes));
         prefixes
+    }
+
+    /// The next time the prefixes for this guild need to be fetched from the database again.
+    pub fn invalidate_guild_prefixes(&self, guild_id: Id<GuildMarker>) {
+        self.0.invalidate(&guild_id);
     }
 }

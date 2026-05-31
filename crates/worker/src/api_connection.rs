@@ -94,7 +94,7 @@ pub async fn api_connection(url: String, worker_token: String, db: Arc<DatabaseM
                                 );
                             }
                             ApiToWorkerMessage::InvalidateGuildPrefixes(guild_id) => {
-                                db.cached_prefixes.0.invalidate(&guild_id);
+                                db.cached_prefixes.invalidate_guild_prefixes(guild_id);
                             }
                         },
                         Err(e) => {
