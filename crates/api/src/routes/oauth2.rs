@@ -9,9 +9,6 @@ use axum_extra::extract::{
     cookie::{Cookie, SameSite},
 };
 use chrono::{TimeDelta, Utc};
-use fluxer_neptunium::{
-    http::endpoints::ResponseBody, model::gateway::payload::incoming::UserPrivateResponse,
-};
 use oauth2::{AuthorizationCode, CsrfToken, TokenResponse};
 use rand::RngExt;
 use serde::Deserialize;
@@ -85,19 +82,7 @@ async fn callback(
     };
     let bearer_token = bearer_token.access_token().secret();
 
-    // TODO: Don't recreate the client each time here (probably)
-    let client = reqwest::Client::new();
-
-    let user = client
-        .get(format!("{}/users/@me", state.fluxer_api_base))
-        .bearer_auth(bearer_token)
-        .send()
-        .await?
-        .bytes()
-        .await?
-        .to_vec();
-
-    let user: UserPrivateResponse = ResponseBody::deserialize(user)?;
+    let user = state.fluxer_api.get_user(bearer_token).await?;
 
     let session_token: String = state
         .rng

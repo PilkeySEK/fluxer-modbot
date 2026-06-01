@@ -12,6 +12,7 @@ use crate::{
 mod config;
 mod db;
 mod error;
+mod fluxer_api;
 mod middleware;
 #[cfg(feature = "openapi-gen")]
 mod openapi;

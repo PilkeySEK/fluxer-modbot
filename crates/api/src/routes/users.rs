@@ -24,17 +24,10 @@ pub async fn get_user_guilds(
     Extension(session_data): Extension<Arc<SessionData>>,
     State(state): State<AppState>,
 ) -> ApiResult<Json<Vec<Guild>>> {
-    let guilds = <std::vec::Vec<fluxer_neptunium::model::guild::Guild> as fluxer_neptunium::http::endpoints::ResponseBody>::deserialize(
-        state
-            .http_client
-            .get(format!("{}/users/@me/guilds", state.fluxer_api_base))
-            .bearer_auth(&session_data.bearer_token)
-            .send()
-            .await?
-            .bytes()
-            .await?
-            .to_vec(),
-    )?;
+    let guilds = state
+        .fluxer_api
+        .get_user_guilds(&session_data.bearer_token)
+        .await?;
 
     Ok(Json(
         guilds

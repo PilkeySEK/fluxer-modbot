@@ -13,7 +13,9 @@ use oauth2::{
 use rand::rngs::ChaCha20Rng;
 use tokio::sync::{Mutex, RwLock, mpsc::UnboundedSender};
 
-use crate::{config::ApiOauth2Config, db::DbManager, error::ApiError};
+use crate::{
+    config::ApiOauth2Config, db::DbManager, error::ApiError, fluxer_api::FluxerApiManager,
+};
 
 #[derive(Clone)]
 pub struct AppState(pub Arc<InnerAppState>);
@@ -49,7 +51,7 @@ pub struct InnerAppState {
     pub oauth: OAuthClient,
     pub oauth_scopes: Vec<oauth2::Scope>,
     pub oauth_http_client: oauth2::reqwest::Client,
-    pub fluxer_api_base: String,
+    pub fluxer_api: FluxerApiManager,
     pub cookie_key: Key,
     pub rng: Mutex<ChaCha20Rng>,
     pub dashboard_uri: String,
@@ -90,11 +92,13 @@ impl InnerAppState {
             oauth_http_client: oauth2::reqwest::Client::builder()
                 .redirect(Policy::none())
                 .build()?,
-            fluxer_api_base: if let Some(suffix_stripped) = fluxer_api_base.strip_suffix("/") {
-                suffix_stripped.to_string()
-            } else {
-                fluxer_api_base
-            },
+            fluxer_api: FluxerApiManager::new(
+                if let Some(suffix_stripped) = fluxer_api_base.strip_suffix("/") {
+                    suffix_stripped.to_string()
+                } else {
+                    fluxer_api_base
+                },
+            ),
             cookie_key,
             rng: Mutex::new(rand::make_rng()),
             dashboard_uri,
