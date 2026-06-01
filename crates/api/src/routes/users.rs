@@ -18,7 +18,7 @@ pub fn router(state: AppState) -> Router<AppState> {
 #[utoipa::path(
     get,
     path = "/users/@me/guilds",
-    responses((status = OK, body = Vec<api_types::Guild>)),
+    responses((status = 200, body = Vec<api_types::Guild>)),
 )]
 pub async fn get_user_guilds(
     Extension(session_data): Extension<Arc<SessionData>>,

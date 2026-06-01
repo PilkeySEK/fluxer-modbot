@@ -36,7 +36,7 @@ async fn initiate(State(state): State<AppState>, jar: PrivateCookieJar) -> impl 
     let (auth_url, csrf_token) = state
         .oauth
         .authorize_url(CsrfToken::new_random)
-        .add_scopes(state.oauth_scopes.clone().into_iter())
+        .add_scopes(state.oauth_scopes.clone())
         .url();
 
     let csrf_cookie = Cookie::build((CSRF_COOKIE, csrf_token.secret().clone()))

@@ -27,7 +27,7 @@ async fn main() {
         openapi::print_openapi();
         return;
     }
-
+    #[cfg_attr(feature = "openapi-gen", expect(unreachable_code))]
     tracing_subscriber::fmt()
         .with_max_level(Level::DEBUG)
         .init();

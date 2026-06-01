@@ -269,10 +269,6 @@ impl CommandDispatcher {
                         .await?;
                 }
                 Err(CommandError::EventError(e)) => {
-                    #[expect(
-                        irrefutable_let_patterns,
-                        reason = "There might be other EventErrorKinds added."
-                    )]
                     if let EventErrorKind::ClientError(e) = &e.kind
                         && let ClientErrorKind::HttpForbidden(res) = e.kind()
                         && res.code == ApiErrorCode::MissingPermissions

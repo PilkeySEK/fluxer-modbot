@@ -32,7 +32,7 @@ pub fn router(state: AppState) -> Router<AppState> {
             )),
         )
         .route(
-            "/guilds/{guild_id}/config",
+            "/guilds/{guild_id}",
             get(get_guild_config).layer(middleware::from_fn_with_state(
                 state,
                 crate::middleware::session_required,
@@ -43,7 +43,12 @@ pub fn router(state: AppState) -> Router<AppState> {
 #[utoipa::path(
     patch,
     path = "/guilds/{guild_id}",
-    // responses((status = OK)),
+    params(
+        ("guild_id", description = ""),
+    ),
+    responses(
+        (status = 204),
+    )
 )]
 async fn update_guild(
     Path(guild_id): Path<Id<GuildMarker>>,
@@ -64,8 +69,13 @@ async fn update_guild(
 
 #[utoipa::path(
     get,
-    path = "/guilds/{guild_id}/config",
-    // responses((status = OK, body = GuildConfig)),
+    path = "/guilds/{guild_id}",
+    params(
+        ("guild_id", description = ""),
+    ),
+    responses(
+        (status = 200, body = GuildConfig),
+    ),
 )]
 async fn get_guild_config(
     Path(guild_id): Path<Id<GuildMarker>>,

@@ -8,7 +8,10 @@ use crate::db::DatabaseManager;
 
 #[expect(clippy::too_many_lines)]
 pub async fn api_connection(url: String, worker_token: String, db: Arc<DatabaseManager>) {
-    const RETRY_WAIT_TIME: Duration = Duration::from_secs(60);
+    const RETRY_WAIT_TIME: Duration = Duration::from_mins(1);
+
+    // Wait for API to start up, probably
+    tokio::time::sleep(Duration::from_secs(15)).await;
 
     let mut request = match url.into_client_request() {
         Ok(request) => request,

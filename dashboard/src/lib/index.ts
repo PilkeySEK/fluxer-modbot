@@ -1,5 +1,6 @@
 // place files you want to import through the `$lib` alias in this folder.
 
+import { PUBLIC_API_BASE } from '$env/static/public';
 import type { paths } from './api';
 import createClient from 'openapi-fetch';
 
@@ -15,7 +16,7 @@ import createClient from 'openapi-fetch';
 	return json as T;
 }*/
 
-export const api = createClient<paths>({ baseUrl: '/api/' });
+export const api = createClient<paths>({ baseUrl: PUBLIC_API_BASE });
 
 export type ApiRes<P extends keyof paths> = paths[P] extends {
 	get: {

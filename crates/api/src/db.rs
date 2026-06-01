@@ -216,7 +216,7 @@ async fn session_expiry_thread(
         Ok(())
     }
 
-    let mut interval = tokio::time::interval(Duration::from_secs(60));
+    let mut interval = tokio::time::interval(Duration::from_mins(1));
     interval.tick().await;
     loop {
         tokio::select! {

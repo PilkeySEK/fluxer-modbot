@@ -2,6 +2,9 @@
 
 CREATE TABLE guilds (
     guild_id BIGINT PRIMARY KEY,
+    guild_name TEXT NOT NULL,
+    -- NULL if no icon is set
+    guild_icon TEXT,
     -- NULL if default prefix
     command_prefixes TEXT[] NOT NULL,
     -- NULL if no modlog webhook is set
