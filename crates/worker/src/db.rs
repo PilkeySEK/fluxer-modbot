@@ -548,7 +548,6 @@ impl DatabaseManager {
         permissions: Permissions,
         is_guild_owner: bool,
     ) -> Result<PgQueryResult, DatabaseError> {
-        #[expect(clippy::unwrap_used)]
         Ok(query!(
             "INSERT INTO guild_members (guild_id, user_id, permissions, is_guild_owner)
             VALUES ($1, $2, $3, $4)
@@ -556,7 +555,7 @@ impl DatabaseManager {
             SET permissions=$3, is_guild_owner=$4",
             guild_id.into_inner().cast_signed(),
             user_id.into_inner().cast_signed(),
-            serde_json::to_string(&permissions).unwrap(),
+            permissions.bits().to_string(),
             is_guild_owner,
         )
         .execute(&self.pool)
