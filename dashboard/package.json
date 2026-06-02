@@ -39,6 +39,14 @@
 		"vite": "^8.0.14"
 	},
 	"dependencies": {
+		"@steeze-ui/phosphor-icons": "^2.1.1",
+		"@steeze-ui/svelte-icon": "^1.6.2",
 		"zod": "^4.4.3"
+	},
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"@tailwindcss/oxide",
+			"esbuild"
+		]
 	}
 }

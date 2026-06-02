@@ -17,7 +17,7 @@
 	style="min-width: 5em;"
 >
 	{#if !signing_out}
-		Sign out
+        <p class="text-sm font-medium">Sign out</p>
 	{:else}
 		<Loader size={1} />
 	{/if}
