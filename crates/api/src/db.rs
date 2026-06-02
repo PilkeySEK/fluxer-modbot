@@ -14,7 +14,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::db::schema::{GuildConfig, SessionData};
+use crate::db::schema::{GuildConfig, SessionJsonData};
 
 pub struct DbManager {
     pool: sqlx::PgPool,
@@ -78,7 +78,7 @@ impl DbManager {
         session_token: &str,
         user_id: Id<UserMarker>,
         expires_at: chrono::DateTime<chrono::Utc>,
-        data: SessionData,
+        data: SessionJsonData,
     ) -> Result<(), sqlx::Error> {
         #[expect(clippy::unwrap_used, reason = "This will never fail")]
         sqlx::query!(
@@ -94,10 +94,20 @@ impl DbManager {
         Ok(())
     }
 
+    pub async fn delete_dash_session(&self, session_token: &str) -> Result<(), sqlx::Error> {
+        sqlx::query!(
+            "DELETE FROM dash_sessions WHERE session_token = $1",
+            session_token,
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     pub async fn get_session_data_by_session_token(
         &self,
         session_token: &str,
-    ) -> Result<Option<SessionData>, DbError> {
+    ) -> Result<Option<SessionJsonData>, DbError> {
         let json = sqlx::query_scalar!(
             "SELECT data FROM dash_sessions
             WHERE session_token = $1 AND expires_at > NOW()",
@@ -237,9 +247,14 @@ pub mod schema {
     use serde::{Deserialize, Serialize};
 
     #[derive(Serialize, Deserialize)]
-    pub struct SessionData {
+    pub struct SessionJsonData {
         pub bearer_token: String,
         pub user_id: Id<UserMarker>,
+    }
+
+    pub struct SessionData {
+        pub data: SessionJsonData,
+        pub session_token: zeroize::Zeroizing<String>,
     }
 
     #[derive(Serialize, utoipa::ToSchema)]

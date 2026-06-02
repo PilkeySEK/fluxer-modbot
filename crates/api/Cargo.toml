@@ -24,6 +24,7 @@ chrono = "0.4.44"
 utoipa-axum = "0.2.0"
 utoipa = { version = "5.5.0", features = ["axum_extras", "time"] }
 utoipauto = "0.2.0"
+zeroize = "1.8.2"
 
 [lints]
 workspace = true

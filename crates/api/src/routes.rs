@@ -4,6 +4,7 @@ use crate::state::AppState;
 
 pub mod guild_config;
 pub mod oauth2;
+pub mod session;
 pub mod users;
 pub mod worker;
 
@@ -13,6 +14,7 @@ pub fn router(state: AppState) -> Router {
         .merge(users::router(state.clone()))
         .merge(guild_config::router(state.clone()))
         .merge(worker::router(state.clone()))
+        .merge(session::router(state.clone()))
         .route("/", get(|| async { "OK" }))
         .with_state(state)
 }

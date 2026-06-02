@@ -112,6 +112,102 @@
         }
       }
     },
+    "/session/sign-out": {
+      "post": {
+        "tags": [
+          "crate::routes::session"
+        ],
+        "operationId": "sign_out",
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/users/@maybe-me": {
+      "get": {
+        "tags": [
+          "crate::routes::users"
+        ],
+        "operationId": "get_maybe_user_me",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FluxerUser"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/users/@me": {
+      "get": {
+        "tags": [
+          "crate::routes::users"
+        ],
+        "operationId": "get_user_me",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FluxerUser"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
     "/users/@me/guilds": {
       "get": {
         "tags": [
@@ -150,6 +246,41 @@
   },
   "components": {
     "schemas": {
+      "FluxerUser": {
+        "type": "object",
+        "required": [
+          "discriminator",
+          "id",
+          "is_staff",
+          "username"
+        ],
+        "properties": {
+          "avatar": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "discriminator": {
+            "type": "string"
+          },
+          "global_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "is_staff": {
+            "type": "boolean"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
       "Guild": {
         "type": "object",
         "required": [

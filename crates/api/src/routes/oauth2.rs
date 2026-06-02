@@ -15,7 +15,7 @@ use serde::Deserialize;
 
 use crate::{
     SESSION_COOKIE_NAME,
-    db::schema::SessionData,
+    db::schema::SessionJsonData,
     error::{ApiError, ApiResult},
     state::AppState,
 };
@@ -119,7 +119,7 @@ async fn callback(
             &session_token,
             user.id,
             expires_at,
-            SessionData {
+            SessionJsonData {
                 bearer_token: bearer_token.clone(),
                 user_id: user.id,
             },

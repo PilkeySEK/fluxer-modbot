@@ -4,18 +4,6 @@ import { PUBLIC_API_BASE } from '$env/static/public';
 import type { paths } from './api';
 import createClient from 'openapi-fetch';
 
-/*export async function api_request<T>(path: string | URL | Request, init?: RequestInit): Promise<T> {
-	const res = await fetch(path, init);
-
-	const json: T | ApiErrorBody = await res.json();
-
-	if (!res.ok) {
-		throw new Error(`Api error ${res.status}: ${(json as ApiErrorBody).error}`);
-	}
-
-	return json as T;
-}*/
-
 export const api = createClient<paths>({ baseUrl: PUBLIC_API_BASE });
 
 export type ApiRes<P extends keyof paths> = paths[P] extends {
@@ -31,3 +19,7 @@ export type ApiRes<P extends keyof paths> = paths[P] extends {
 }
 	? R
 	: never;
+
+export async function sign_out() {
+	await api.POST('/session/sign-out');
+}

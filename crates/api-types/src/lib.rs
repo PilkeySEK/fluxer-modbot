@@ -1,4 +1,6 @@
-use fluxer_neptunium::model::guild::permissions::Permissions;
+use fluxer_neptunium::model::{
+    gateway::payload::incoming::UserPrivateResponse, guild::permissions::Permissions,
+};
 
 pub mod ws;
 
@@ -17,9 +19,32 @@ pub struct Guild {
     pub online_count: Option<usize>,
 }
 
+#[derive(serde::Serialize, utoipa::ToSchema)]
+pub struct FluxerUser {
+    pub avatar: Option<String>,
+    pub discriminator: String,
+    pub id: String,
+    pub is_staff: bool,
+    pub username: String,
+    pub global_name: Option<String>,
+}
+
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToResponse)]
 pub struct ApiErrorBody {
     pub error: String,
+}
+
+impl From<UserPrivateResponse> for FluxerUser {
+    fn from(value: UserPrivateResponse) -> Self {
+        Self {
+            avatar: value.avatar,
+            discriminator: value.discriminator,
+            id: value.id.to_string(),
+            is_staff: value.is_staff,
+            username: value.username,
+            global_name: value.global_name,
+        }
+    }
 }
 
 /*

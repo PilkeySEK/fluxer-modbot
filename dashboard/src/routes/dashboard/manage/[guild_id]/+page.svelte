@@ -3,19 +3,11 @@
 	import { api, type ApiRes } from '$lib';
 	import { onMount } from 'svelte';
 	import { PUBLIC_FLUXER_MEDIA_PROXY_BASE } from '$env/static/public';
+	import Loader from '$lib/components/Loader.svelte';
+	import RedButton from '$lib/components/RedButton.svelte';
+	import GreenButton from '$lib/components/GreenButton.svelte';
 
 	const { params }: PageProps = $props();
-
-	/*let fetched_guild_data:
-		| {
-				data: undefined;
-				error: string;
-		  }
-		| {
-				error: undefined;
-				data: [ApiRes<'/guilds/{guild_id}'>, ApiRes<'/users/@me/guilds'>[number]];
-		  }
-		| undefined = $state(undefined);*/
 
 	let guild_data:
 		| {
@@ -31,6 +23,7 @@
 		| undefined = $state(undefined);
 
 	let add_prefix_value = $state('');
+	let currently_saving = $state(false);
 
 	onMount(async () => {
 		let guild_config = await api.GET('/guilds/{guild_id}', {
@@ -77,7 +70,10 @@
 </script>
 
 {#if guild_data === undefined}
-	<p>Fetching community data...</p>
+	<div class="flex min-h-screen items-center justify-center gap-2">
+		<Loader size={1.25} />
+		<p>Fetching community data...</p>
+	</div>
 {:else if guild_data.current !== undefined}
 	<!-- FIXME: When the formatter doesn't fail in declaration tags anymore, don't use the deprecated @const anymore -->
 	{@const config = guild_data.current}
@@ -138,6 +134,27 @@
 	</div>
 
 	{#if JSON.stringify(guild_data.fetched[0]) !== JSON.stringify(guild_data.current)}
+		{@const guild_data_not_undefined = guild_data}
+		<div
+			class="fixed right-10 bottom-10 flex items-center gap-3 rounded-lg border-2 border-gray-500 bg-gray-900 p-3"
+		>
+			<p>Changes detected</p>
+			<RedButton
+				onclick={() => {
+					// I hate JavaScript
+					guild_data_not_undefined.current = JSON.parse(
+						JSON.stringify(guild_data_not_undefined.fetched[0])
+					);
+				}}>Undo</RedButton
+			>
+			<GreenButton
+				retain_size
+				onclick={() => {
+					currently_saving = !currently_saving;
+				}}
+				>{#if !currently_saving}Save{:else}<Loader size={1.25} />{/if}</GreenButton
+			>
+		</div>
 		<p>Detected changes</p>
 		<p>
 			fetched: {JSON.stringify(guild_data.fetched[0])}
