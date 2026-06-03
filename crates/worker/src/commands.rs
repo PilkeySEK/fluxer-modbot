@@ -62,10 +62,12 @@ pub struct CommandContext<'a> {
     pub guild_id: Id<GuildMarker>,
     pub default_command_configuration: &'a HashMap<String, Permissions>,
     pub max_command_prefix_len: usize,
+    pub max_command_prefixes: usize,
     pub reaction_handler_tx: &'a UnboundedSender<ReactionsEventHandlerMessage>,
     pub logger: &'a Logger,
     pub webhook_avatar_b64: Option<&'a str>,
     pub bot_id: Id<UserMarker>,
+    pub guild_command_prefixes: Vec<&'a str>,
 }
 
 #[derive(Debug)]

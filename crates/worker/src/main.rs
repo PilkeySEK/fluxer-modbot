@@ -153,6 +153,7 @@ async fn main() {
         db_manager,
         config.default_command_configuration,
         config.max_command_prefix_len,
+        config.max_command_prefixes,
         logger,
         config.webhook_avatar_b64,
         config.bot_id,

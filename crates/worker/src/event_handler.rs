@@ -36,6 +36,7 @@ pub struct BotEventHandler {
     db_manager: Arc<DatabaseManager>,
     default_command_configuration: HashMap<String, Permissions>,
     max_command_prefix_len: usize,
+    max_command_prefixes: usize,
     reactions_event_handler: ReactionsEventHandler,
     logger: Arc<Logger>,
     webhook_avatar_b64: Option<String>,
@@ -50,6 +51,7 @@ impl BotEventHandler {
         db_manager: Arc<DatabaseManager>,
         default_command_configuration: HashMap<String, Permissions>,
         max_command_prefix_len: usize,
+        max_command_prefixes: usize,
         logger: Arc<Logger>,
         webhook_avatar_b64: Option<String>,
         bot_id: Id<UserMarker>,
@@ -61,6 +63,7 @@ impl BotEventHandler {
             db_manager,
             default_command_configuration,
             max_command_prefix_len,
+            max_command_prefixes,
             reactions_event_handler: ReactionsEventHandler::new(),
             logger,
             webhook_avatar_b64,
@@ -105,13 +108,15 @@ impl EventHandler for BotEventHandler {
             };
 
         if let Some(content) = message.content.strip_prefix(&format!("<@{}>", self.bot_id)) {
-            self.execute_command(ctx, &message, guild_id, content).await;
+            self.execute_command(ctx, &message, guild_id, content, guild_prefixes)
+                .await;
             return Ok(());
         }
 
         for prefix in guild_prefixes.iter() {
             if let Some(content) = message.content.strip_prefix(prefix) {
-                self.execute_command(ctx, &message, guild_id, content).await;
+                self.execute_command(ctx, &message, guild_id, content, guild_prefixes)
+                    .await;
                 break;
             }
         }
@@ -358,6 +363,7 @@ impl BotEventHandler {
         message: &Guard<Arc<CachedMessage>>,
         guild_id: Id<GuildMarker>,
         content: &str,
+        guild_command_prefixes: Arc<Vec<String>>,
     ) {
         if let Err(e) = self
             .dispatcher
@@ -371,6 +377,7 @@ impl BotEventHandler {
                     guild_id,
                     default_command_configuration: &self.default_command_configuration,
                     max_command_prefix_len: self.max_command_prefix_len,
+                    max_command_prefixes: self.max_command_prefixes,
                     reaction_handler_tx: &self.reactions_event_handler.tx,
                     logger: &self.logger,
                     webhook_avatar_b64: match &self.webhook_avatar_b64 {
@@ -378,6 +385,10 @@ impl BotEventHandler {
                         None => None,
                     },
                     bot_id: self.bot_id,
+                    guild_command_prefixes: guild_command_prefixes
+                        .iter()
+                        .map(String::as_str)
+                        .collect(),
                 },
                 content.trim_start(),
             )

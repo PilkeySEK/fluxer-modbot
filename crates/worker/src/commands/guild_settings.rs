@@ -48,6 +48,31 @@ pub async fn add_prefix(ctx: CommandContext<'_>, args: &str) -> Result<(), Comma
             .await?;
         return Ok(());
     }
+    if ctx.guild_command_prefixes.contains(&prefix) {
+        ctx.message
+            .reply(
+                ctx.ctx,
+                embed_default_footer!(
+                    ctx,
+                    {
+                        description: "That prefix already exists in this community.",
+                        color: 0xff0000,
+                    }
+                ),
+            )
+            .await?;
+        return Ok(());
+    }
+    if ctx.guild_command_prefixes.len() >= ctx.max_command_prefixes {
+        ctx.message.reply(ctx.ctx, embed_default_footer!(
+            ctx,
+            {
+                description: format!("This community already has the maximum number of prefixes ({}). Remove a prefix first before adding another one.", ctx.max_command_prefixes),
+                color: 0xff0000,
+            }
+        )).await?;
+        return Ok(());
+    }
 
     ctx.db
         .add_guild_command_prefix_upsert(ctx.guild_id, prefix)
