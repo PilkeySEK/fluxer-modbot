@@ -5,7 +5,7 @@
         "dev": "docker compose up -d && concurrently -n bot,api,dashboard -c green,cyan,magenta \"cd crates/worker && cargo run\" \"cd crates/api && cargo run\" \"pnpm --dir dashboard dev\"",
         "install:all": "pnpm install && pnpm install --prefix dashboard",
         "fmt:all": "cd crates && cargo fmt && pnpm --dir ../dashboard run format",
-        "lint:all": "cd bot && cargo clippy && pnpm --dir ../dashboard run lint",
+        "lint:all": "cd crates && cargo clippy && pnpm --dir ../dashboard run lint",
         "sqlx-migrations": "cargo sqlx migrate run",
         "openapi-gen": "cd crates/api && cargo run -F openapi-gen > ../../openapi.json && pnpm --dir ../../dashboard generate-openapi-types"
     },
