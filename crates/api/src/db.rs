@@ -8,13 +8,13 @@ use fluxer_neptunium::model::{
         marker::{GuildMarker, UserMarker},
     },
 };
-use sqlx::PgPool;
+use sqlx::{FromRow, PgPool, QueryBuilder};
 use tokio::{
     sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
     task::JoinHandle,
 };
 
-use crate::db::schema::{GuildConfig, SessionJsonData};
+use crate::db::schema::{GuildConfig, GuildUpdates, SessionJsonData};
 
 pub struct DbManager {
     pool: sqlx::PgPool,
@@ -43,12 +43,6 @@ impl std::fmt::Display for DbError {
     }
 }
 
-/*
-#[derive(Debug, Clone)]
-pub struct PgSessionStore {
-    pool: sqlx::PgPool,
-}
-*/
 impl DbManager {
     pub async fn new(
         url: &str,
@@ -126,11 +120,43 @@ impl DbManager {
         ))
     }
 
-    pub async fn update_guild_prefixes(
+    pub async fn update_guild(
         &self,
         guild_id: Id<GuildMarker>,
-        prefixes: &[String],
-    ) -> Result<(), DbError> {
+        updates: GuildUpdates,
+    ) -> Result<GuildConfig, DbError> {
+        let mut query_builder = QueryBuilder::new("INSERT INTO guilds (guild_id");
+        if updates.command_prefixes.is_some() {
+            query_builder.push(", command_prefixes");
+        }
+        query_builder
+            .push(") VALUES (")
+            .push_bind(guild_id.into_inner().cast_signed());
+        if let Some(command_prefixes) = &updates.command_prefixes {
+            query_builder.push(", ").push_bind(command_prefixes);
+        }
+        query_builder.push(") ON CONFLICT (guild_id) DO UPDATE SET guild_id = $1");
+        if let Some(command_prefixes) = &updates.command_prefixes {
+            query_builder
+                .push(", command_prefixes = ")
+                .push_bind(command_prefixes);
+        }
+        query_builder.push(" RETURNING *");
+
+        let row = query_builder
+            .build()
+            .fetch_one(&self.pool)
+            .await
+            .map_err(DbError::Sqlx)?;
+
+        if let Some(tx) = &*self.api_to_worker_tx.read().await
+            && updates.command_prefixes.is_some()
+        {
+            let _ = tx.send(ApiToWorkerMessage::InvalidateGuildPrefixes(guild_id));
+        }
+
+        GuildConfig::from_row(&row).map_err(DbError::Sqlx)
+        /*
         sqlx::query!(
             "INSERT INTO guilds (guild_id, command_prefixes)
             VALUES ($1, $2::TEXT[])
@@ -155,6 +181,7 @@ impl DbManager {
             let _ = tx.send(ApiToWorkerMessage::InvalidateGuildPrefixes(guild_id));
         }
         Ok(())
+        */
     }
 
     pub async fn get_guild_member_permissions(
@@ -245,6 +272,7 @@ async fn session_expiry_thread(
 pub mod schema {
     use fluxer_neptunium::model::id::{Id, marker::UserMarker};
     use serde::{Deserialize, Serialize};
+    use sqlx::prelude::FromRow;
 
     #[derive(Serialize, Deserialize)]
     pub struct SessionJsonData {
@@ -257,8 +285,13 @@ pub mod schema {
         pub session_token: zeroize::Zeroizing<String>,
     }
 
-    #[derive(Serialize, utoipa::ToSchema)]
+    #[derive(Serialize, utoipa::ToSchema, FromRow)]
     pub struct GuildConfig {
         pub command_prefixes: Vec<String>,
+    }
+
+    #[derive(Deserialize, utoipa::ToSchema)]
+    pub struct GuildUpdates {
+        pub command_prefixes: Option<Vec<String>>,
     }
 }

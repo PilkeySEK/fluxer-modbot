@@ -202,11 +202,13 @@ export interface operations {
             };
         };
         responses: {
-            204: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["GuildConfig"];
+                };
             };
             /** @description Bad request */
             400: {

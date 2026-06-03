@@ -184,19 +184,35 @@
 					>
 					<GreenButton
 						retain_size
-						onclick={() => {
-							currently_saving = !currently_saving;
+						onclick={async () => {
+							currently_saving = true;
+
+							let res = await api.PATCH('/guilds/{guild_id}', {
+								params: {
+									path: {
+										guild_id: params.guild_id,
+									},
+								},
+								body: guild_data_not_undefined.current,
+							});
+
+							if (res.error) {
+								console.error(
+									'Failed to update guild with data: ' +
+										JSON.stringify(guild_data_not_undefined.current)
+								);
+							} else if (!res.data) {
+								console.error('Response data is undefined');
+							} else {
+								guild_data_not_undefined.fetched[0] = res.data;
+								guild_data_not_undefined.current = structuredClone(res.data);
+							}
+							currently_saving = false;
 						}}
 						>{#if !currently_saving}Save{:else}<Loader size={1.25} />{/if}</GreenButton
 					>
 				</div>
 			</div>
-			<p>Detected changes</p>
-			<p>
-				fetched: {JSON.stringify(guild_data.fetched[0])}
-				<br />
-				current: {JSON.stringify(guild_data.current)}
-			</p>
 		{/if}
 	{:else}
 		<p>{guild_data.error}<br />See the browser console for details.</p>

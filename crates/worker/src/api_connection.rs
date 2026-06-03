@@ -2,7 +2,9 @@ use std::{sync::Arc, time::Duration};
 
 use api_types::ws::{ApiToWorkerMessage, WorkerToApiMessage};
 use futures::{SinkExt, TryStreamExt};
-use tokio_tungstenite::tungstenite::{Message, client::IntoClientRequest, http::HeaderValue};
+use tokio_tungstenite::tungstenite::{
+    Message, client::IntoClientRequest, http::HeaderValue, protocol::WebSocketConfig,
+};
 
 use crate::db::DatabaseManager;
 
@@ -11,7 +13,7 @@ pub async fn api_connection(url: String, worker_token: String, db: Arc<DatabaseM
     const RETRY_WAIT_TIME: Duration = Duration::from_mins(1);
 
     // Wait for API to start up, probably
-    tokio::time::sleep(Duration::from_secs(15)).await;
+    tokio::time::sleep(Duration::from_secs(5)).await;
 
     let mut request = match url.into_client_request() {
         Ok(request) => request,
@@ -31,6 +33,7 @@ pub async fn api_connection(url: String, worker_token: String, db: Arc<DatabaseM
         },
     );
     'conn_loop: loop {
+        tracing::debug!("Connecting to API...");
         let mut stream = match tokio_tungstenite::connect_async(request.clone()).await {
             Ok((stream, _response)) => stream,
             Err(e) => {
@@ -44,6 +47,7 @@ pub async fn api_connection(url: String, worker_token: String, db: Arc<DatabaseM
                 continue 'conn_loop;
             }
         };
+        tracing::info!("Connected to database websocket");
         loop {
             match stream.try_next().await {
                 Ok(msg) => {
