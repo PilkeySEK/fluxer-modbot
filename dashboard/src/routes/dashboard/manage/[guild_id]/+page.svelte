@@ -75,7 +75,7 @@
 
 <div class="flex w-full items-center justify-between">
 	<a
-		class="ml-2 flex h-8 items-center justify-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800/80 px-2 text-center text-white transition-colors hover:bg-neutral-800 md:ml-10"
+		class="border-default ml-2 flex h-8 items-center justify-center gap-2 rounded-lg border-neutral-700 bg-neutral-800/80 px-2 text-center text-white transition-colors hover:bg-neutral-800 md:ml-10"
 		href={resolve('/dashboard')}
 	>
 		<Icon src={ArrowLeft} theme="bold" class="size-4 min-h-4 min-w-4" />
@@ -95,7 +95,7 @@
 		{@const config = guild_data.current}
 		{@const data = guild_data.fetched[1]}
 		<div
-			class="relative flex min-w-0 items-center gap-4 rounded-2xl border border-neutral-700 bg-neutral-800/80 p-4"
+			class="border-default relative flex min-w-0 items-center gap-4 rounded-2xl border-neutral-700 bg-neutral-800/80 p-4"
 		>
 			<div
 				class="flex size-14 min-h-14 min-w-14 items-center justify-center rounded-full bg-gray-700/20 text-center md:size-20 md:min-h-20 md:min-w-20"

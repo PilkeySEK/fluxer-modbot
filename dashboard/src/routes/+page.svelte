@@ -48,7 +48,7 @@
 			<h3 class="text-[2em]">Sign in</h3>
 			<p>Sign in with your Fluxer account to access the dashboard:</p>
 			<button
-				class="mt-3 flex items-center gap-3 rounded-xl border-2 border-white bg-[#4641D9] p-2 hover:bg-[#2621B9]"
+				class="border-default mt-3 flex items-center gap-3 rounded-xl border-white bg-[#4641D9] p-2 hover:bg-[#2621B9]"
 				onclick={() => {
 					location.href = '/api/oauth/initiate';
 				}}

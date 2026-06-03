@@ -33,7 +33,7 @@
 </script>
 
 <div
-	class="relative mt-2 mr-2 ml-auto flex min-h-18 w-fit min-w-0 items-center gap-3 rounded-xl border border-neutral-700 bg-neutral-800/80 p-3 md:mt-10 md:mr-10"
+	class="border-default relative mt-2 mr-2 ml-auto flex min-h-18 w-fit min-w-0 items-center gap-3 rounded-xl border-neutral-700 bg-neutral-800/80 p-3 md:mt-10 md:mr-10"
 >
 	{#if me !== undefined}
 		{#if me.data !== undefined}

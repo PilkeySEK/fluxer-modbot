@@ -11,6 +11,6 @@
 </script>
 
 <button
-	class="rounded-sm border-2 border-gray-500 bg-gray-800 pr-2 pl-2 hover:bg-gray-700"
+	class="border-default rounded-sm border-gray-500 bg-gray-800 pr-2 pl-2 hover:bg-gray-700"
 	{...rest}>{@render children()}</button
 >

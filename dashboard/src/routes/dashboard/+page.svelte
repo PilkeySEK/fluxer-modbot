@@ -31,7 +31,7 @@
 			{#each guilds as guild (guild.id)}
 				<a
 					href={resolve(`/dashboard/manage/${guild.id}`)}
-					class="relative flex min-w-0 items-center gap-3 rounded-xl border border-neutral-700 bg-neutral-800/80 p-3 transition-colors hover:bg-neutral-800"
+					class="border-default relative flex min-w-0 items-center gap-3 rounded-xl border-neutral-700 bg-neutral-800/80 p-3 transition-colors hover:bg-neutral-800"
 				>
 					<div
 						class="flex size-8 min-h-8 min-w-8 items-center justify-center rounded-full bg-gray-700/20 text-center md:size-10 md:min-h-10 md:min-w-10"

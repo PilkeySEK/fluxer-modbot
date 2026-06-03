@@ -16,3 +16,7 @@
 button:hover {
 	cursor: pointer;
 }
+
+.border-default {
+	@apply border-2;
+}
