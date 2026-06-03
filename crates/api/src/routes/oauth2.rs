@@ -8,7 +8,7 @@ use axum_extra::extract::{
     PrivateCookieJar,
     cookie::{Cookie, Expiration, SameSite},
 };
-use chrono::{DateTime, TimeDelta, Utc};
+use chrono::{TimeDelta, Utc};
 use oauth2::{AuthorizationCode, CsrfToken, TokenResponse};
 use rand::RngExt;
 use reqwest::StatusCode;
