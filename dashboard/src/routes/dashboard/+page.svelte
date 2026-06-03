@@ -1,10 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { PUBLIC_FLUXER_MEDIA_PROXY_BASE, PUBLIC_FLUXER_STATIC_BASE } from '$env/static/public';
+	import { PUBLIC_FLUXER_MEDIA_PROXY_BASE } from '$env/static/public';
 	import { api, type ApiRes } from '$lib';
 	import Loader from '$lib/components/Loader.svelte';
-	import { onMount } from 'svelte';
-	import SignOutButton from '$lib/components/SignOutButton.svelte';
+	import UserNav from '$lib/components/UserNav.svelte';
 
 	let guilds_promise: Promise<ApiRes<'/users/@me/guilds'> | undefined> = $state(
 		new Promise((fulfill, reject) => {
@@ -16,92 +15,43 @@
 				.catch(reject);
 		})
 	);
-
-	let me:
-		| {
-				error: undefined;
-				data: ApiRes<'/users/@me'>;
-		  }
-		| {
-				error: string;
-				data: undefined;
-		  }
-		| undefined = $state(undefined);
-
-	onMount(async () => {
-		let api_res = await api.GET('/users/@me');
-
-		if (api_res.data !== undefined) {
-			me = {
-				error: undefined,
-				data: api_res.data,
-			};
-		} else {
-			me = {
-				data: undefined,
-				error: 'Failed to fetch the current user.',
-			};
-		}
-	});
 </script>
 
-<div
-	class="mt-5 mr-5 ml-auto flex w-fit items-center gap-3 rounded-sm border-2 border-gray-700 bg-gray-900 p-1"
->
-	{#if me !== undefined}
-		{#if me.data !== undefined}
-			<img
-				src={me.data.avatar
-					? `${PUBLIC_FLUXER_MEDIA_PROXY_BASE}/avatars/${me.data.id}/${me.data.avatar}.webp?size=512`
-					: `${PUBLIC_FLUXER_STATIC_BASE}/avatars/0.png`}
-				alt={me.data.avatar ? 'Your Fluxer avatar' : 'The default Fluxer avatar'}
-				class="h-10 w-10 rounded-full border-2 border-gray-600"
-			/>
-			<p class="text-2xl">
-				{me.data.username}<span class="text-gray-300">#</span>{me.data.discriminator}
-			</p>
-			<SignOutButton />
-		{:else}
-			<p>{me.error} Check the browser console for details.</p>
-		{/if}
-	{:else}
-		<!-- min-h-10 to make the height the same as when it is finished loading (to avoid elements below this one changing their position) -->
-		<div class="min-h-10">
-			<p class="text-2xl">Loading profile...</p>
-		</div>
-	{/if}
-</div>
+<UserNav />
 
-{#await guilds_promise}
-	<div class="mt-10 flex items-center justify-center gap-3">
-		<Loader size={2} />
-		<p class="text-[1.75em]">Fetching your communities...</p>
-	</div>
-{:then guilds}
-	<p class="mt-3 mb-5 text-center text-2xl">Choose a community to manage:</p>
-	<div
-		class="m-10 flex h-fit flex-wrap justify-center gap-2 rounded-md border border-gray-700 bg-gray-900 p-3"
-	>
-		{#each guilds as guild (guild.id)}
-			<a href={resolve(`/dashboard/manage/${guild.id}`)}>
-				<div class="mr-1 ml-1 flex w-[10em] flex-col items-center">
-					{#if guild.icon !== undefined && guild.icon !== null}
-						<img
-							src="https://fluxerusercontent.com/icons/{guild.id}/{guild.icon}.webp?size=240"
-							alt="Community icon"
-							class="h-[10em] w-[10em] rounded-full"
-						/>
-					{:else}
-						<div class="h-[10em] content-center items-center">No icon</div>
-					{/if}
-					<p class="mt-3 text-center">{guild.name}</p>
-				</div>
-			</a>
-		{/each}
-	</div>
-{:catch err}
-	<p>Error: {err}</p>
-{/await}
+<div class="mt-10 flex flex-col gap-10 md:mx-10 mx-2">
+    {#await guilds_promise}
+        <div class="flex items-center gap-4">
+            <Loader size={1.5} />
+            <p class="text-3xl font-bold">Fetching your communities...</p>
+        </div>
+    {:then guilds}
+        <p class="text-3xl font-bold">Your communities</p>
+        <div class="grid lg:grid-cols-5 md:grid-cols-3 grid-cols-2 md:gap-3 gap-2">
+            {#each guilds as guild (guild.id)}
+                <a href={resolve(`/dashboard/manage/${guild.id}`)} class="p-3 rounded-xl flex items-center gap-3 bg-neutral-800/80 hover:bg-neutral-800 transition-colors border border-neutral-700 min-w-0 relative">
+                    <div class="md:size-10 md:min-w-10 md:min-h-10 size-8 min-w-8 min-h-8 rounded-full bg-gray-700/20 flex items-center justify-center text-center">
+                        {#if guild.icon}
+                            <img
+                                src="{PUBLIC_FLUXER_MEDIA_PROXY_BASE}/icons/{guild.id}/{guild.icon}.webp?size=240"
+                                alt="Community icon"
+                                class="w-full h-full rounded-full"
+                            />
+                        {:else}
+                            <p class="text-base font-medium text-muted-foreground">{guild.name.slice(0, 2)}</p>
+                        {/if}
+                    </div>
+                    <div class="flex flex-col gap-1 min-w-0">
+                        <p class="md:text-base text-sm font-medium truncate leading-none">{guild.name}</p>
+                        <p class="text-xs text-neutral-400 truncate leading-none">{guild.id}</p>
+                    </div>
+                </a>
+            {/each}
+        </div>
+    {:catch err}
+        <p>Error: {err}</p>
+    {/await}
+</div>
 
 <!--
 <style>
