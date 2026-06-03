@@ -10,6 +10,9 @@
 	} & HTMLButtonAttributes = $props();
 </script>
 
-<button class="rounded-lg border border-red-600/60 bg-red-600/40 hover:bg-red-600/60 transition-colors h-8 px-2.5" {...rest}>
-    {@render children()}
+<button
+	class="h-8 rounded-lg border-2 border-red-600/60 bg-red-600/40 px-2.5 transition-colors hover:bg-red-600/60"
+	{...rest}
+>
+	{@render children()}
 </button>

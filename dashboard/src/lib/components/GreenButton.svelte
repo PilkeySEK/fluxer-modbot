@@ -28,6 +28,6 @@
 			onclick(event);
 		}
 	}}
-	class="flex items-center justify-center rounded-lg border border-green-500 bg-green-800 transition-colors h-8 px-2.5 hover:bg-green-700"
+	class="flex h-8 items-center justify-center rounded-lg border-2 border-green-500 bg-green-800 px-2.5 transition-colors hover:bg-green-700"
 	{...rest}>{@render children()}</button
 >

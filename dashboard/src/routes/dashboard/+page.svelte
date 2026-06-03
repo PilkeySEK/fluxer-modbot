@@ -19,38 +19,43 @@
 
 <UserNav />
 
-<div class="mt-10 flex flex-col gap-10 md:mx-10 mx-2">
-    {#await guilds_promise}
-        <div class="flex items-center gap-4">
-            <Loader size={1.5} />
-            <p class="text-3xl font-bold">Fetching your communities...</p>
-        </div>
-    {:then guilds}
-        <p class="text-3xl font-bold">Your communities</p>
-        <div class="grid lg:grid-cols-5 md:grid-cols-3 grid-cols-2 md:gap-3 gap-2">
-            {#each guilds as guild (guild.id)}
-                <a href={resolve(`/dashboard/manage/${guild.id}`)} class="p-3 rounded-xl flex items-center gap-3 bg-neutral-800/80 hover:bg-neutral-800 transition-colors border border-neutral-700 min-w-0 relative">
-                    <div class="md:size-10 md:min-w-10 md:min-h-10 size-8 min-w-8 min-h-8 rounded-full bg-gray-700/20 flex items-center justify-center text-center">
-                        {#if guild.icon}
-                            <img
-                                src="{PUBLIC_FLUXER_MEDIA_PROXY_BASE}/icons/{guild.id}/{guild.icon}.webp?size=240"
-                                alt="Community icon"
-                                class="w-full h-full rounded-full"
-                            />
-                        {:else}
-                            <p class="text-base font-medium text-muted-foreground">{guild.name.slice(0, 2)}</p>
-                        {/if}
-                    </div>
-                    <div class="flex flex-col gap-1 min-w-0">
-                        <p class="md:text-base text-sm font-medium truncate leading-none">{guild.name}</p>
-                        <p class="text-xs text-neutral-400 truncate leading-none">{guild.id}</p>
-                    </div>
-                </a>
-            {/each}
-        </div>
-    {:catch err}
-        <p>Error: {err}</p>
-    {/await}
+<div class="mx-2 mt-10 flex flex-col gap-10 md:mx-10">
+	{#await guilds_promise}
+		<div class="flex items-center gap-4">
+			<Loader size={1.5} />
+			<p class="text-3xl font-bold">Fetching your communities...</p>
+		</div>
+	{:then guilds}
+		<p class="text-3xl font-bold">Your communities</p>
+		<div class="grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-3 lg:grid-cols-5">
+			{#each guilds as guild (guild.id)}
+				<a
+					href={resolve(`/dashboard/manage/${guild.id}`)}
+					class="relative flex min-w-0 items-center gap-3 rounded-xl border border-neutral-700 bg-neutral-800/80 p-3 transition-colors hover:bg-neutral-800"
+				>
+					<div
+						class="flex size-8 min-h-8 min-w-8 items-center justify-center rounded-full bg-gray-700/20 text-center md:size-10 md:min-h-10 md:min-w-10"
+					>
+						{#if guild.icon}
+							<img
+								src="{PUBLIC_FLUXER_MEDIA_PROXY_BASE}/icons/{guild.id}/{guild.icon}.webp?size=240"
+								alt="Community icon"
+								class="h-full w-full rounded-full"
+							/>
+						{:else}
+							<p class="text-muted-foreground text-base font-medium">{guild.name.slice(0, 2)}</p>
+						{/if}
+					</div>
+					<div class="flex min-w-0 flex-col gap-1">
+						<p class="truncate text-sm leading-none font-medium md:text-base">{guild.name}</p>
+						<p class="truncate text-xs leading-none text-neutral-400">{guild.id}</p>
+					</div>
+				</a>
+			{/each}
+		</div>
+	{:catch err}
+		<p>Error: {err}</p>
+	{/await}
 </div>
 
 <!--

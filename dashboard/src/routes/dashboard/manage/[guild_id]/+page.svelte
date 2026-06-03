@@ -9,6 +9,7 @@
 	import UserNav from '$lib/components/UserNav.svelte';
 	import { Icon } from '@steeze-ui/svelte-icon';
 	import { ArrowLeft, Plus, WarningCircle, X } from '@steeze-ui/phosphor-icons';
+	import { resolve } from '$app/paths';
 
 	const { params }: PageProps = $props();
 
@@ -72,68 +73,78 @@
 	});
 </script>
 
-<div class="flex items-center justify-between w-full">
-    <a
-        class="md:ml-10 ml-2 flex gap-2 items-center justify-center bg-neutral-800/80 border border-neutral-700 text-white h-8 px-2 text-center rounded-lg hover:bg-neutral-800 transition-colors"
-        href="/dashboard"
-    >
-        <Icon src={ArrowLeft} theme="bold" class="size-4 min-w-4 min-h-4" />
-        <p class="text-sm">Back to dashboard</p>
-    </a>
-    <UserNav />
+<div class="flex w-full items-center justify-between">
+	<a
+		class="ml-2 flex h-8 items-center justify-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800/80 px-2 text-center text-white transition-colors hover:bg-neutral-800 md:ml-10"
+		href={resolve('/dashboard')}
+	>
+		<Icon src={ArrowLeft} theme="bold" class="size-4 min-h-4 min-w-4" />
+		<p class="text-sm">Back to dashboard</p>
+	</a>
+	<UserNav />
 </div>
 
-<div class="mt-10 flex flex-col gap-10 md:mx-10 mx-2">
-    {#if guild_data === undefined}
-        <div class="flex my-auto items-center justify-center gap-2">
-            <Loader size={1.25} />
-            <p>Fetching community data...</p>
-        </div>
-    {:else if guild_data.current !== undefined}
-        <!-- FIXME: When the formatter doesn't fail in declaration tags anymore, don't use the deprecated @const anymore -->
-        {@const config = guild_data.current}
-        {@const data = guild_data.fetched[1]}
-        <div class="p-4 rounded-2xl flex items-center gap-4 bg-neutral-800/80 border border-neutral-700 min-w-0 relative">
-            <div class="md:size-20 md:min-w-20 md:min-h-20 size-14 min-w-14 min-h-14 rounded-full bg-gray-700/20 flex items-center justify-center text-center">
-                {#if data.icon}
-                    <img
-                        src="{PUBLIC_FLUXER_MEDIA_PROXY_BASE}/icons/{data.id}/{data.icon}.webp?size=240"
-                        alt="Community icon"
-                        class="w-full h-full rounded-full"
-                    />
-                {:else}
-                    <p class="text-2xl font-medium text-muted-foreground">{data.name.slice(0, 2)}</p>
-                {/if}
-            </div>
-            <div class="flex flex-col gap-2 min-w-0">
-                <p class="md:text-4xl text-lg font-medium truncate leading-none">{data.name}</p>
-                <p class="text-base text-neutral-400 truncate leading-none">{data.id}</p>
-            </div>
-        </div>
-        <div class="flex flex-col gap-4">
-            <p class="text-lg font-medium">Command prefixes</p>
-            <div class="flex gap-2 flex-wrap">
+<div class="mx-2 mt-10 flex flex-col gap-10 md:mx-10">
+	{#if guild_data === undefined}
+		<div class="my-auto flex items-center justify-center gap-2">
+			<Loader size={1.25} />
+			<p>Fetching community data...</p>
+		</div>
+	{:else if guild_data.current !== undefined}
+		<!-- FIXME: When the formatter doesn't fail in declaration tags anymore, don't use the deprecated @const anymore -->
+		{@const config = guild_data.current}
+		{@const data = guild_data.fetched[1]}
+		<div
+			class="relative flex min-w-0 items-center gap-4 rounded-2xl border border-neutral-700 bg-neutral-800/80 p-4"
+		>
+			<div
+				class="flex size-14 min-h-14 min-w-14 items-center justify-center rounded-full bg-gray-700/20 text-center md:size-20 md:min-h-20 md:min-w-20"
+			>
+				{#if data.icon}
+					<img
+						src="{PUBLIC_FLUXER_MEDIA_PROXY_BASE}/icons/{data.id}/{data.icon}.webp?size=240"
+						alt="Community icon"
+						class="h-full w-full rounded-full"
+					/>
+				{:else}
+					<p class="text-muted-foreground text-2xl font-medium">{data.name.slice(0, 2)}</p>
+				{/if}
+			</div>
+			<div class="flex min-w-0 flex-col gap-2">
+				<p class="truncate text-lg leading-none font-medium md:text-4xl">{data.name}</p>
+				<p class="truncate text-base leading-none text-neutral-400">{data.id}</p>
+			</div>
+		</div>
+		<div class="flex flex-col gap-4">
+			<p class="text-lg font-medium">Command prefixes</p>
+			<div class="flex flex-wrap gap-2">
 				{#each config.command_prefixes as command_prefix, i (command_prefix)}
-                    <div class="flex items-center w-fit h-fit">
-                        <div class="flex items-center justify-center bg-neutral-800 text-white font-mono size-8 text-center rounded-l-lg border border-neutral-700 border-r-0">
-                            <span>{command_prefix}</span>
-                        </div>
-                        <button
-                            class="group flex items-center justify-center bg-neutral-800/80 border border-neutral-700 text-white font-mono size-8 text-center rounded-r-lg hover:bg-neutral-800 transition-colors"
-                            onclick={() => config.command_prefixes.splice(i, 1)}
-                        >
-                            <Icon src={X} theme="bold" class="group-hover:text-rose-500 transition-colors size-4 min-w-4 min-h-4" />
-                        </button>
-                    </div>
+					<div class="flex h-fit w-fit items-center">
+						<div
+							class="flex size-8 items-center justify-center rounded-l-lg border border-r-0 border-neutral-700 bg-neutral-800 text-center font-mono text-white"
+						>
+							<span>{command_prefix}</span>
+						</div>
+						<button
+							class="group flex size-8 items-center justify-center rounded-r-lg border border-neutral-700 bg-neutral-800/80 text-center font-mono text-white transition-colors hover:bg-neutral-800"
+							onclick={() => config.command_prefixes.splice(i, 1)}
+						>
+							<Icon
+								src={X}
+								theme="bold"
+								class="size-4 min-h-4 min-w-4 transition-colors group-hover:text-rose-500"
+							/>
+						</button>
+					</div>
 				{/each}
-                <div class="flex items-center w-fit h-fit">
-                    <input
-                        bind:value={add_prefix_value}
-                        class="flex text-sm items-center justify-center bg-neutral-800 text-white font-mono size-8 text-center rounded-l-lg border border-neutral-700 border-r-0"
-                    />
-                    <button
-                        class="group flex items-center justify-center bg-neutral-800/80 border border-neutral-700 text-white font-mono size-8 text-center rounded-r-lg hover:bg-neutral-800 transition-colors disabled:opacity-80 disabled:pointer-events-none"
-                        disabled={!add_prefix_value.trim()}
+				<div class="flex h-fit w-fit items-center">
+					<input
+						bind:value={add_prefix_value}
+						class="flex size-8 items-center justify-center rounded-l-lg border border-r-0 border-neutral-700 bg-neutral-800 text-center font-mono text-sm text-white"
+					/>
+					<button
+						class="group flex size-8 items-center justify-center rounded-r-lg border border-neutral-700 bg-neutral-800/80 text-center font-mono text-white transition-colors hover:bg-neutral-800 disabled:pointer-events-none disabled:opacity-80"
+						disabled={!add_prefix_value.trim()}
 						onclick={() => {
 							const trimmed = add_prefix_value.trim();
 							if (trimmed === '') {
@@ -145,43 +156,45 @@
 							add_prefix_value = '';
 							config.command_prefixes.push(trimmed);
 						}}
-                    >
-                        <Icon src={Plus} theme="bold" class="size-4 min-w-4 min-h-4" />
-                    </button>
-                </div>
-            </div>
-        </div>
-        {#if JSON.stringify(guild_data.fetched[0]) !== JSON.stringify(guild_data.current)}
-            {@const guild_data_not_undefined = guild_data}
-            <div class="fixed right-10 bottom-10 p-4 rounded-xl flex items-center gap-4 bg-neutral-800/80 border border-neutral-700 min-w-0">
-                <Icon src={WarningCircle} theme="bold" class="text-amber-400 size-5 min-w-5 min-h-5" />
-                <p>Changes detected</p>
-                <div class="flex items-center gap-2 ml-auto">
-                    <RedButton
-                        onclick={() => {
-                            // I hate JavaScript
-                            guild_data_not_undefined.current = JSON.parse(
-                                JSON.stringify(guild_data_not_undefined.fetched[0])
-                            );
-                        }}>Undo</RedButton
-                    >
-                    <GreenButton
-                        retain_size
-                        onclick={() => {
-                            currently_saving = !currently_saving;
-                        }}
-                        >{#if !currently_saving}Save{:else}<Loader size={1.25} />{/if}</GreenButton
-                    >
-                </div>
-            </div>
-            <p>Detected changes</p>
-            <p>
-                fetched: {JSON.stringify(guild_data.fetched[0])}
-                <br />
-                current: {JSON.stringify(guild_data.current)}
-            </p>
-        {/if}
-    {:else}
-        <p>{guild_data.error}<br />See the browser console for details.</p>
-    {/if}
+					>
+						<Icon src={Plus} theme="bold" class="size-4 min-h-4 min-w-4" />
+					</button>
+				</div>
+			</div>
+		</div>
+		{#if JSON.stringify(guild_data.fetched[0]) !== JSON.stringify(guild_data.current)}
+			{@const guild_data_not_undefined = guild_data}
+			<div
+				class="fixed right-10 bottom-10 flex min-w-0 items-center gap-4 rounded-xl border border-neutral-700 bg-neutral-800/80 p-4"
+			>
+				<Icon src={WarningCircle} theme="bold" class="size-5 min-h-5 min-w-5 text-amber-400" />
+				<p>Changes detected</p>
+				<div class="ml-auto flex items-center gap-2">
+					<RedButton
+						onclick={() => {
+							// I hate JavaScript
+							guild_data_not_undefined.current = JSON.parse(
+								JSON.stringify(guild_data_not_undefined.fetched[0])
+							);
+						}}>Undo</RedButton
+					>
+					<GreenButton
+						retain_size
+						onclick={() => {
+							currently_saving = !currently_saving;
+						}}
+						>{#if !currently_saving}Save{:else}<Loader size={1.25} />{/if}</GreenButton
+					>
+				</div>
+			</div>
+			<p>Detected changes</p>
+			<p>
+				fetched: {JSON.stringify(guild_data.fetched[0])}
+				<br />
+				current: {JSON.stringify(guild_data.current)}
+			</p>
+		{/if}
+	{:else}
+		<p>{guild_data.error}<br />See the browser console for details.</p>
+	{/if}
 </div>
