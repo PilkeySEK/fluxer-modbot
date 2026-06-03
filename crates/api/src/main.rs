@@ -74,6 +74,7 @@ async fn main() {
             config.dashboard_uri,
             config.default_command_prefix,
             config.worker_api_token,
+            config.dashboard_base,
         )
         .await
         {

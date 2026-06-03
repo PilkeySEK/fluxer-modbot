@@ -113,7 +113,7 @@
       }
     },
     "/session/sign-out": {
-      "post": {
+      "get": {
         "tags": [
           "crate::routes::session"
         ],

@@ -24,6 +24,7 @@ pub struct ApiConfig {
     pub dashboard_uri: String,
     pub default_command_prefix: String,
     pub worker_api_token: String,
+    pub dashboard_base: String,
 }
 
 impl ApiConfig {

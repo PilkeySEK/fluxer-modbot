@@ -43,9 +43,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["sign_out"];
         put?: never;
-        post: operations["sign_out"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;

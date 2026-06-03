@@ -1,24 +1,11 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
-	import { sign_out } from '$lib';
-	import Loader from './Loader.svelte';
+	import { PUBLIC_API_BASE } from '$env/static/public';
 	import RedButton from './RedButton.svelte';
-
-	let signing_out: boolean = $state(false);
 </script>
 
-<RedButton
-	onclick={async () => {
-		signing_out = true;
-		await sign_out();
-		location.href = resolve('/');
-	}}
-	// Should be about the same as the text here:
-	style="min-width: 5em;"
->
-	{#if !signing_out}
+<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+<a href="{PUBLIC_API_BASE}/session/sign-out">
+	<RedButton>
 		<p class="text-sm font-medium">Sign out</p>
-	{:else}
-		<Loader size={1} />
-	{/if}
-</RedButton>
+	</RedButton>
+</a>

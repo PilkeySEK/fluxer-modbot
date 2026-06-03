@@ -2,8 +2,9 @@ use std::sync::Arc;
 
 use api_types::{FluxerUser, Guild};
 use axum::{Extension, Json, Router, extract::State, middleware, routing::get};
+use axum_extra::extract::PrivateCookieJar;
 
-use crate::{db::schema::SessionData, error::ApiResult, state::AppState};
+use crate::{SESSION_COOKIE_NAME, db::schema::SessionData, error::ApiResult, state::AppState};
 
 pub fn router(state: AppState) -> Router<AppState> {
     Router::new()
@@ -86,13 +87,15 @@ pub async fn get_user_me(
 pub async fn get_maybe_user_me(
     Extension(session_data): Extension<Arc<Option<SessionData>>>,
     State(state): State<AppState>,
-) -> ApiResult<Json<Option<FluxerUser>>> {
+    jar: PrivateCookieJar,
+) -> ApiResult<(PrivateCookieJar, Json<Option<FluxerUser>>)> {
     let Some(session_data) = &*session_data else {
-        return Ok(Json(None));
+        let jar = jar.remove(SESSION_COOKIE_NAME);
+        return Ok((jar, Json(None)));
     };
     let user = state
         .fluxer_api
         .get_user(&session_data.data.bearer_token)
         .await?;
-    Ok(Json(Some(user.into())))
+    Ok((jar, Json(Some(user.into()))))
 }

@@ -58,9 +58,11 @@ pub struct InnerAppState {
     pub http_client: reqwest::Client,
     pub worker_api_token: String,
     pub api_to_worker_tx: Arc<tokio::sync::RwLock<Option<UnboundedSender<ApiToWorkerMessage>>>>,
+    pub dashboard_base: String,
 }
 
 impl InnerAppState {
+    #[expect(clippy::too_many_arguments)]
     pub async fn new(
         oauth_config: ApiOauth2Config,
         database_url: &str,
@@ -69,6 +71,7 @@ impl InnerAppState {
         dashboard_uri: String,
         default_command_prefix: String,
         worker_api_token: String,
+        dashboard_base: String,
     ) -> Result<Self, ApiError> {
         let oauth = BasicClient::new(ClientId::new(oauth_config.client_id))
             .set_client_secret(ClientSecret::new(oauth_config.client_secret))
@@ -105,6 +108,7 @@ impl InnerAppState {
             http_client: reqwest::Client::new(),
             worker_api_token,
             api_to_worker_tx,
+            dashboard_base,
         })
     }
 }
