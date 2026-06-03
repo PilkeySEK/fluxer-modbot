@@ -59,6 +59,8 @@ pub struct InnerAppState {
     pub worker_api_token: String,
     pub api_to_worker_tx: Arc<tokio::sync::RwLock<Option<UnboundedSender<ApiToWorkerMessage>>>>,
     pub dashboard_base: String,
+    pub max_command_prefix_len: usize,
+    pub max_command_prefixes: usize,
 }
 
 impl InnerAppState {
@@ -72,6 +74,8 @@ impl InnerAppState {
         default_command_prefix: String,
         worker_api_token: String,
         dashboard_base: String,
+        max_command_prefix_len: usize,
+        max_command_prefixes: usize,
     ) -> Result<Self, ApiError> {
         let oauth = BasicClient::new(ClientId::new(oauth_config.client_id))
             .set_client_secret(ClientSecret::new(oauth_config.client_secret))
@@ -109,6 +113,8 @@ impl InnerAppState {
             worker_api_token,
             api_to_worker_tx,
             dashboard_base,
+            max_command_prefix_len,
+            max_command_prefixes,
         })
     }
 }

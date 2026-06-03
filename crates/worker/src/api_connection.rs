@@ -2,9 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use api_types::ws::{ApiToWorkerMessage, WorkerToApiMessage};
 use futures::{SinkExt, TryStreamExt};
-use tokio_tungstenite::tungstenite::{
-    Message, client::IntoClientRequest, http::HeaderValue, protocol::WebSocketConfig,
-};
+use tokio_tungstenite::tungstenite::{Message, client::IntoClientRequest, http::HeaderValue};
 
 use crate::db::DatabaseManager;
 

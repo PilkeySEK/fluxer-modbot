@@ -7,6 +7,7 @@ use axum::{
     routing::{get, patch},
 };
 use fluxer_neptunium::model::id::{Id, marker::GuildMarker};
+use reqwest::StatusCode;
 
 use crate::{
     db::schema::{GuildConfig, GuildUpdates, SessionData},
@@ -47,9 +48,35 @@ async fn update_guild(
     Path(guild_id): Path<Id<GuildMarker>>,
     Extension(session_data): Extension<Arc<SessionData>>,
     State(state): State<AppState>,
-    Json(guild_updates): Json<GuildUpdates>,
+    Json(mut guild_updates): Json<GuildUpdates>,
 ) -> ApiResult<Json<GuildConfig>> {
     require_guild_manager(guild_id, &state, &session_data).await?;
+
+    if let Some(command_prefixes) = &mut guild_updates.command_prefixes {
+        if command_prefixes.len() > state.max_command_prefix_len {
+            return Err(crate::error::ApiErrorResponse::StatusCode(
+                StatusCode::BAD_REQUEST,
+            ));
+        }
+        if let Some(trimmed_command_prefixes) = command_prefixes
+            .iter_mut()
+            .map(|prefix| {
+                let trimmed = prefix.trim();
+                if trimmed.is_empty() || trimmed.len() > state.max_command_prefix_len {
+                    None
+                } else {
+                    Some(trimmed.to_owned())
+                }
+            })
+            .collect::<Option<Vec<String>>>()
+        {
+            *command_prefixes = trimmed_command_prefixes;
+        } else {
+            return Err(crate::error::ApiErrorResponse::StatusCode(
+                StatusCode::BAD_REQUEST,
+            ));
+        }
+    }
 
     Ok(Json(state.db.update_guild(guild_id, guild_updates).await?))
 }

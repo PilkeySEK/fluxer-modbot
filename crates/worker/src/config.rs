@@ -42,6 +42,7 @@ pub struct Config {
     pub bot_id: Id<UserMarker>,
     pub worker_api_token: String,
     pub api_worker_ws_url: String,
+    pub max_command_prefixes: usize,
 }
 
 pub enum ConfigLoadError {

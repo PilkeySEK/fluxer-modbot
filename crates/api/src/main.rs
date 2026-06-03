@@ -75,6 +75,8 @@ async fn main() {
             config.default_command_prefix,
             config.worker_api_token,
             config.dashboard_base,
+            config.max_command_prefix_len,
+            config.max_command_prefixes,
         )
         .await
         {

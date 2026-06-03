@@ -2,7 +2,11 @@
 	import type { PageProps } from './$types';
 	import { api, type ApiRes } from '$lib';
 	import { onMount } from 'svelte';
-	import { PUBLIC_FLUXER_MEDIA_PROXY_BASE } from '$env/static/public';
+	import {
+		PUBLIC_FLUXER_MEDIA_PROXY_BASE,
+		PUBLIC_MAX_COMMAND_PREFIX_LEN,
+		PUBLIC_MAX_COMMAND_PREFIXES,
+	} from '$env/static/public';
 	import Loader from '$lib/components/Loader.svelte';
 	import RedButton from '$lib/components/RedButton.svelte';
 	import GreenButton from '$lib/components/GreenButton.svelte';
@@ -29,6 +33,7 @@
 
 	let add_prefix_value = $state('');
 	let currently_saving = $state(false);
+	let add_prefix_button_hovered = $state();
 
 	onMount(async () => {
 		let guild_config = await api.GET('/guilds/{guild_id}', {
@@ -140,29 +145,72 @@
 				<div class="flex h-fit w-fit items-center">
 					<input
 						bind:value={add_prefix_value}
-						class="flex size-8 items-center justify-center rounded-l-lg border border-r-0 border-neutral-700 bg-neutral-800 text-center font-mono text-sm text-white"
+						maxlength={parseInt(PUBLIC_MAX_COMMAND_PREFIX_LEN)}
+						class="flex field-sizing-content h-8 min-w-8 items-center justify-center rounded-l-lg border border-r-0 border-neutral-700 bg-neutral-800 text-center font-mono text-sm text-white"
 					/>
-					<button
-						class="group flex size-8 items-center justify-center rounded-r-lg border border-neutral-700 bg-neutral-800/80 text-center font-mono text-white transition-colors hover:bg-neutral-800 disabled:pointer-events-none disabled:opacity-80"
-						disabled={add_prefix_value.trim() === ''}
-						onclick={() => {
-							const trimmed = add_prefix_value.trim();
-							if (trimmed === '') {
-								return;
-							}
-							if (config.command_prefixes.includes(trimmed)) {
-								return;
-							}
-							add_prefix_value = '';
-							config.command_prefixes.push(trimmed);
-						}}
+					<div
+						id="prefix-input-submit-btn-div"
+						onmouseenter={() => (add_prefix_button_hovered = true)}
+						onmouseleave={() => (add_prefix_button_hovered = false)}
+						role="tooltip"
 					>
-						<Icon
-							src={Plus}
-							theme="bold"
-							class="size-4 min-h-4 min-w-4 group-hover:text-green-500"
-						/>
-					</button>
+						<button
+							data-tooltip="You can only add up to {PUBLIC_MAX_COMMAND_PREFIXES} command prefixes."
+							class="group flex size-8 items-center justify-center rounded-r-lg border border-neutral-700 bg-neutral-800/80 text-center font-mono text-white transition-colors hover:bg-neutral-800 disabled:pointer-events-none disabled:opacity-80"
+							disabled={add_prefix_value.trim() === '' ||
+								config.command_prefixes.length >= parseInt(PUBLIC_MAX_COMMAND_PREFIXES)}
+							onclick={() => {
+								const trimmed = add_prefix_value.trim();
+								if (trimmed === '' || trimmed.length === 0) {
+									return;
+								}
+								if (config.command_prefixes.includes(trimmed)) {
+									return;
+								}
+								if (config.command_prefixes.length >= parseInt(PUBLIC_MAX_COMMAND_PREFIXES)) {
+									return;
+								}
+								if (trimmed.length > parseInt(PUBLIC_MAX_COMMAND_PREFIX_LEN)) {
+									return;
+								}
+								add_prefix_value = '';
+								config.command_prefixes.push(trimmed);
+							}}
+						>
+							<Icon
+								src={Plus}
+								theme="bold"
+								class="size-4 min-h-4 min-w-4 group-hover:text-green-500"
+							/>
+						</button>
+					</div>
+					{#if add_prefix_button_hovered && config.command_prefixes.length >= parseInt(PUBLIC_MAX_COMMAND_PREFIXES)}
+						<style>
+							#prefix-input-submit-btn-div > button {
+								color: var(--color-red-500);
+							}
+							#prefix-input-submit-btn-div:hover > button:disabled::after {
+								content: attr(data-tooltip);
+								border: 2px solid var(--color-red-600);
+								border-radius: var(--radius-md);
+								background-color: #000000;
+								opacity: 1;
+								padding: 0.25rem;
+								margin-bottom: calc(var(--spacing) * -18);
+								font-size: 0.75rem;
+								color: var(--color-white);
+							}
+						</style>
+					{/if}
+					<style>
+						#prefix-input-submit-btn-div > button:disabled::after {
+							display: block;
+							position: absolute;
+							content: '';
+							opacity: 0;
+							transition: opacity 0.35s ease-in-out;
+						}
+					</style>
 				</div>
 			</div>
 		</div>

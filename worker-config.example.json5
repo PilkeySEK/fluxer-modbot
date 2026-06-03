@@ -35,10 +35,11 @@
         // Kick members
         "kick": "2",
     },
-    "max_command_prefix_len": 10,
     "prefix_cache_capacity": 1024,
     "log_level": "debug",
     "bot_id": "1498344999725150830",
     "worker_api_token": "",
     api_worker_ws_url: "ws://localhost:5173/api/worker/ws",
+    "max_command_prefixes": 10,
+    "max_command_prefix_len": 5,
 }

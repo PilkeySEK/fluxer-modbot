@@ -14,4 +14,6 @@
     "dashboard_base": "http://localhost:5173",
     "default_command_prefix": "!",
     "worker_api_token": "",
+    "max_command_prefixes": 10,
+    "max_command_prefix_len": 5,
 }

@@ -25,6 +25,8 @@ pub struct ApiConfig {
     pub default_command_prefix: String,
     pub worker_api_token: String,
     pub dashboard_base: String,
+    pub max_command_prefixes: usize,
+    pub max_command_prefix_len: usize,
 }
 
 impl ApiConfig {
