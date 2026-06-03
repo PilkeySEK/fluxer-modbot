@@ -121,7 +121,7 @@
 				{#each config.command_prefixes as command_prefix, i (command_prefix)}
 					<div class="flex h-fit w-fit items-center">
 						<div
-							class="flex size-8 items-center justify-center rounded-l-lg border border-r-0 border-neutral-700 bg-neutral-800 text-center font-mono text-white"
+							class="flex min-h-8 min-w-8 items-center justify-center rounded-l-lg border border-r-0 border-neutral-700 bg-neutral-800 px-2 text-center font-mono text-white"
 						>
 							<span>{command_prefix}</span>
 						</div>
@@ -144,7 +144,7 @@
 					/>
 					<button
 						class="group flex size-8 items-center justify-center rounded-r-lg border border-neutral-700 bg-neutral-800/80 text-center font-mono text-white transition-colors hover:bg-neutral-800 disabled:pointer-events-none disabled:opacity-80"
-						disabled={!add_prefix_value.trim()}
+						disabled={add_prefix_value.trim() === ''}
 						onclick={() => {
 							const trimmed = add_prefix_value.trim();
 							if (trimmed === '') {
@@ -157,7 +157,11 @@
 							config.command_prefixes.push(trimmed);
 						}}
 					>
-						<Icon src={Plus} theme="bold" class="size-4 min-h-4 min-w-4" />
+						<Icon
+							src={Plus}
+							theme="bold"
+							class="size-4 min-h-4 min-w-4 group-hover:text-green-500"
+						/>
 					</button>
 				</div>
 			</div>
