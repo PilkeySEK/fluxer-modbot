@@ -10,6 +10,7 @@
 	import { Icon } from '@steeze-ui/svelte-icon';
 	import { ArrowLeft, Plus, WarningCircle, X } from '@steeze-ui/phosphor-icons';
 	import { resolve } from '$app/paths';
+	import NormalButton from '$lib/components/NormalButton.svelte';
 
 	const { params }: PageProps = $props();
 
@@ -74,12 +75,11 @@
 </script>
 
 <div class="flex w-full items-center justify-between">
-	<a
-		class="border-default ml-2 flex h-8 items-center justify-center gap-2 rounded-lg border-neutral-700 bg-neutral-800/80 px-2 text-center text-white transition-colors hover:bg-neutral-800 md:ml-10"
-		href={resolve('/dashboard')}
-	>
-		<Icon src={ArrowLeft} theme="bold" class="size-4 min-h-4 min-w-4" />
-		<p class="text-sm">Back to dashboard</p>
+	<a class="ml-2 md:ml-10" href={resolve('/dashboard')}>
+		<NormalButton class="flex items-center gap-2">
+			<Icon src={ArrowLeft} theme="bold" class="size-4 min-h-4 min-w-4" />
+			<p class="text-sm">Back to dashboard</p>
+		</NormalButton>
 	</a>
 	<UserNav />
 </div>
