@@ -45,7 +45,7 @@ pub async fn api_connection(url: String, worker_token: String, db: Arc<DatabaseM
                 continue 'conn_loop;
             }
         };
-        tracing::info!("Connected to database websocket");
+        tracing::info!("Connected to API");
         loop {
             match stream.try_next().await {
                 Ok(msg) => {
