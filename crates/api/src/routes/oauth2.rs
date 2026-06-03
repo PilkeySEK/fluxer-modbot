@@ -6,12 +6,14 @@ use axum::{
 };
 use axum_extra::extract::{
     PrivateCookieJar,
-    cookie::{Cookie, SameSite},
+    cookie::{Cookie, Expiration, SameSite},
 };
-use chrono::{TimeDelta, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use oauth2::{AuthorizationCode, CsrfToken, TokenResponse};
 use rand::RngExt;
+use reqwest::StatusCode;
 use serde::Deserialize;
+use time::OffsetDateTime;
 
 use crate::{
     SESSION_COOKIE_NAME,
@@ -93,25 +95,7 @@ async fn callback(
         .map(char::from)
         .collect();
 
-    let expiry = TimeDelta::hours(24);
-    let Ok(std_expiry) = expiry.to_std() else {
-        return Err(ApiError::GenericError(format!(
-            "Time conversion to std out of range where delta={expiry}"
-        ))
-        .into());
-    };
-    let Ok(time_expiry) = std_expiry.try_into() else {
-        return Err(ApiError::GenericError(format!(
-            "Time conversion to from StdDuration to time::Duration out of range where std={std_expiry:?}"
-        )).into());
-    };
-    let now = Utc::now();
-    let Some(expires_at) = now.checked_add_signed(expiry) else {
-        return Err(ApiError::GenericError(format!(
-            "Time addition out of range where now={now} and delta={expiry}"
-        ))
-        .into());
-    };
+    let expires_at = Utc::now() + TimeDelta::hours(24);
 
     state
         .db
@@ -130,7 +114,21 @@ async fn callback(
         .http_only(true)
         .same_site(SameSite::Lax)
         .path("/")
-        .max_age(time_expiry)
+        .expires(Expiration::DateTime(
+            match OffsetDateTime::from_unix_timestamp(expires_at.timestamp()) {
+                Ok(timestamp) => timestamp,
+                Err(e) => {
+                    tracing::error!(
+                        "Error converting {:?} to chrono DateTime: {}",
+                        expires_at,
+                        e
+                    );
+                    return Err(crate::error::ApiErrorResponse::StatusCode(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                    ));
+                }
+            },
+        ))
         .build();
 
     Ok((jar.add(session_cookie), Redirect::to(&state.dashboard_uri)))
