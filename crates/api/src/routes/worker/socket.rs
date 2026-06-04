@@ -92,6 +92,7 @@ pub(super) async fn handle_ws(
                     WorkerToApiMessage::HeartbeatRes => {
                         expecting_heartbeat_res = false;
                     }
+                    WorkerToApiMessage::Connected => {}
                     WorkerToApiMessage::HeartbeatReq => {
                         if socket.send(ApiToWorkerMessage::HeartbeatRes).await.is_break() {
                             break;
@@ -99,6 +100,9 @@ pub(super) async fn handle_ws(
                     }
                     WorkerToApiMessage::InvalidateCachedGuildPermissions(guild_id) => {
                         state.fluxer_api.invalidate_cached_guild_permissions(guild_id);
+                    }
+                    WorkerToApiMessage::InvalidateCachedGuildPermissionsForUser(guild_id, user_id) => {
+                        state.fluxer_api.invalidate_cached_guild_permissions_for_user(guild_id, user_id).await;
                     }
                 }
             },

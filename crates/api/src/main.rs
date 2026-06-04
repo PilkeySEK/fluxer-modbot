@@ -34,7 +34,7 @@ async fn main() {
         .init();
 
     let config_file_path =
-        std::env::var("API_CONFIG_PATH").unwrap_or_else(|_| String::from("../../api-config.json5"));
+        std::env::var("API_CONFIG_PATH").unwrap_or_else(|_| String::from("../api-config.json5"));
     let config = match ApiConfig::load(config_file_path) {
         Ok(config) => config,
         Err(e) => {

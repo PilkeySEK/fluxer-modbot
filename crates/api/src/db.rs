@@ -1,12 +1,9 @@
 use std::{num::ParseIntError, sync::Arc, time::Duration};
 
 use api_types::ws::ApiToWorkerMessage;
-use fluxer_neptunium::model::{
-    guild::permissions::Permissions,
-    id::{
-        Id,
-        marker::{GuildMarker, UserMarker},
-    },
+use fluxer_neptunium::model::id::{
+    Id,
+    marker::{GuildMarker, UserMarker},
 };
 use sqlx::{FromRow, PgPool, QueryBuilder};
 use tokio::{
@@ -182,31 +179,6 @@ impl DbManager {
         }
         Ok(())
         */
-    }
-
-    pub async fn get_guild_member_permissions(
-        &self,
-        guild_id: Id<GuildMarker>,
-        user_id: Id<UserMarker>,
-    ) -> Result<Option<(Permissions, bool)>, DbError> {
-        let record = sqlx::query!(
-            "SELECT permissions, is_guild_owner FROM guild_members
-            WHERE guild_id = $1 AND user_id = $2",
-            guild_id.into_inner().cast_signed(),
-            user_id.into_inner().cast_signed(),
-        )
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(DbError::Sqlx)?;
-
-        let Some(record) = record else {
-            return Ok(None);
-        };
-
-        Ok(Some((
-            Permissions::from_bits_truncate(record.permissions.parse().map_err(DbError::ParseInt)?),
-            record.is_guild_owner,
-        )))
     }
 
     pub async fn get_guild_config_upsert(

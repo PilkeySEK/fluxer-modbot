@@ -53,6 +53,23 @@ pub async fn api_connection(
             }
         };
         tracing::info!("Connected to API");
+        #[expect(clippy::unwrap_used)]
+        if let Err(e) = stream
+            .send(Message::Text(
+                serde_json::to_string(&WorkerToApiMessage::Connected)
+                    .unwrap()
+                    .into(),
+            ))
+            .await
+        {
+            tracing::error!(
+                "Error sending first socket message, reconnecting in {} seconds: {}",
+                RETRY_WAIT_TIME.as_secs(),
+                e
+            );
+            tokio::time::sleep(RETRY_WAIT_TIME).await;
+            continue 'conn_loop;
+        }
         loop {
             tokio::select! {
                 next = stream.try_next() => {

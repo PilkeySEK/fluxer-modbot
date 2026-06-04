@@ -71,7 +71,10 @@ impl FluxerApiManager {
     }
 
     pub fn set_cache_enabled(&self, enabled: bool) {
-        if !enabled {
+        if enabled {
+            tracing::debug!("Enabling guild member permissions cache");
+        } else {
+            tracing::debug!("Disabling guild member permissions cache");
             self.guild_member_permissions.invalidate_all();
         }
         self.cache_enabled.store(enabled, Ordering::Release);
@@ -129,5 +132,15 @@ impl FluxerApiManager {
         {
             tracing::error!("invalidate_entries_if returned error: {e}");
         }
+    }
+
+    pub async fn invalidate_cached_guild_permissions_for_user(
+        &self,
+        guild_id: Id<GuildMarker>,
+        user_id: Id<UserMarker>,
+    ) {
+        self.guild_member_permissions
+            .invalidate(&(guild_id, user_id))
+            .await;
     }
 }

@@ -76,7 +76,7 @@ static SQIDS_NO_BLOCKLIST: LazyLock<Sqids> = LazyLock::new(|| {
 #[tokio::main]
 async fn main() {
     let config_file_path =
-        env::var("CONFIG_FILE_PATH").unwrap_or_else(|_| String::from("../../worker-config.json5"));
+        env::var("CONFIG_FILE_PATH").unwrap_or_else(|_| String::from("../worker-config.json5"));
 
     let config = match Config::load(&config_file_path) {
         Ok(config) => config,

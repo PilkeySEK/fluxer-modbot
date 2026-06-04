@@ -10,6 +10,7 @@ pub const WORKER_API_HEARTBEAT_INTERVAL: Duration = Duration::from_secs(60);
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(tag = "t", content = "c")]
 pub enum WorkerToApiMessage {
+    Connected,
     HeartbeatReq,
     HeartbeatRes,
     InvalidateCachedGuildPermissions(Id<GuildMarker>),
