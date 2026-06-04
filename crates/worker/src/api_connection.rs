@@ -18,7 +18,7 @@ pub async fn api_connection(
     mut rx: tokio::sync::mpsc::UnboundedReceiver<WorkerToApiMessage>,
 ) {
     // Wait for API to start up, probably
-    tokio::time::sleep(Duration::from_secs(5)).await;
+    tokio::time::sleep(Duration::from_secs(10)).await;
 
     let mut request = match url.into_client_request() {
         Ok(request) => request,
