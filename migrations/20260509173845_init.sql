@@ -14,14 +14,6 @@ CREATE TABLE guilds (
 
 CREATE UNIQUE INDEX idx_guilds ON guilds (guild_id);
 
--- CREATE TABLE guild_permissions (
---     guild_id BIGINT NOT NULL,
---     entity_id BIGINT NOT NULL,
---     -- "user" or "role"
---     entity_type TEXT NOT NULL,
---     permissions TEXT[] NOT NULL
--- );
-
 CREATE TABLE guild_command_configuration (
     guild_id BIGINT NOT NULL,
     command_name TEXT NOT NULL,
@@ -65,17 +57,6 @@ CREATE UNIQUE INDEX idx_guild_moderation_cases_by_guild_id_and_case_id ON guild_
 CREATE INDEX idx_guild_moderation_cases_by_guild_id_and_target_id ON guild_moderation_cases (guild_id, target_id);
 CREATE INDEX idx_guild_moderation_cases_by_guild_id_and_moderator_id ON guild_moderation_cases (guild_id, moderator_id);
 
--- CREATE TABLE dashboard_oauth_sessions (
---     -- The Fluxer user ID
---     user_id BIGINT NOT NULL,
---     session_id UUID NOT NULL PRIMARY KEY,
---     created_at TIMESTAMPTZ DEFAULT NOW(),
---     expires_at TIMESTAMPTZ NOT NULL,
---     data JSONB NOT NULL
--- );
--- 
--- CREATE INDEX idx_dashboard_oauth_sessions_by_expires_at ON dashboard_oauth_sessions (expires_at);
-
 CREATE TABLE dash_sessions (
     session_token TEXT PRIMARY KEY,
     user_id BIGINT NOT NULL,
@@ -86,14 +67,3 @@ CREATE TABLE dash_sessions (
 
 CREATE INDEX idx_dash_sessions_expires_at ON dash_sessions (expires_at);
 CREATE INDEX idx_dash_sessions_session_token ON dash_sessions (session_token);
-
-CREATE TABLE guild_members (
-    guild_id BIGINT NOT NULL,
-    user_id BIGINT NOT NULL,
-    -- Fluxer permissions
-    permissions TEXT NOT NULL,
-    is_guild_owner BOOLEAN NOT NULL,
-    PRIMARY KEY (guild_id, user_id)
-);
-
-CREATE UNIQUE INDEX idx_guild_members_by_guild_id_and_user_id ON guild_members (guild_id, user_id);

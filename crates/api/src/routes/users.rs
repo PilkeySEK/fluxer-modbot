@@ -42,7 +42,7 @@ pub async fn get_user_guilds(
 ) -> ApiResult<Json<Vec<Guild>>> {
     let guilds = state
         .fluxer_api
-        .get_user_guilds(&session_data.data.bearer_token)
+        .get_user_guilds(session_data.data.user_id, &session_data.data.bearer_token)
         .await?;
 
     Ok(Json(

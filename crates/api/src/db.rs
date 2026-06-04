@@ -152,7 +152,7 @@ impl DbManager {
         if let Some(tx) = &*self.api_to_worker_tx.read().await
             && updates.command_prefixes.is_some()
         {
-            let _ = tx.send(ApiToWorkerMessage::InvalidateGuildPrefixes(guild_id));
+            let _ = tx.send(ApiToWorkerMessage::InvalidateCachedGuildPrefixes(guild_id));
         }
 
         GuildConfig::from_row(&row).map_err(DbError::Sqlx)

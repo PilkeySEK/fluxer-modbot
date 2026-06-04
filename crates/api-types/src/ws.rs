@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use fluxer_neptunium::model::id::{Id, marker::GuildMarker};
+use fluxer_neptunium::model::id::{
+    Id,
+    marker::{GuildMarker, UserMarker},
+};
 
 pub const WORKER_API_HEARTBEAT_INTERVAL: Duration = Duration::from_secs(60);
 
@@ -9,6 +12,8 @@ pub const WORKER_API_HEARTBEAT_INTERVAL: Duration = Duration::from_secs(60);
 pub enum WorkerToApiMessage {
     HeartbeatReq,
     HeartbeatRes,
+    InvalidateCachedGuildPermissions(Id<GuildMarker>),
+    InvalidateCachedGuildPermissionsForUser(Id<GuildMarker>, Id<UserMarker>),
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -16,7 +21,7 @@ pub enum WorkerToApiMessage {
 pub enum ApiToWorkerMessage {
     HeartbeatReq,
     HeartbeatRes,
-    InvalidateGuildPrefixes(Id<GuildMarker>),
+    InvalidateCachedGuildPrefixes(Id<GuildMarker>),
 }
 
 #[repr(u16)]

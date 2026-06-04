@@ -1,17 +1,16 @@
 use std::{collections::HashMap, sync::Arc, time::SystemTime};
 
-use api_types::is_guild_manager_permissions;
+use api_types::ws::WorkerToApiMessage;
 use fluxer_neptunium::{
     async_trait,
-    cache::{Cached, CachedGuildMember, CachedMessage, Guard},
+    cache::{Cached, CachedGuildMember, CachedGuildRole, CachedMessage, Guard},
     cached_payload::{
-        CachedGuildCreate, CachedMessageCreate, CachedMessageReactionAdd, CachedReady,
+        CachedGuildRoleUpdateBulk, CachedMessageCreate, CachedMessageReactionAdd, CachedReady,
     },
     events::{EventError, EventHandler, context::Context},
-    exts::{ChannelExt, GuildExt, GuildMemberExt},
-    http::endpoints::guild::SearchGuildMembersBody,
+    exts::ChannelExt,
     model::{
-        gateway::payload::incoming::GuildMemberRemove,
+        gateway::payload::incoming::{GuildMemberRemove, GuildRoleDelete},
         guild::permissions::Permissions,
         id::{
             Id,
@@ -19,6 +18,7 @@ use fluxer_neptunium::{
         },
     },
 };
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     commands::{CommandContext, CommandDispatcher},
@@ -41,6 +41,7 @@ pub struct BotEventHandler {
     logger: Arc<Logger>,
     webhook_avatar_b64: Option<String>,
     bot_id: Id<UserMarker>,
+    api_connection_tx: UnboundedSender<WorkerToApiMessage>,
 }
 
 impl BotEventHandler {
@@ -55,6 +56,7 @@ impl BotEventHandler {
         logger: Arc<Logger>,
         webhook_avatar_b64: Option<String>,
         bot_id: Id<UserMarker>,
+        api_connection_tx: UnboundedSender<WorkerToApiMessage>,
     ) -> Self {
         Self {
             dispatcher,
@@ -68,6 +70,7 @@ impl BotEventHandler {
             logger,
             webhook_avatar_b64,
             bot_id,
+            api_connection_tx,
         }
     }
 }
@@ -136,19 +139,38 @@ impl EventHandler for BotEventHandler {
 
     async fn on_guild_member_add(
         &self,
-        ctx: Context,
+        _ctx: Context,
         member: Cached<CachedGuildMember>,
     ) -> Result<(), EventError> {
-        update_guild_member_in_db(&self.db_manager, &ctx, &member).await?;
+        if self
+            .api_connection_tx
+            .send(WorkerToApiMessage::InvalidateCachedGuildPermissionsForUser(
+                member.guild_id,
+                member.id,
+            ))
+            .is_err()
+        {
+            tracing::error!("API connection sender closed");
+        }
+
         Ok(())
     }
 
     async fn on_guild_member_update(
         &self,
-        ctx: Context,
+        _ctx: Context,
         member: Cached<CachedGuildMember>,
     ) -> Result<(), EventError> {
-        update_guild_member_in_db(&self.db_manager, &ctx, &member).await?;
+        if self
+            .api_connection_tx
+            .send(WorkerToApiMessage::InvalidateCachedGuildPermissionsForUser(
+                member.guild_id,
+                member.id,
+            ))
+            .is_err()
+        {
+            tracing::error!("API connection sender closed");
+        }
 
         Ok(())
     }
@@ -158,110 +180,94 @@ impl EventHandler for BotEventHandler {
         _ctx: Context,
         event: Arc<GuildMemberRemove>,
     ) -> Result<(), EventError> {
-        if let Err(e) = self
-            .db_manager
-            .remove_guild_member(event.guild_id, event.user.id)
-            .await
-        {
-            tracing::error!(
-                "DB Error removing guild member {} in guild {}: {}",
-                event.user.id,
+        if self
+            .api_connection_tx
+            .send(WorkerToApiMessage::InvalidateCachedGuildPermissionsForUser(
                 event.guild_id,
-                e
-            );
-        }
-
-        Ok(())
-    }
-
-    // When the bot is added to a guild a guild create event is sent by the gateway
-    async fn on_guild_create(
-        &self,
-        ctx: Context,
-        event: Arc<CachedGuildCreate>,
-    ) -> Result<(), EventError> {
-        let me = event.guild.get_current_member(&ctx).await?;
-        if !me.has_permissions(&ctx, Permissions::MANAGE_GUILD).await? {
-            tracing::warn!(
-                "I do not have MANAGE_GUILD in {} (\"{}\"), so I can't search members.",
-                event.guild.id,
-                event.guild.name
-            );
-            return Ok(());
-        }
-        let removed_members = match self
-            .db_manager
-            .remove_all_guild_members(event.guild.id)
-            .await
+                event.user.id,
+            ))
+            .is_err()
         {
-            Err(e) => {
-                tracing::error!("Error removing all guild members in DB: {e}");
-                return Ok(());
-            }
-            Ok(query_result) => query_result.rows_affected(),
-        };
-        // for member in &event.members {
-        //     update_guild_member_in_db(&self.db_manager, &ctx, member).await?;
-        // }
-
-        // Complicated way of getting users which have a manager role and adding those users to the DB
-
-        let guild_owner = event.guild.get_member(&ctx, event.guild.owner_id).await?;
-        update_guild_member_in_db(&self.db_manager, &ctx, &guild_owner).await?;
-
-        let manager_roles = &event
-            .guild
-            .list_roles(&ctx)
-            .await?
-            .into_iter()
-            .filter_map(|role| {
-                if is_guild_manager_permissions(role.permissions) {
-                    Some(role.id)
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-        let members = event
-            .guild
-            .search_members_all(
-                &ctx,
-                SearchGuildMembersBody::builder()
-                    .role_ids(manager_roles.clone())
-                    .build(),
-            )
-            .await?;
-        let members_len = members.len();
-        for member in members {
-            let member = event.guild.get_member(&ctx, member.user_id).await?;
-            update_guild_member_in_db(&self.db_manager, &ctx, &member).await?;
+            tracing::error!("API connection sender closed");
         }
-        tracing::debug!(
-            "Synced {members_len} guild managers with the database (removed {removed_members} before)."
-        );
 
         Ok(())
     }
 
-    // async fn on_guild_member_update(
-    //     &self,
-    //     ctx: Context,
-    //     member: Cached<CachedGuildMember>,
-    // ) -> Result<(), EventError> {
-    //     member.refresh();
-    //
-    //     let mute_case = self
-    //         .db_manager
-    //         .close_and_get_latest_open_moderation_case_by_kind_and_user(
-    //             member.guild_id,
-    //             member.id,
-    //             ModerationKind::Mute,
-    //             reason,
-    //             closed_by,
-    //         );
-    //
-    //     Ok(())
-    // }
+    async fn on_guild_role_create(
+        &self,
+        _ctx: Context,
+        role: Cached<CachedGuildRole>,
+    ) -> Result<(), EventError> {
+        if self
+            .api_connection_tx
+            .send(WorkerToApiMessage::InvalidateCachedGuildPermissions(
+                role.guild_id,
+            ))
+            .is_err()
+        {
+            tracing::error!("API connection sender closed");
+        }
+
+        Ok(())
+    }
+
+    async fn on_guild_role_update(
+        &self,
+        _ctx: Context,
+        role: Cached<CachedGuildRole>,
+    ) -> Result<(), EventError> {
+        if self
+            .api_connection_tx
+            .send(WorkerToApiMessage::InvalidateCachedGuildPermissions(
+                role.guild_id,
+            ))
+            .is_err()
+        {
+            tracing::error!("API connection sender closed");
+        }
+
+        Ok(())
+    }
+
+    async fn on_guild_role_update_bulk(
+        &self,
+        _ctx: Context,
+        event: Arc<CachedGuildRoleUpdateBulk>,
+    ) -> Result<(), EventError> {
+        for role in &event.roles {
+            if self
+                .api_connection_tx
+                .send(WorkerToApiMessage::InvalidateCachedGuildPermissions(
+                    role.guild_id,
+                ))
+                .is_err()
+            {
+                tracing::error!("API connection sender closed");
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn on_guild_role_delete(
+        &self,
+        _ctx: Context,
+        role: Arc<GuildRoleDelete>,
+    ) -> Result<(), EventError> {
+        if self
+            .api_connection_tx
+            .send(WorkerToApiMessage::InvalidateCachedGuildPermissions(
+                role.guild_id,
+            ))
+            .is_err()
+        {
+            tracing::error!("API connection sender closed");
+        }
+
+        Ok(())
+    }
+
     /*
         async fn on_guild_audit_log_entry_create(
             &self,
@@ -324,36 +330,6 @@ impl EventHandler for BotEventHandler {
             Ok(())
         }
     */
-}
-
-async fn update_guild_member_in_db(
-    db_manager: &DatabaseManager,
-    ctx: &Context,
-    member: &CachedGuildMember,
-) -> Result<(), EventError> {
-    let permissions = member.get_permissions(ctx).await?;
-
-    // Only fetches each guild once because of caching
-    let guild_owner = member.guild_id.fetch(ctx).await?.owner_id;
-
-    if let Err(e) = db_manager
-        .update_or_insert_guild_member(
-            member.guild_id,
-            member.id,
-            permissions,
-            member.id == guild_owner,
-        )
-        .await
-    {
-        tracing::error!(
-            "DB Error updating or inserting guild member {} in guild {}: {}",
-            member.id,
-            member.guild_id,
-            e
-        );
-    }
-
-    Ok(())
 }
 
 impl BotEventHandler {

@@ -11,6 +11,7 @@ use fluxer_neptunium::{
 };
 use pretty_duration::{PrettyDurationOptions, PrettyDurationOutputFormat};
 use sqids::{Sqids, SqidsBuilder};
+use tokio::sync::mpsc::unbounded_channel;
 use tracing::Level;
 
 use crate::{
@@ -133,10 +134,12 @@ async fn main() {
 
     let db_manager = Arc::new(db_manager);
 
+    let (api_connection_tx, api_connection_rx) = unbounded_channel();
     tokio::spawn(api_connection(
         config.api_worker_ws_url,
         config.worker_api_token,
         Arc::clone(&db_manager),
+        api_connection_rx,
     ));
 
     tokio::spawn(case_expiry_listener(
@@ -157,6 +160,7 @@ async fn main() {
         logger,
         config.webhook_avatar_b64,
         config.bot_id,
+        api_connection_tx,
     );
 
     client.register_event_handler(event_handler);

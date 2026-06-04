@@ -1,11 +1,8 @@
 use std::sync::Arc;
 
-use fluxer_neptunium::model::{
-    guild::permissions::Permissions,
-    id::{
-        Id,
-        marker::{ChannelMarker, GuildMarker, UserMarker, WebhookMarker},
-    },
+use fluxer_neptunium::model::id::{
+    Id,
+    marker::{ChannelMarker, GuildMarker, UserMarker, WebhookMarker},
 };
 use sqlx::{
     PgPool, QueryBuilder,
@@ -541,54 +538,6 @@ impl DatabaseManager {
         .await?)
     }
 
-    pub async fn update_or_insert_guild_member(
-        &self,
-        guild_id: Id<GuildMarker>,
-        user_id: Id<UserMarker>,
-        permissions: Permissions,
-        is_guild_owner: bool,
-    ) -> Result<PgQueryResult, DatabaseError> {
-        Ok(query!(
-            "INSERT INTO guild_members (guild_id, user_id, permissions, is_guild_owner)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT (guild_id, user_id) DO UPDATE
-            SET permissions=$3, is_guild_owner=$4",
-            guild_id.into_inner().cast_signed(),
-            user_id.into_inner().cast_signed(),
-            permissions.bits().to_string(),
-            is_guild_owner,
-        )
-        .execute(&self.pool)
-        .await?)
-    }
-
-    pub async fn remove_guild_member(
-        &self,
-        guild_id: Id<GuildMarker>,
-        user_id: Id<UserMarker>,
-    ) -> Result<PgQueryResult, DatabaseError> {
-        Ok(query!(
-            "DELETE FROM guild_members
-            WHERE guild_id = $1 AND user_id = $2",
-            guild_id.into_inner().cast_signed(),
-            user_id.into_inner().cast_signed(),
-        )
-        .execute(&self.pool)
-        .await?)
-    }
-
-    pub async fn remove_all_guild_members(
-        &self,
-        guild_id: Id<GuildMarker>,
-    ) -> Result<PgQueryResult, DatabaseError> {
-        Ok(query!(
-            "DELETE FROM guild_members
-            WHERE guild_id = $1",
-            guild_id.into_inner().cast_signed(),
-        )
-        .execute(&self.pool)
-        .await?)
-    }
     /*
         pub async fn maybe_create_case_for_external_timeout(
             &self,

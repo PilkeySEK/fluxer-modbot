@@ -25,6 +25,7 @@ utoipa-axum = "0.2.0"
 utoipa = { version = "5.5.0", features = ["axum_extras", "time"] }
 utoipauto = "0.2.0"
 zeroize = "1.8.2"
+moka = { version = "0.12.15", features = ["future"] }
 
 [lints]
 workspace = true

@@ -11,7 +11,12 @@ use fluxer_neptunium::model::id::{Id, marker::GuildMarker};
 use reqwest::StatusCode;
 use zeroize::Zeroizing;
 
-use crate::{SESSION_COOKIE_NAME, db::schema::SessionData, error::ApiResult, state::AppState};
+use crate::{
+    SESSION_COOKIE_NAME,
+    db::schema::SessionData,
+    error::{ApiErrorResponse, ApiResult},
+    state::AppState,
+};
 
 async fn require_session(
     state: &AppState,
@@ -86,17 +91,14 @@ pub async fn require_guild_manager(
     session: &Arc<SessionData>,
 ) -> ApiResult<()> {
     let permissions = state
-        .db
-        .get_guild_member_permissions(guild_id, session.data.user_id)
+        .fluxer_api
+        .get_user_guild_permissions(guild_id, session.data.user_id, &session.data.bearer_token)
         .await?;
-
-    let Some((permissions, is_guild_owner)) = permissions else {
-        return Err(StatusCode::FORBIDDEN.into());
+    let Some(permissions) = permissions else {
+        return Err(ApiErrorResponse::StatusCode(StatusCode::FORBIDDEN));
     };
-
-    if !is_guild_owner && !is_guild_manager_permissions(permissions) {
-        return Err(StatusCode::FORBIDDEN.into());
+    if !is_guild_manager_permissions(permissions) {
+        return Err(ApiErrorResponse::StatusCode(StatusCode::FORBIDDEN));
     }
-
     Ok(())
 }

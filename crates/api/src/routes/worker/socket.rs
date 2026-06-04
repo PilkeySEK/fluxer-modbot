@@ -66,7 +66,7 @@ impl ApiWorkerSocket {
 }
 
 pub(super) async fn handle_ws(
-    _state: AppState,
+    state: AppState,
     socket: WebSocket,
     mut rx: UnboundedReceiver<ApiToWorkerMessage>,
 ) {
@@ -74,14 +74,19 @@ pub(super) async fn handle_ws(
     let mut interval = tokio::time::interval(WORKER_API_HEARTBEAT_INTERVAL);
     interval.tick().await; // The first tick completes immediately
     let mut expecting_heartbeat_res = false;
+    let mut cache_enabled = false;
 
     loop {
         tokio::select! {
             msg = socket.recv() => {
                 let ControlFlow::Continue(msg) = msg else {
                     tracing::debug!("handle_ws returning");
-                    return;
+                    break;
                 };
+                if !cache_enabled {
+                    cache_enabled = true;
+                    state.fluxer_api.set_cache_enabled(true);
+                }
 
                 match msg {
                     WorkerToApiMessage::HeartbeatRes => {
@@ -89,8 +94,11 @@ pub(super) async fn handle_ws(
                     }
                     WorkerToApiMessage::HeartbeatReq => {
                         if socket.send(ApiToWorkerMessage::HeartbeatRes).await.is_break() {
-                            return;
+                            break;
                         }
+                    }
+                    WorkerToApiMessage::InvalidateCachedGuildPermissions(guild_id) => {
+                        state.fluxer_api.invalidate_cached_guild_permissions(guild_id);
                     }
                 }
             },
@@ -98,22 +106,24 @@ pub(super) async fn handle_ws(
                 if expecting_heartbeat_res {
                     tracing::error!("Did not receive heartbeat response, returning from socket handler.");
                     socket.close().await;
-                    return;
+                    break;
                 }
                 if socket.send(ApiToWorkerMessage::HeartbeatReq).await.is_break() {
-                    return;
+                    break;
                 }
                 expecting_heartbeat_res = true;
             },
             msg = rx.recv() => {
                 let Some(msg) = msg else {
                     tracing::debug!("handle_ws returning");
-                    return;
+                    break;
                 };
                 if socket.send(msg).await.is_break() {
-                    return;
+                    break;
                 }
             }
         }
     }
+
+    state.fluxer_api.set_cache_enabled(false);
 }
