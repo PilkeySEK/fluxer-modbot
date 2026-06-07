@@ -12,7 +12,7 @@
     "/guilds/{guild_id}": {
       "get": {
         "tags": [
-          "crate::routes::guild_config"
+          "crate::routes::guild"
         ],
         "operationId": "get_guild_config",
         "parameters": [
@@ -50,7 +50,7 @@
       },
       "patch": {
         "tags": [
-          "crate::routes::guild_config"
+          "crate::routes::guild"
         ],
         "operationId": "update_guild",
         "parameters": [
@@ -78,6 +78,69 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/GuildConfig"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/guilds/{guild_id}/cases": {
+      "get": {
+        "tags": [
+          "crate::routes::guild"
+        ],
+        "operationId": "get_guild_moderation_cases",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "involving",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "guild_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuildModerationCasesResponseSchema"
                 }
               }
             }
@@ -253,6 +316,9 @@
   },
   "components": {
     "schemas": {
+      "CaseId": {
+        "type": "string"
+      },
       "FluxerUser": {
         "type": "object",
         "required": [
@@ -359,6 +425,123 @@
           }
         }
       },
+      "GuildModerationCaseCloseDataResponse": {
+        "type": "object",
+        "properties": {
+          "closed_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "GuildModerationCaseExpiry": {
+        "type": "object",
+        "required": [
+          "expires_at",
+          "duration"
+        ],
+        "properties": {
+          "duration": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GuildModerationCaseResponse": {
+        "type": "object",
+        "required": [
+          "case_id",
+          "guild_id",
+          "target_id",
+          "moderation_kind",
+          "created_at"
+        ],
+        "properties": {
+          "case_id": {
+            "$ref": "#/components/schemas/CaseId"
+          },
+          "close_data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GuildModerationCaseCloseDataResponse",
+                "description": "`None` if the case is not closed."
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiry": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GuildModerationCaseExpiry"
+              }
+            ]
+          },
+          "guild_id": {
+            "type": "string"
+          },
+          "moderation_kind": {
+            "$ref": "#/components/schemas/ModerationKind"
+          },
+          "moderator_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target_id": {
+            "type": "string"
+          }
+        }
+      },
+      "GuildModerationCasesResponseSchema": {
+        "type": "object",
+        "required": [
+          "cases",
+          "total",
+          "has_next"
+        ],
+        "properties": {
+          "cases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GuildModerationCaseResponse"
+            }
+          },
+          "has_next": {
+            "type": "boolean"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "GuildUpdates": {
         "type": "object",
         "properties": {
@@ -372,6 +555,15 @@
             }
           }
         }
+      },
+      "ModerationKind": {
+        "type": "string",
+        "enum": [
+          "Warn",
+          "Mute",
+          "Kick",
+          "Ban"
+        ]
       }
     }
   }

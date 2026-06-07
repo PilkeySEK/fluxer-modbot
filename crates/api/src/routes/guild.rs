@@ -1,13 +1,18 @@
 use std::sync::Arc;
 
+use api_types::db::{GuildModerationCase, GuildModerationCaseResponse};
 use axum::{
     Extension, Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     middleware,
     routing::{get, patch},
 };
-use fluxer_neptunium::model::id::{Id, marker::GuildMarker};
+use fluxer_neptunium::model::id::{
+    Id,
+    marker::{GuildMarker, UserMarker},
+};
 use reqwest::StatusCode;
+use serde::Deserialize;
 
 use crate::{
     db::schema::{GuildConfig, GuildUpdates, SessionData},
@@ -28,6 +33,13 @@ pub fn router(state: AppState) -> Router<AppState> {
         .route(
             "/guilds/{guild_id}",
             get(get_guild_config).layer(middleware::from_fn_with_state(
+                state.clone(),
+                crate::middleware::session_required,
+            )),
+        )
+        .route(
+            "/guilds/{guild_id}/cases",
+            get(get_guild_moderation_cases).layer(middleware::from_fn_with_state(
                 state,
                 crate::middleware::session_required,
             )),
@@ -99,4 +111,86 @@ async fn get_guild_config(
     require_guild_manager(guild_id, &state, &session_data).await?;
     let guild_config = state.db.get_guild_config_upsert(guild_id).await?;
     Ok(Json(guild_config))
+}
+
+#[derive(utoipa::IntoParams)]
+#[expect(unused)]
+pub struct ModerationCasesQuerySchema {
+    page: Option<i64>,
+    involving: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct ModerationCasesQuery {
+    #[serde(default = "i64_0")]
+    page: i64,
+    involving: Option<Id<UserMarker>>,
+}
+
+fn i64_0() -> i64 {
+    0
+}
+
+#[derive(utoipa::ToSchema)]
+#[expect(unused)]
+pub struct GuildModerationCasesResponseSchema {
+    cases: Vec<GuildModerationCaseResponse>,
+    total: i64,
+    has_next: bool,
+}
+
+#[derive(serde::Serialize)]
+pub struct GuildModerationCasesResponse {
+    cases: Vec<GuildModerationCase>,
+    total: i64,
+    has_next: bool,
+}
+
+// TODO: Paging support
+#[utoipa::path(
+    get,
+    path = "/guilds/{guild_id}/cases",
+    params(
+        ModerationCasesQuerySchema,
+        ("guild_id", description = ""),
+    ),
+    responses(
+        (status = 200, body = GuildModerationCasesResponseSchema),
+    ),
+)]
+async fn get_guild_moderation_cases(
+    Path(guild_id): Path<Id<GuildMarker>>,
+    Query(query): Query<ModerationCasesQuery>,
+    Extension(session_data): Extension<Arc<SessionData>>,
+    State(state): State<AppState>,
+) -> ApiResult<Json<GuildModerationCasesResponse>> {
+    const ENTRIES_PER_PAGE: i64 = 20;
+
+    if query.page < 0 {
+        return Err(StatusCode::BAD_REQUEST.into());
+    }
+
+    require_guild_manager(guild_id, &state, &session_data).await?;
+
+    let count = state
+        .db
+        .count_guild_moderation_cases(guild_id, query.involving)
+        .await?;
+
+    let offset_num = ENTRIES_PER_PAGE * query.page;
+    let offset = if offset_num == 0 {
+        None
+    } else {
+        Some(offset_num)
+    };
+    let cases = state
+        .db
+        .list_guild_moderation_cases(guild_id, ENTRIES_PER_PAGE, offset, query.involving)
+        .await?;
+
+    Ok(Json(GuildModerationCasesResponse {
+        cases,
+        total: count,
+        has_next: offset_num + ENTRIES_PER_PAGE < count,
+    }))
 }

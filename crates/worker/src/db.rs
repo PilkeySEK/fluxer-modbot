@@ -1,11 +1,15 @@
 use std::sync::Arc;
 
+use api_types::db::{
+    CaseId, DbError, GuildModerationCase, ModerationKind, RawGuildModerationCase,
+    SharedDatabaseManager,
+};
 use fluxer_neptunium::model::id::{
     Id,
     marker::{ChannelMarker, GuildMarker, UserMarker, WebhookMarker},
 };
 use sqlx::{
-    PgPool, QueryBuilder,
+    PgPool,
     postgres::{PgPoolOptions, PgQueryResult},
     query, query_as, query_scalar,
 };
@@ -15,8 +19,7 @@ use crate::{
     caches::PrefixCache,
     case_expiration::{ExpiringCase, start_case_expiration_actor},
     db::schema::{
-        CaseId, CreateGuildModerationCaseData, GuildCommandConfiguration, GuildModerationCase,
-        ModerationKind, RawGuildCommandConfiguration, RawGuildModerationCase,
+        CreateGuildModerationCaseData, GuildCommandConfiguration, RawGuildCommandConfiguration,
     },
     logging::{Logger, ModLogEntry},
     macros::debug_panic,
@@ -28,51 +31,14 @@ pub struct DatabaseManager {
     default_prefix: String,
     expiring_cases_tx: UnboundedSender<ExpiringCase>,
     logger: Arc<Logger>,
-}
-
-#[derive(Debug)]
-pub enum DatabaseError {
-    SqlxError(sqlx::Error),
-    ParseError,
-}
-
-impl std::error::Error for DatabaseError {}
-
-impl std::fmt::Display for DatabaseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::SqlxError(e) => f.write_fmt(format_args!("SQLX error: {e}")),
-            Self::ParseError => f.write_str("Parse error"),
-        }
-    }
-}
-
-impl From<sqlx::Error> for DatabaseError {
-    fn from(value: sqlx::Error) -> Self {
-        Self::SqlxError(value)
-    }
+    shared_manager: SharedDatabaseManager,
 }
 
 impl DatabaseManager {
-    /*
-    pub async fn connect(
-        url: &str,
-        prefix_cache_capacity: u64,
-        default_prefix: String,
-    ) -> Result<Self, sqlx::Error> {
-        Ok(Self {
-            pool: PgPoolOptions::new().connect(url).await?,
-            cached_prefixes: Cache::new(prefix_cache_capacity),
-            default_prefix,
-            expiring_cases_tx: None,
-        })
-    }
-    */
-
     pub async fn get_guild_command_prefixes(
         &self,
         guild_id: Id<GuildMarker>,
-    ) -> Result<Arc<Vec<String>>, DatabaseError> {
+    ) -> Result<Arc<Vec<String>>, DbError> {
         if let Some(cached_prefixes) = self.cached_prefixes.get_guild_prefixes(guild_id) {
             return Ok(cached_prefixes);
         }
@@ -96,7 +62,7 @@ impl DatabaseManager {
         &self,
         guild_id: Id<GuildMarker>,
         command_name: &str,
-    ) -> Result<Option<GuildCommandConfiguration>, DatabaseError> {
+    ) -> Result<Option<GuildCommandConfiguration>, DbError> {
         let raw_configuration = query_as!(
             RawGuildCommandConfiguration,
             "SELECT * FROM guild_command_configuration
@@ -111,7 +77,7 @@ impl DatabaseManager {
             Some(raw_configuration) => match GuildCommandConfiguration::from_raw(raw_configuration)
             {
                 Some(configuration) => Ok(Some(configuration)),
-                None => Err(DatabaseError::ParseError),
+                None => Err(DbError::OtherParseError),
             },
             None => Ok(None),
         }
@@ -121,7 +87,7 @@ impl DatabaseManager {
         &self,
         guild_id: Id<GuildMarker>,
         prefix: &str,
-    ) -> Result<Arc<Vec<String>>, DatabaseError> {
+    ) -> Result<Arc<Vec<String>>, DbError> {
         let prefixes = query_scalar!(
             "INSERT INTO guilds (guild_id, command_prefixes)
             VALUES ($1, ARRAY[$2, $3])
@@ -146,7 +112,7 @@ impl DatabaseManager {
         &self,
         guild_id: Id<GuildMarker>,
         prefix: &str,
-    ) -> Result<Arc<Vec<String>>, DatabaseError> {
+    ) -> Result<Arc<Vec<String>>, DbError> {
         let inserted_prefixes_vec = if prefix == self.default_prefix {
             Vec::new()
         } else {
@@ -172,7 +138,7 @@ impl DatabaseManager {
     pub async fn create_moderation_case(
         &self,
         data: CreateGuildModerationCaseData<'_>,
-    ) -> Result<CaseId, DatabaseError> {
+    ) -> Result<CaseId, DbError> {
         let raw = query_as!(
             RawGuildModerationCase,
             "INSERT INTO guild_moderation_cases (guild_id, target_id, moderator_id, moderation_kind, expires_at, reason, duration, created_at)
@@ -188,7 +154,7 @@ impl DatabaseManager {
             data.created_at,
         ).fetch_one(&self.pool).await?;
         let Some(case) = GuildModerationCase::from_raw(raw) else {
-            return Err(DatabaseError::ParseError);
+            return Err(DbError::OtherParseError);
         };
 
         let case_id = case.case_id;
@@ -214,7 +180,7 @@ impl DatabaseManager {
         kind: ModerationKind,
         reason: Option<&str>,
         exclude_id: CaseId,
-    ) -> Result<Vec<CaseId>, DatabaseError> {
+    ) -> Result<Vec<CaseId>, DbError> {
         let case_ids = query_scalar!(
             "UPDATE guild_moderation_cases
             SET closed = true, close_reason = $1, closed_by = NULL
@@ -246,7 +212,7 @@ impl DatabaseManager {
         guild_id: Id<GuildMarker>,
         target_id: Id<UserMarker>,
         kind: ModerationKind,
-    ) -> Result<Option<GuildModerationCase>, DatabaseError> {
+    ) -> Result<Option<GuildModerationCase>, DbError> {
         let raw = query_as!(
             RawGuildModerationCase,
             "SELECT * FROM guild_moderation_cases
@@ -263,7 +229,7 @@ impl DatabaseManager {
         Ok(match raw {
             Some(raw) => match GuildModerationCase::from_raw(raw) {
                 Some(case) => Some(case),
-                None => return Err(DatabaseError::ParseError),
+                None => return Err(DbError::ParseError),
             },
             None => None,
         })
@@ -277,7 +243,7 @@ impl DatabaseManager {
         kind: ModerationKind,
         reason: Option<&str>,
         closed_by: Option<Id<UserMarker>>,
-    ) -> Result<Option<CaseId>, DatabaseError> {
+    ) -> Result<Option<CaseId>, DbError> {
         let case_id = query_scalar!(
             "UPDATE guild_moderation_cases
             SET closed = true, closed_by = $1, close_reason = $2
@@ -300,44 +266,11 @@ impl DatabaseManager {
         Ok(case_id.map(CaseId))
     }
 
-    pub async fn list_guild_moderation_cases(
-        &self,
-        guild_id: Id<GuildMarker>,
-        limit: i64,
-        offset: Option<i64>,
-        involving_user: Option<Id<UserMarker>>,
-    ) -> Result<Vec<GuildModerationCase>, DatabaseError> {
-        let mut qb = QueryBuilder::new("SELECT * FROM guild_moderation_cases WHERE guild_id = ");
-        qb.push_bind(guild_id.into_inner().cast_signed());
-        if let Some(involving_user) = involving_user {
-            let involving_user = involving_user.into_inner().cast_signed();
-            qb.push(" AND (target_id = ").push_bind(involving_user);
-            qb.push(" OR moderator_id = ").push_bind(involving_user);
-            qb.push(")");
-        }
-
-        qb.push(" ORDER BY case_id DESC LIMIT ").push_bind(limit);
-        if let Some(offset) = offset {
-            qb.push(" OFFSET ").push_bind(offset);
-        }
-
-        let raw_cases = qb.build_query_as().fetch_all(&self.pool).await?;
-
-        match raw_cases
-            .into_iter()
-            .map(GuildModerationCase::from_raw)
-            .collect::<Option<Vec<GuildModerationCase>>>()
-        {
-            Some(cases) => Ok(cases),
-            None => Err(DatabaseError::ParseError),
-        }
-    }
-
     pub async fn count_guild_moderation_cases(
         &self,
         guild_id: Id<GuildMarker>,
         involving_user: Option<Id<UserMarker>>,
-    ) -> Result<i64, DatabaseError> {
+    ) -> Result<i64, DbError> {
         Ok(if let Some(involving_user) = involving_user {
             query_scalar!(
                 "SELECT COUNT(case_id) FROM guild_moderation_cases
@@ -363,7 +296,7 @@ impl DatabaseManager {
         &self,
         guild_id: Id<GuildMarker>,
         case_id: CaseId,
-    ) -> Result<Option<GuildModerationCase>, DatabaseError> {
+    ) -> Result<Option<GuildModerationCase>, DbError> {
         let case = query_as!(
             RawGuildModerationCase,
             "SELECT * FROM guild_moderation_cases
@@ -377,7 +310,7 @@ impl DatabaseManager {
         match case {
             Some(case) => match GuildModerationCase::from_raw(case) {
                 Some(case) => Ok(Some(case)),
-                None => Err(DatabaseError::ParseError),
+                None => Err(DbError::OtherParseError),
             },
             None => Ok(None),
         }
@@ -387,7 +320,7 @@ impl DatabaseManager {
         &self,
         guild_id: Id<GuildMarker>,
         involved_user_id: Id<UserMarker>,
-    ) -> Result<Option<GuildModerationCase>, DatabaseError> {
+    ) -> Result<Option<GuildModerationCase>, DbError> {
         let case = query_as!(
             RawGuildModerationCase,
             "SELECT * FROM guild_moderation_cases
@@ -403,7 +336,7 @@ impl DatabaseManager {
         match case {
             Some(case) => match GuildModerationCase::from_raw(case) {
                 Some(case) => Ok(Some(case)),
-                None => Err(DatabaseError::ParseError),
+                None => Err(DbError::OtherParseError),
             },
             None => Ok(None),
         }
@@ -416,7 +349,7 @@ impl DatabaseManager {
         moderation_kind: ModerationKind,
         reason: Option<&str>,
         closed_by: Option<Id<UserMarker>>,
-    ) -> Result<Option<CaseId>, DatabaseError> {
+    ) -> Result<Option<CaseId>, DbError> {
         let case_id = query_scalar!(
             "UPDATE guild_moderation_cases
             SET closed = true, close_reason = $1, closed_by = $2
@@ -454,7 +387,7 @@ impl DatabaseManager {
         case_id: CaseId,
         reason: Option<&str>,
         closed_by: Option<Id<UserMarker>>,
-    ) -> Result<PgQueryResult, DatabaseError> {
+    ) -> Result<PgQueryResult, DbError> {
         Ok(query!(
             "UPDATE guild_moderation_cases
             SET closed = true, close_reason = $1, closed_by = $2
@@ -469,7 +402,7 @@ impl DatabaseManager {
 
     async fn get_all_expiring_case_ids(
         pool: &PgPool,
-    ) -> Result<Vec<(chrono::DateTime<chrono::Utc>, CaseId)>, DatabaseError> {
+    ) -> Result<Vec<(chrono::DateTime<chrono::Utc>, CaseId)>, DbError> {
         struct CaseExpiryInfo {
             expires_at: Option<chrono::DateTime<chrono::Utc>>,
             case_id: i64,
@@ -498,7 +431,7 @@ impl DatabaseManager {
     pub async fn get_guild_modlog_webhook(
         &self,
         guild_id: Id<GuildMarker>,
-    ) -> Result<Option<(Id<WebhookMarker>, String, Option<Id<ChannelMarker>>)>, DatabaseError> {
+    ) -> Result<Option<(Id<WebhookMarker>, String, Option<Id<ChannelMarker>>)>, DbError> {
         let result = query!(
             "SELECT modlog_webhook_id, modlog_webhook_token, modlog_webhook_channel_id FROM guilds
             WHERE guild_id = $1",
@@ -522,7 +455,7 @@ impl DatabaseManager {
         &self,
         guild_id: Id<GuildMarker>,
         value: Option<(Id<WebhookMarker>, &str, Option<Id<ChannelMarker>>)>,
-    ) -> Result<PgQueryResult, DatabaseError> {
+    ) -> Result<PgQueryResult, DbError> {
         Ok(query!(
             "INSERT INTO guilds (guild_id, command_prefixes, modlog_webhook_id, modlog_webhook_token, modlog_webhook_channel_id)
             VALUES ($1, ARRAY[$2], $3, $4, $5)
@@ -542,7 +475,7 @@ impl DatabaseManager {
         pub async fn maybe_create_case_for_external_timeout(
             &self,
             data: CreateGuildModerationCaseData<'_>,
-        ) -> Result<Option<GuildModerationCase>, DatabaseError> {
+        ) -> Result<Option<GuildModerationCase>, DbError> {
             let maybe_existing_case_raw = query_as!(
                 RawGuildModerationCase,
                 "SELECT * FROM guild_moderation_cases
@@ -569,6 +502,14 @@ impl DatabaseManager {
     */
 }
 
+impl std::ops::Deref for DatabaseManager {
+    type Target = SharedDatabaseManager;
+
+    fn deref(&self) -> &Self::Target {
+        &self.shared_manager
+    }
+}
+
 /// Because both of these depend partially on each other they can only be created cleanly at the same time,
 /// which this function handles.
 pub async fn create_db_manager_and_case_expiration_actor(
@@ -576,25 +517,25 @@ pub async fn create_db_manager_and_case_expiration_actor(
     prefix_cache_capacity: u64,
     default_prefix: String,
     logger: Arc<Logger>,
-) -> Result<(DatabaseManager, UnboundedReceiver<CaseId>), DatabaseError> {
+) -> Result<(DatabaseManager, UnboundedReceiver<CaseId>), DbError> {
     let pool = PgPoolOptions::new().connect(url).await?;
     let existing_cases = DatabaseManager::get_all_expiring_case_ids(&pool).await?;
     let (expired_cases_rx, expiring_cases_tx) = start_case_expiration_actor(existing_cases);
     Ok((
         DatabaseManager {
-            pool,
+            pool: pool.clone(),
             expiring_cases_tx,
             cached_prefixes: PrefixCache::new(prefix_cache_capacity),
             default_prefix,
             logger,
+            shared_manager: SharedDatabaseManager::new(pool),
         },
         expired_cases_rx,
     ))
 }
 
 pub mod schema {
-    use std::{str::FromStr, time::Duration};
-
+    use api_types::db::ModerationKind;
     use fluxer_neptunium::model::{
         guild::permissions::Permissions,
         id::{
@@ -642,24 +583,6 @@ pub mod schema {
         }
     }
 
-    #[derive(strum::Display, strum::EnumString, PartialEq, Eq)]
-    pub enum ModerationKind {
-        Warn,
-        Mute,
-        Kick,
-        Ban,
-    }
-
-    impl ModerationKind {
-        /// Whether the associated case should be sent to the case expiration actor.
-        pub fn manual_expiration(&self) -> bool {
-            match self {
-                Self::Warn | Self::Mute => true,
-                Self::Kick | Self::Ban => false,
-            }
-        }
-    }
-
     pub struct CreateGuildModerationCaseData<'a> {
         pub guild_id: Id<GuildMarker>,
         pub target_id: Id<UserMarker>,
@@ -668,103 +591,5 @@ pub mod schema {
         pub reason: Option<&'a str>,
         pub expiry: Option<(chrono::DateTime<chrono::Utc>, i64)>,
         pub created_at: chrono::DateTime<chrono::Utc>,
-    }
-
-    #[derive(Copy, Clone, PartialEq, Eq)]
-    pub struct CaseId(pub i64);
-
-    #[derive(sqlx::FromRow)]
-    pub(super) struct RawGuildModerationCase {
-        pub case_id: i64,
-        pub guild_id: i64,
-        pub target_id: i64,
-        pub moderator_id: Option<i64>,
-        pub moderation_kind: String,
-        pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
-        pub reason: Option<String>,
-        pub closed: bool,
-        pub duration: Option<i64>,
-        pub created_at: chrono::DateTime<chrono::Utc>,
-        pub close_reason: Option<String>,
-        pub closed_by: Option<i64>,
-    }
-
-    pub struct GuildModerationCaseCloseData {
-        pub reason: Option<String>,
-        pub closed_by: Option<Id<UserMarker>>,
-    }
-
-    pub struct GuildModerationCase {
-        pub case_id: CaseId,
-        pub guild_id: Id<GuildMarker>,
-        pub target_id: Id<UserMarker>,
-        pub moderator_id: Option<Id<UserMarker>>,
-        pub moderation_kind: ModerationKind,
-        pub expiry: Option<(chrono::DateTime<chrono::Utc>, Duration)>,
-        pub reason: Option<String>,
-        pub created_at: chrono::DateTime<chrono::Utc>,
-        /// `None` if the case is not closed.
-        pub close_data: Option<GuildModerationCaseCloseData>,
-    }
-
-    impl GuildModerationCase {
-        pub(super) fn from_raw(raw: RawGuildModerationCase) -> Option<Self> {
-            Some(Self {
-                case_id: CaseId(raw.case_id),
-                guild_id: raw.guild_id.cast_unsigned().into(),
-                target_id: raw.target_id.cast_unsigned().into(),
-                moderator_id: raw.moderator_id.map(|id| id.cast_unsigned().into()),
-                moderation_kind: ModerationKind::from_str(&raw.moderation_kind).ok()?,
-                expiry: if let Some(expires_at) = raw.expires_at {
-                    let duration = raw.duration?;
-                    Some((
-                        expires_at,
-                        Duration::from_secs(u64::try_from(duration).ok()?),
-                    ))
-                } else {
-                    None
-                },
-                reason: raw.reason,
-                created_at: raw.created_at,
-                close_data: if raw.closed {
-                    Some(GuildModerationCaseCloseData {
-                        reason: raw.close_reason,
-                        closed_by: raw.closed_by.map(|id| id.cast_unsigned().into()),
-                    })
-                } else {
-                    None
-                },
-            })
-        }
-    }
-
-    impl std::fmt::Display for CaseId {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            // Try to encode it using SQIDS with the blocklist, which is very unlikely to fail.
-            // It only fails when it has reached the maximum number of tries for getting around the
-            // blocklist, in which case we use sqids without a blocklist, which may contain a bad
-            // word but this is probably fine in practice. Either way, it would be better than
-            // panicking if sqids fails.
-            let sqids_encoded = match crate::SQIDS.encode(&[self.0.cast_unsigned()]) {
-                Ok(encoded) => encoded,
-                #[expect(
-                    clippy::unwrap_used,
-                    reason = "There is no blocklist so this can't fail."
-                )]
-                Err(_) => crate::SQIDS_NO_BLOCKLIST
-                    .encode(&[self.0.cast_unsigned()])
-                    .unwrap(),
-            };
-            f.write_str(&sqids_encoded)
-        }
-    }
-
-    impl CaseId {
-        pub fn from_str(s: &str) -> Option<Self> {
-            // I think sqids doesn't take any blocklists into account when decoding so this is fine
-            // even if the original ID was generated using SQIDS_NO_BLOCKLISt
-            let id = crate::SQIDS.decode(s);
-            id.first().map(|id| Self(id.cast_signed()))
-        }
     }
 }

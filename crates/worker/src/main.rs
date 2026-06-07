@@ -1,16 +1,10 @@
-use std::{
-    collections::HashSet,
-    env,
-    str::FromStr,
-    sync::{Arc, LazyLock},
-};
+use std::{env, str::FromStr, sync::Arc};
 
 use fluxer_neptunium::{
     client::{Client, ClientConfig},
     http::endpoints::channel::AllowedMentions,
 };
 use pretty_duration::{PrettyDurationOptions, PrettyDurationOutputFormat};
-use sqids::{Sqids, SqidsBuilder};
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::Level;
 
@@ -50,28 +44,6 @@ const PRETTY_DURATION_OPTIONS: Option<PrettyDurationOptions> = Some(PrettyDurati
     plural_labels: None,
 });
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const SQIDS_MIN_LENGTH: u8 = 5;
-static SQIDS: LazyLock<Sqids> = LazyLock::new(|| {
-    #[expect(
-        clippy::unwrap_used,
-        reason = "There is a test for the initialization being successful."
-    )]
-    SqidsBuilder::new()
-        .min_length(SQIDS_MIN_LENGTH)
-        .build()
-        .unwrap()
-});
-static SQIDS_NO_BLOCKLIST: LazyLock<Sqids> = LazyLock::new(|| {
-    #[expect(
-        clippy::unwrap_used,
-        reason = "There is a test for the initialization being successful."
-    )]
-    SqidsBuilder::new()
-        .blocklist(HashSet::new())
-        .min_length(SQIDS_MIN_LENGTH)
-        .build()
-        .unwrap()
-});
 
 #[tokio::main]
 async fn main() {
@@ -167,19 +139,5 @@ async fn main() {
 
     if let Err(e) = client.start().await {
         tracing::error!("Fatal client error: {e}");
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn sqids_initialization() {
-        let id_to_encode = 123;
-        let encoded_id = SQIDS.encode(&[id_to_encode]);
-        let encoded_id_no_blocklist = SQIDS.encode(&[id_to_encode]);
-        assert!(encoded_id.is_ok());
-        assert!(encoded_id_no_blocklist.is_ok());
     }
 }

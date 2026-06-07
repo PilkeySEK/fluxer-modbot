@@ -20,6 +20,22 @@ export interface paths {
         patch: operations["update_guild"];
         trace?: never;
     };
+    "/guilds/{guild_id}/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_guild_moderation_cases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/oauth/initiate": {
         parameters: {
             query?: never;
@@ -104,6 +120,7 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        CaseId: string;
         FluxerUser: {
             avatar?: string | null;
             discriminator: string;
@@ -126,9 +143,38 @@ export interface components {
         GuildConfig: {
             command_prefixes: string[];
         };
+        GuildModerationCaseCloseDataResponse: {
+            closed_by?: string | null;
+            reason?: string | null;
+        };
+        GuildModerationCaseExpiry: {
+            duration: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        GuildModerationCaseResponse: {
+            case_id: components["schemas"]["CaseId"];
+            close_data?: null | components["schemas"]["GuildModerationCaseCloseDataResponse"];
+            /** Format: date-time */
+            created_at: string;
+            expiry?: null | components["schemas"]["GuildModerationCaseExpiry"];
+            guild_id: string;
+            moderation_kind: components["schemas"]["ModerationKind"];
+            moderator_id?: string | null;
+            reason?: string | null;
+            target_id: string;
+        };
+        GuildModerationCasesResponseSchema: {
+            cases: components["schemas"]["GuildModerationCaseResponse"][];
+            has_next: boolean;
+            /** Format: int64 */
+            total: number;
+        };
         GuildUpdates: {
             command_prefixes?: string[] | null;
         };
+        /** @enum {string} */
+        ModerationKind: "Warn" | "Mute" | "Kick" | "Ban";
     };
     responses: never;
     parameters: never;
@@ -208,6 +254,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GuildConfig"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_guild_moderation_cases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                page: number | null;
+                involving: string | null;
+                guild_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuildModerationCasesResponseSchema"];
                 };
             };
             /** @description Bad request */

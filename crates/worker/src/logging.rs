@@ -1,3 +1,4 @@
+use api_types::db::{GuildModerationCase, GuildModerationCaseExpiry};
 use fluxer_neptunium::{
     create_embed,
     events::context::Context,
@@ -16,7 +17,7 @@ use fluxer_neptunium::{
 use pretty_duration::pretty_duration;
 use zeroize::Zeroizing;
 
-use crate::db::{DatabaseManager, schema::GuildModerationCase};
+use crate::db::DatabaseManager;
 
 pub enum ModLogEntry {
     CaseCreated(GuildModerationCase),
@@ -87,7 +88,10 @@ impl ModLogEntry {
                     ),
                     case.expiry.map_or_else(
                         || "Permanent".to_string(),
-                        |(expires_at, duration)| format!(
+                        |GuildModerationCaseExpiry {
+                             expires_at,
+                             duration,
+                         }| format!(
                             "{} (expires {})",
                             pretty_duration(&duration, crate::PRETTY_DURATION_OPTIONS),
                             Timestamp::<UnixMillis>::from(expires_at)

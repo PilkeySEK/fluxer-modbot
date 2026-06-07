@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use api_types::db::ModerationKind;
 use chrono::{TimeDelta, Utc};
 use fluxer_neptunium::{
     cache::Cached,
@@ -13,7 +14,7 @@ use fluxer_neptunium::{
 
 use crate::{
     commands::{CommandContext, CommandError},
-    db::schema::{CreateGuildModerationCaseData, ModerationKind},
+    db::schema::CreateGuildModerationCaseData,
     macros::{debug_panic, embed_default_footer, get_user_arg},
     util::parse_duration,
 };

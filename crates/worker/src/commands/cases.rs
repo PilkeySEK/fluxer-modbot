@@ -1,3 +1,6 @@
+use std::str::FromStr;
+
+use api_types::db::{CaseId, GuildModerationCase, GuildModerationCaseExpiry};
 use chrono::Utc;
 use fluxer_neptunium::{
     cache::Cached,
@@ -12,7 +15,6 @@ use pretty_duration::pretty_duration;
 
 use crate::{
     commands::{CommandContext, CommandError},
-    db::schema::{CaseId, GuildModerationCase},
     macros::{debug_panic, embed_default_footer, get_user_arg},
     util::{
         MaybeExpired, MaybeExpiringResult,
@@ -135,7 +137,7 @@ pub async fn case_info(ctx: CommandContext<'_>, args: &str) -> Result<(), Comman
                 .await?;
             return Ok(());
         }
-    } else if let Some(case_id) = CaseId::from_str(maybe_case_id_or_user_str)
+    } else if let Ok(case_id) = CaseId::from_str(maybe_case_id_or_user_str)
         && let Some(case) = ctx
             .db
             .get_guild_moderation_case(ctx.guild_id, case_id)
@@ -183,7 +185,10 @@ fn format_case_info(ctx: &CommandContext<'_>, case: GuildModerationCase) -> Crea
             .unwrap_or_else(|| "*No reason provided.*".to_owned()),
         case.expiry.map_or_else(
             || "Permanent".to_string(),
-            |(expires_at, duration)| {
+            |GuildModerationCaseExpiry {
+                 expires_at,
+                 duration,
+             }| {
                 let now = Utc::now();
                 format!(
                     "{} ({} {})",
@@ -246,7 +251,11 @@ fn format_case_list(
             case.moderation_kind,
             case.target_id,
             case.case_id,
-            if let Some((expires_at, _duration)) = case.expiry {
+            if let Some(GuildModerationCaseExpiry {
+                expires_at,
+                duration: _,
+            }) = case.expiry
+            {
                 format!(
                     "expires {}",
                     Timestamp::<UnixMillis>::from(expires_at)

@@ -2,13 +2,14 @@
 
 use std::{sync::Arc, time::Duration};
 
+use api_types::db::CaseId;
 use chrono::Utc;
 use tokio::sync::{
     Mutex,
     mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
 };
 
-use crate::db::{DatabaseManager, schema::CaseId};
+use crate::db::DatabaseManager;
 
 /// Setting `None` for the time means that the case should be silently dropped (as it was manually closed).
 pub type ExpiringCase = (Option<chrono::DateTime<chrono::Utc>>, CaseId);

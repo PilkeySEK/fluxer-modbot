@@ -1,6 +1,9 @@
-use std::{num::ParseIntError, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
-use api_types::ws::ApiToWorkerMessage;
+use api_types::{
+    db::{DbError, SharedDatabaseManager},
+    ws::ApiToWorkerMessage,
+};
 use fluxer_neptunium::model::id::{
     Id,
     marker::{GuildMarker, UserMarker},
@@ -19,25 +22,7 @@ pub struct DbManager {
     session_expiry_thread_handle: JoinHandle<()>,
     default_command_prefix: String,
     api_to_worker_tx: Arc<tokio::sync::RwLock<Option<UnboundedSender<ApiToWorkerMessage>>>>,
-}
-
-#[derive(Debug)]
-pub enum DbError {
-    Sqlx(sqlx::Error),
-    JsonParse(serde_json::Error),
-    ParseInt(ParseIntError),
-}
-
-impl std::error::Error for DbError {}
-
-impl std::fmt::Display for DbError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Sqlx(e) => f.write_fmt(format_args!("PostgreSQL error: {e}")),
-            Self::JsonParse(e) => f.write_fmt(format_args!("Parse error: {e}")),
-            Self::ParseInt(e) => f.write_fmt(format_args!("Error converting string to int: {e}")),
-        }
-    }
+    shared_manager: SharedDatabaseManager,
 }
 
 impl DbManager {
@@ -56,11 +41,12 @@ impl DbManager {
         ));
 
         Ok(Self {
-            pool,
+            pool: pool.clone(),
             session_expiry_thread_stop_tx,
             session_expiry_thread_handle,
             default_command_prefix,
             api_to_worker_tx,
+            shared_manager: SharedDatabaseManager::new(pool),
         })
     }
 
@@ -153,32 +139,6 @@ impl DbManager {
         }
 
         GuildConfig::from_row(&row).map_err(DbError::Sqlx)
-        /*
-        sqlx::query!(
-            "INSERT INTO guilds (guild_id, command_prefixes)
-            VALUES ($1, $2::TEXT[])
-            ON CONFLICT (guild_id) DO UPDATE
-            SET command_prefixes=$2::TEXT[]",
-            guild_id.into_inner().cast_signed(),
-            prefixes,
-        )
-        .execute(&self.pool)
-        .await
-        .map_err(DbError::Sqlx)?;
-        // #[expect(clippy::unwrap_used)]
-        // sqlx::query!(
-        //     "SELECT pg_notify($1, $2)",
-        //     NOTIFICATION_GUILD_PREFIXES_UPDATE,
-        //     serde_json::to_string(&GuildPrefixesUpdate(guild_id)).unwrap(),
-        // )
-        // .execute(&self.pool)
-        // .await
-        // .map_err(DbError::Sqlx)?;
-        if let Some(tx) = &*self.api_to_worker_tx.read().await {
-            let _ = tx.send(ApiToWorkerMessage::InvalidateGuildPrefixes(guild_id));
-        }
-        Ok(())
-        */
     }
 
     pub async fn get_guild_config_upsert(
@@ -208,6 +168,14 @@ impl DbManager {
             return;
         }
         let _ = self.session_expiry_thread_handle.await;
+    }
+}
+
+impl std::ops::Deref for DbManager {
+    type Target = SharedDatabaseManager;
+
+    fn deref(&self) -> &Self::Target {
+        &self.shared_manager
     }
 }
 

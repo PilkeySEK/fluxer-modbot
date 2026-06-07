@@ -1,5 +1,6 @@
 use std::{collections::HashMap, pin::Pin, time::SystemTime};
 
+use api_types::db::DbError;
 use chrono::{TimeDelta, Utc};
 use fluxer_neptunium::{
     cache::CachedMessage,
@@ -18,7 +19,7 @@ use fluxer_neptunium::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    db::{DatabaseError, DatabaseManager, schema::GuildCommandConfiguration},
+    db::{DatabaseManager, schema::GuildCommandConfiguration},
     event_handler::reactions::{
         ReactionExpiryHandlerFn, ReactionHandler, ReactionsEventHandlerMessage,
     },
@@ -73,7 +74,7 @@ pub struct CommandContext<'a> {
 #[derive(Debug)]
 pub enum CommandError {
     EventError(EventError),
-    DatabaseError(DatabaseError),
+    DatabaseError(DbError),
     Ignore,
 }
 
@@ -89,17 +90,14 @@ impl std::fmt::Display for CommandError {
     }
 }
 
-impl<T> From<T> for CommandError
-where
-    T: Into<EventError>,
-{
-    fn from(value: T) -> Self {
+impl From<fluxer_neptunium::client::error::Error> for CommandError {
+    fn from(value: fluxer_neptunium::client::error::Error) -> Self {
         Self::EventError(value.into())
     }
 }
 
-impl From<DatabaseError> for CommandError {
-    fn from(value: DatabaseError) -> Self {
+impl From<DbError> for CommandError {
+    fn from(value: DbError) -> Self {
         Self::DatabaseError(value)
     }
 }

@@ -238,6 +238,7 @@
 						currentGuildData={guildDataStore.current}
 						fetchedGuildData={guildDataStore.fetched[0]}
 						fluxerGuildData={guildDataStore.fetched[1]}
+						{params}
 					/>
 				</div>
 			</div>

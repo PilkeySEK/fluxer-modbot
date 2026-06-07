@@ -1,8 +1,35 @@
+use std::{collections::HashSet, sync::LazyLock};
+
 use fluxer_neptunium::model::{
     gateway::payload::incoming::UserPrivateResponse, guild::permissions::Permissions,
 };
+use sqids::{Sqids, SqidsBuilder};
 
+pub mod db;
 pub mod ws;
+
+const SQIDS_MIN_LENGTH: u8 = 5;
+static SQIDS: LazyLock<Sqids> = LazyLock::new(|| {
+    #[expect(
+        clippy::unwrap_used,
+        reason = "There is a test for the initialization being successful."
+    )]
+    SqidsBuilder::new()
+        .min_length(SQIDS_MIN_LENGTH)
+        .build()
+        .unwrap()
+});
+static SQIDS_NO_BLOCKLIST: LazyLock<Sqids> = LazyLock::new(|| {
+    #[expect(
+        clippy::unwrap_used,
+        reason = "There is a test for the initialization being successful."
+    )]
+    SqidsBuilder::new()
+        .blocklist(HashSet::new())
+        .min_length(SQIDS_MIN_LENGTH)
+        .build()
+        .unwrap()
+});
 
 #[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
 pub struct Guild {
@@ -47,20 +74,21 @@ impl From<UserPrivateResponse> for FluxerUser {
     }
 }
 
-/*
-pub mod pg_notifications {
-    use fluxer_neptunium::model::id::{Id, marker::GuildMarker};
-    use serde::{Deserialize, Serialize};
-
-    pub const NOTIFICATION_GUILD_PREFIXES_UPDATE: &str = "guild_prefixes_update";
-
-    #[derive(Serialize, Deserialize)]
-    #[serde(transparent)]
-    pub struct GuildPrefixesUpdate(pub Id<GuildMarker>);
-}
-*/
-
 pub fn is_guild_manager_permissions(permissions: Permissions) -> bool {
     permissions.intersects(Permissions::ADMINISTRATOR)
         || permissions.intersects(Permissions::MANAGE_GUILD)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sqids_initialization() {
+        let id_to_encode = 123;
+        let encoded_id = SQIDS.encode(&[id_to_encode]);
+        let encoded_id_no_blocklist = SQIDS.encode(&[id_to_encode]);
+        assert!(encoded_id.is_ok());
+        assert!(encoded_id_no_blocklist.is_ok());
+    }
 }

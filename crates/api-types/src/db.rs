@@ -1,0 +1,183 @@
+use std::{str::FromStr, time::Duration};
+
+use fluxer_neptunium::model::id::{
+    Id,
+    marker::{GuildMarker, UserMarker},
+};
+
+mod manager;
+pub use manager::*;
+use utoipa::openapi::{ObjectBuilder, schema::SchemaType};
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub struct CaseId(pub i64);
+
+impl utoipa::ToSchema for CaseId {
+    fn name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("CaseId")
+    }
+}
+
+impl utoipa::PartialSchema for CaseId {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        ObjectBuilder::new()
+            .schema_type(SchemaType::Type(utoipa::openapi::Type::String))
+            .build()
+            .into()
+    }
+}
+
+impl serde::Serialize for CaseId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
+#[derive(sqlx::FromRow)]
+pub struct RawGuildModerationCase {
+    pub case_id: i64,
+    pub guild_id: i64,
+    pub target_id: i64,
+    pub moderator_id: Option<i64>,
+    pub moderation_kind: String,
+    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub reason: Option<String>,
+    pub closed: bool,
+    pub duration: Option<i64>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub close_reason: Option<String>,
+    pub closed_by: Option<i64>,
+}
+
+#[derive(serde::Serialize)]
+pub struct GuildModerationCaseCloseData {
+    pub reason: Option<String>,
+    pub closed_by: Option<Id<UserMarker>>,
+}
+
+#[derive(utoipa::ToSchema)]
+pub struct GuildModerationCaseCloseDataResponse {
+    pub reason: Option<String>,
+    pub closed_by: Option<String>,
+}
+
+#[derive(utoipa::ToSchema, serde::Serialize)]
+pub struct GuildModerationCaseExpiry {
+    pub expires_at: chrono::DateTime<chrono::Utc>,
+    pub duration: Duration,
+}
+
+#[derive(utoipa::ToSchema)]
+pub struct GuildModerationCaseResponse {
+    pub case_id: CaseId,
+    pub guild_id: String,
+    pub target_id: String,
+    pub moderator_id: Option<String>,
+    pub moderation_kind: ModerationKind,
+    pub expiry: Option<GuildModerationCaseExpiry>,
+    pub reason: Option<String>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    /// `None` if the case is not closed.
+    pub close_data: Option<GuildModerationCaseCloseDataResponse>,
+}
+
+#[derive(serde::Serialize)]
+pub struct GuildModerationCase {
+    pub case_id: CaseId,
+    pub guild_id: Id<GuildMarker>,
+    pub target_id: Id<UserMarker>,
+    pub moderator_id: Option<Id<UserMarker>>,
+    pub moderation_kind: ModerationKind,
+    pub expiry: Option<GuildModerationCaseExpiry>,
+    pub reason: Option<String>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    /// `None` if the case is not closed.
+    pub close_data: Option<GuildModerationCaseCloseData>,
+}
+
+#[derive(strum::Display, strum::EnumString, PartialEq, Eq, utoipa::ToSchema, serde::Serialize)]
+pub enum ModerationKind {
+    Warn,
+    Mute,
+    Kick,
+    Ban,
+}
+
+impl ModerationKind {
+    /// Whether the associated case should be sent to the case expiration actor.
+    pub fn manual_expiration(&self) -> bool {
+        match self {
+            Self::Warn | Self::Mute => true,
+            Self::Kick | Self::Ban => false,
+        }
+    }
+}
+
+impl GuildModerationCase {
+    pub fn from_raw(raw: RawGuildModerationCase) -> Option<Self> {
+        Some(Self {
+            case_id: CaseId(raw.case_id),
+            guild_id: raw.guild_id.cast_unsigned().into(),
+            target_id: raw.target_id.cast_unsigned().into(),
+            moderator_id: raw.moderator_id.map(|id| id.cast_unsigned().into()),
+            moderation_kind: ModerationKind::from_str(&raw.moderation_kind).ok()?,
+            expiry: if let Some(expires_at) = raw.expires_at {
+                let duration = raw.duration?;
+                Some(GuildModerationCaseExpiry {
+                    expires_at,
+                    duration: Duration::from_secs(u64::try_from(duration).ok()?),
+                })
+            } else {
+                None
+            },
+            reason: raw.reason,
+            created_at: raw.created_at,
+            close_data: if raw.closed {
+                Some(GuildModerationCaseCloseData {
+                    reason: raw.close_reason,
+                    closed_by: raw.closed_by.map(|id| id.cast_unsigned().into()),
+                })
+            } else {
+                None
+            },
+        })
+    }
+}
+
+impl std::fmt::Display for CaseId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Try to encode it using SQIDS with the blocklist, which is very unlikely to fail.
+        // It only fails when it has reached the maximum number of tries for getting around the
+        // blocklist, in which case we use sqids without a blocklist, which may contain a bad
+        // word but this is probably fine in practice. Either way, it would be better than
+        // panicking if sqids fails.
+        let sqids_encoded = match crate::SQIDS.encode(&[self.0.cast_unsigned()]) {
+            Ok(encoded) => encoded,
+            #[expect(
+                clippy::unwrap_used,
+                reason = "There is no blocklist so this can't fail."
+            )]
+            Err(_) => crate::SQIDS_NO_BLOCKLIST
+                .encode(&[self.0.cast_unsigned()])
+                .unwrap(),
+        };
+        f.write_str(&sqids_encoded)
+    }
+}
+
+impl FromStr for CaseId {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // I think sqids doesn't take any blocklists into account when decoding so this is fine
+        // even if the original ID was generated using SQIDS_NO_BLOCKLISt
+        let id = crate::SQIDS.decode(s);
+        match id.first() {
+            Some(id) => Ok(Self(id.cast_signed())),
+            None => Err(()),
+        }
+    }
+}
