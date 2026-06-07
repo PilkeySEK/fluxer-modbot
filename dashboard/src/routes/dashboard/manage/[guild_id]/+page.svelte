@@ -199,7 +199,7 @@
 							/>
 						{:else}
 							<img
-								src={`${PUBLIC_FLUXER_STATIC_BASE}/avatars/0.png`}
+								src={`${PUBLIC_FLUXER_STATIC_BASE}/avatars/${BigInt(userDataStore.id) % 6n}.png`}
 								alt="The default Fluxer avatar"
 								class="h-full w-full rounded-full"
 							/>
