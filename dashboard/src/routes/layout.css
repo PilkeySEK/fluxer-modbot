@@ -20,3 +20,20 @@ button:hover {
 .border-default {
 	@apply border-2;
 }
+
+@theme {
+	/* --text-tiny: 0.625rem; */
+	--text-2sm: calc(var(--text-sm) / 1.25);
+}
+
+.border-t-dashed {
+	border-top-style: dashed;
+}
+
+.border-b-dashed {
+	border-bottom-style: dashed;
+}
+
+.border-colors-default {
+	@apply border-neutral-700 bg-neutral-800/80;
+}
