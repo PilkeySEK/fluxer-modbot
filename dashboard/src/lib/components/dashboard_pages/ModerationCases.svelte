@@ -24,13 +24,20 @@
 		  }
 		| undefined = $state(undefined);
 
-	onMount(async () => {
+	let query: string = $state('');
+
+	onMount(fetchCases);
+
+	async function fetchCases() {
+		let trimmed_query = query.trim();
 		let fetchedCases = await api.GET('/guilds/{guild_id}/cases', {
 			params: {
 				path: {
 					guild_id: params.guild_id,
-					page: null,
-					involving: null,
+				},
+				query: {
+					page: undefined,
+					search: trimmed_query.length === 0 ? undefined : trimmed_query,
 				},
 			},
 		});
@@ -46,9 +53,11 @@
 				error: 'Failed to fetch',
 			};
 		}
-	});
+	}
 </script>
 
+<input bind:value={query} />
+<button onclick={() => fetchCases()}>Fetch</button>
 {#if cases_res !== undefined}
 	{#if cases_res.data !== undefined}
 		<div>

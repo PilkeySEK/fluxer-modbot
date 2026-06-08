@@ -105,33 +105,26 @@
         "operationId": "get_guild_moderation_cases",
         "parameters": [
           {
-            "name": "page",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "int64"
-            }
-          },
-          {
-            "name": "involving",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": [
-                "string",
-                "null"
-              ]
-            }
-          },
-          {
             "name": "guild_id",
             "in": "path",
-            "description": "",
             "required": true
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
           }
         ],
         "responses": {

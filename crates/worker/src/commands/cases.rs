@@ -29,14 +29,14 @@ pub async fn list_cases(ctx: CommandContext<'_>, args: &str) -> Result<(), Comma
     let (involving_user, _rest) = get_user_arg!(ctx, args, not required);
 
     let (cases, case_count) = tokio::join!(
-        ctx.db.list_guild_moderation_cases(
+        ctx.db.list_guild_moderation_cases_by_involving_user(
             ctx.guild_id,
             MAX_GUILD_MODERATION_CASES_PER_MESSAGE,
             None,
             involving_user
         ),
         ctx.db
-            .count_guild_moderation_cases(ctx.guild_id, involving_user)
+            .count_guild_moderation_cases_by_involving_user(ctx.guild_id, involving_user)
     );
     let cases = cases?;
     let case_count = case_count?;
@@ -91,7 +91,7 @@ pub async fn list_cases(ctx: CommandContext<'_>, args: &str) -> Result<(), Comma
 
             let cases = ctx
                 .db
-                .list_guild_moderation_cases(
+                .list_guild_moderation_cases_by_involving_user(
                     ctx.guild_id,
                     MAX_GUILD_MODERATION_CASES_PER_MESSAGE,
                     Some(current_offset),

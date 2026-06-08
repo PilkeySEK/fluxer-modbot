@@ -7,10 +7,7 @@ use axum::{
     middleware,
     routing::{get, patch},
 };
-use fluxer_neptunium::model::id::{
-    Id,
-    marker::{GuildMarker, UserMarker},
-};
+use fluxer_neptunium::model::id::{Id, marker::GuildMarker};
 use reqwest::StatusCode;
 use serde::Deserialize;
 
@@ -113,22 +110,10 @@ async fn get_guild_config(
     Ok(Json(guild_config))
 }
 
-#[derive(utoipa::IntoParams)]
-#[expect(unused)]
-pub struct ModerationCasesQuerySchema {
-    page: Option<i64>,
-    involving: Option<String>,
-}
-
 #[derive(Deserialize)]
 pub struct ModerationCasesQuery {
-    #[serde(default = "i64_0")]
-    page: i64,
-    involving: Option<Id<UserMarker>>,
-}
-
-fn i64_0() -> i64 {
-    0
+    page: Option<i64>,
+    search: Option<String>,
 }
 
 #[derive(utoipa::ToSchema)]
@@ -151,8 +136,9 @@ pub struct GuildModerationCasesResponse {
     get,
     path = "/guilds/{guild_id}/cases",
     params(
-        ModerationCasesQuerySchema,
-        ("guild_id", description = ""),
+        ("guild_id", Path),
+        ("search" = Option<String>, Query),
+        ("page" = Option<i64>, Query),
     ),
     responses(
         (status = 200, body = GuildModerationCasesResponseSchema),
@@ -166,7 +152,9 @@ async fn get_guild_moderation_cases(
 ) -> ApiResult<Json<GuildModerationCasesResponse>> {
     const ENTRIES_PER_PAGE: i64 = 20;
 
-    if query.page < 0 {
+    let page = query.page.unwrap_or(0);
+
+    if page < 0 {
         return Err(StatusCode::BAD_REQUEST.into());
     }
 
@@ -174,10 +162,10 @@ async fn get_guild_moderation_cases(
 
     let count = state
         .db
-        .count_guild_moderation_cases(guild_id, query.involving)
+        .count_guild_moderation_cases_by_query(guild_id, query.search.as_deref())
         .await?;
 
-    let offset_num = ENTRIES_PER_PAGE * query.page;
+    let offset_num = ENTRIES_PER_PAGE * page;
     let offset = if offset_num == 0 {
         None
     } else {
@@ -185,7 +173,12 @@ async fn get_guild_moderation_cases(
     };
     let cases = state
         .db
-        .list_guild_moderation_cases(guild_id, ENTRIES_PER_PAGE, offset, query.involving)
+        .list_guild_moderation_cases_by_query(
+            guild_id,
+            ENTRIES_PER_PAGE,
+            offset,
+            query.search.as_deref(),
+        )
         .await?;
 
     Ok(Json(GuildModerationCasesResponse {

@@ -1,14 +1,14 @@
 //! Shared database logic which is used by both api and worker, to avoid duplicating functions.
 
-use std::num::ParseIntError;
+use std::{num::ParseIntError, str::FromStr};
 
 use fluxer_neptunium::model::id::{
     Id,
     marker::{GuildMarker, UserMarker},
 };
-use sqlx::{PgPool, QueryBuilder};
+use sqlx::{PgPool, Postgres, QueryBuilder};
 
-use crate::db::GuildModerationCase;
+use crate::db::{CaseId, GuildModerationCase};
 
 #[derive(Debug)]
 pub enum DbError {
@@ -59,7 +59,37 @@ impl SharedDatabaseManager {
         Self { pool }
     }
 
-    pub async fn list_guild_moderation_cases(
+    pub async fn list_guild_moderation_cases_by_query(
+        &self,
+        guild_id: Id<GuildMarker>,
+        limit: i64,
+        offset: Option<i64>,
+        query: Option<&str>,
+    ) -> Result<Vec<GuildModerationCase>, DbError> {
+        let mut qb = QueryBuilder::new("SELECT * FROM guild_moderation_cases WHERE guild_id = ");
+        qb.push_bind(guild_id.into_inner().cast_signed());
+        if let Some(query) = query {
+            qb.push(" AND ");
+            add_query_to_builder(&mut qb, query);
+        }
+        qb.push(" ORDER BY case_id DESC LIMIT ").push_bind(limit);
+        if let Some(offset) = offset {
+            qb.push(" OFFSET ").push_bind(offset);
+        }
+
+        let raw_cases = qb.build_query_as().fetch_all(&self.pool).await?;
+
+        match raw_cases
+            .into_iter()
+            .map(GuildModerationCase::from_raw)
+            .collect::<Option<Vec<GuildModerationCase>>>()
+        {
+            Some(cases) => Ok(cases),
+            None => Err(DbError::OtherParseError),
+        }
+    }
+
+    pub async fn list_guild_moderation_cases_by_involving_user(
         &self,
         guild_id: Id<GuildMarker>,
         limit: i64,
@@ -92,13 +122,13 @@ impl SharedDatabaseManager {
         }
     }
 
-    pub async fn count_guild_moderation_cases(
+    pub async fn count_guild_moderation_cases_by_involving_user(
         &self,
         guild_id: Id<GuildMarker>,
         involving_user: Option<Id<UserMarker>>,
     ) -> Result<i64, DbError> {
-        if let Some(involving_user) = involving_user {
-            Ok(sqlx::query_scalar!(
+        Ok(if let Some(involving_user) = involving_user {
+            sqlx::query_scalar!(
                 "SELECT COUNT(case_id) FROM guild_moderation_cases
                 WHERE guild_id = $1 AND (target_id = $2 OR moderator_id = $2)",
                 guild_id.into_inner().cast_signed(),
@@ -106,16 +136,85 @@ impl SharedDatabaseManager {
             )
             .fetch_one(&self.pool)
             .await?
-            .unwrap_or(0))
         } else {
-            Ok(sqlx::query_scalar!(
+            sqlx::query_scalar!(
                 "SELECT COUNT(case_id) FROM guild_moderation_cases
                 WHERE guild_id = $1",
                 guild_id.into_inner().cast_signed(),
             )
             .fetch_one(&self.pool)
             .await?
-            .unwrap_or(0))
         }
+        .unwrap_or(0))
+    }
+
+    pub async fn count_guild_moderation_cases_by_query(
+        &self,
+        guild_id: Id<GuildMarker>,
+        query: Option<&str>,
+    ) -> Result<i64, DbError> {
+        Ok(if let Some(query) = query {
+            let mut qb = QueryBuilder::new(
+                "SELECT COUNT(case_id) FROM guild_moderation_cases WHERE guild_id = ",
+            );
+            qb.push_bind(guild_id.into_inner().cast_signed());
+            qb.push(" AND ");
+
+            add_query_to_builder(&mut qb, query);
+
+            qb.build_query_scalar::<Option<i64>>()
+                .fetch_one(&self.pool)
+                .await?
+                .unwrap_or(0)
+        } else {
+            sqlx::query_scalar!(
+                "SELECT COUNT(case_id) FROM guild_moderation_cases
+                WHERE guild_id = $1",
+                guild_id.into_inner().cast_signed(),
+            )
+            .fetch_one(&self.pool)
+            .await?
+            .unwrap_or(0)
+        })
+    }
+}
+
+/// pushes `(...)`
+fn add_query_to_builder(qb: &mut QueryBuilder<Postgres>, query: &str) {
+    qb.push("(FALSE");
+    if let Ok(id) = Id::<UserMarker>::try_from(query) {
+        let id = id.into_inner().cast_signed();
+        qb.push(" OR target_id = ")
+            .push_bind(id)
+            .push(" OR moderator_id = ")
+            .push_bind(id);
+    }
+    if let Ok(CaseId(case_id)) = CaseId::from_str(query) {
+        qb.push(" OR case_id = ").push_bind(case_id);
+    }
+
+    qb.push(" OR (reason IS NOT NULL AND reason ILIKE ")
+        .push_bind(format!("%{}%", escape_like(query)))
+        .push(")");
+    qb.push(")");
+}
+
+fn escape_like(input: &str) -> String {
+    input
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn escape_like() {
+        assert_eq!(super::escape_like("%abcdefg%"), r#"\%abcdefg\%"#);
+        assert_eq!(super::escape_like("_abc%"), r#"\_abc\%"#);
+        assert_eq!(super::escape_like("_____"), r#"\_\_\_\_\_"#);
+        assert_eq!(super::escape_like(r#"\%"#), r#"\\\%"#);
+        assert_eq!(super::escape_like(r#"\\%"#), r#"\\\\\%"#);
+        assert_eq!(super::escape_like(r#"_\"#), r#"\_\\"#);
     }
 }

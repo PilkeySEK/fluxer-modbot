@@ -266,32 +266,6 @@ impl DatabaseManager {
         Ok(case_id.map(CaseId))
     }
 
-    pub async fn count_guild_moderation_cases(
-        &self,
-        guild_id: Id<GuildMarker>,
-        involving_user: Option<Id<UserMarker>>,
-    ) -> Result<i64, DbError> {
-        Ok(if let Some(involving_user) = involving_user {
-            query_scalar!(
-                "SELECT COUNT(case_id) FROM guild_moderation_cases
-                WHERE guild_id = $1 AND (target_id = $2 OR moderator_id = $2)",
-                guild_id.into_inner().cast_signed(),
-                involving_user.into_inner().cast_signed(),
-            )
-            .fetch_one(&self.pool)
-            .await?
-        } else {
-            query_scalar!(
-                "SELECT COUNT(case_id) FROM guild_moderation_cases
-                WHERE guild_id = $1",
-                guild_id.into_inner().cast_signed(),
-            )
-            .fetch_one(&self.pool)
-            .await?
-        }
-        .unwrap_or(0))
-    }
-
     pub async fn get_guild_moderation_case(
         &self,
         guild_id: Id<GuildMarker>,

@@ -288,11 +288,12 @@ export interface operations {
     };
     get_guild_moderation_cases: {
         parameters: {
-            query?: never;
+            query?: {
+                search?: string;
+                page?: number;
+            };
             header?: never;
             path: {
-                page: number | null;
-                involving: string | null;
                 guild_id: string;
             };
             cookie?: never;
