@@ -193,8 +193,9 @@ async fn session_expiry_thread(
         Ok(())
     }
 
-    let mut interval = tokio::time::interval(Duration::from_mins(1));
-    interval.tick().await;
+    let mut interval = tokio::time::interval(Duration::from_hours(3));
+    // Commented so that we immediately invalidate expired sessions when the thread initially starts
+    // interval.tick().await;
     loop {
         tokio::select! {
             _ = interval.tick() => {
