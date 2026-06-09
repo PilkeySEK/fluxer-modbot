@@ -4,13 +4,6 @@
 	import { api, type ApiRes } from '$lib';
 	import Loader from '../Loader.svelte';
 
-	/*let {
-		userData,
-		currentGuildData,
-		fetchedGuildData,
-		fluxerGuildData,
-	}: DashboardPagesProps = $props();*/
-
 	let { params }: DashboardPagesProps = $props();
 
 	let cases_res:
@@ -57,7 +50,12 @@
 </script>
 
 <input bind:value={query} />
-<button onclick={() => fetchCases()}>Fetch</button>
+<button
+	onclick={() => {
+		cases_res = undefined;
+		fetchCases();
+	}}>Fetch</button
+>
 {#if cases_res !== undefined}
 	{#if cases_res.data !== undefined}
 		<div>

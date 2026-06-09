@@ -173,10 +173,17 @@ impl FromStr for CaseId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // I think sqids doesn't take any blocklists into account when decoding so this is fine
-        // even if the original ID was generated using SQIDS_NO_BLOCKLISt
+        // even if the original ID was generated using SQIDS_NO_BLOCKLIST
         let id = crate::SQIDS.decode(s);
         match id.first() {
-            Some(id) => Ok(Self(id.cast_signed())),
+            Some(id) => {
+                let result = Self(id.cast_signed());
+                if result.to_string() != s {
+                    Err(())
+                } else {
+                    Ok(result)
+                }
+            }
             None => Err(()),
         }
     }
