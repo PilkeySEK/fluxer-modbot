@@ -2,9 +2,9 @@
 	import { resolve } from '$app/paths';
 	import { onMount, type Component, type ComponentProps } from 'svelte';
 	import type { PageProps } from './$types';
-	import { api, iconSize, type ApiRes } from '$lib';
+	import { api, iconSize, userProfilePictureUrl, type ApiRes } from '$lib';
 	import Loader from '$lib/components/Loader.svelte';
-	import { PUBLIC_FLUXER_MEDIA_PROXY_BASE, PUBLIC_FLUXER_STATIC_BASE } from '$env/static/public';
+	import { PUBLIC_FLUXER_MEDIA_PROXY_BASE } from '$env/static/public';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import { ArrowsLeftRightIcon, GearSixIcon, ScrollIcon } from 'phosphor-svelte';
 	import type { ResolvedPathname } from '$app/types';
@@ -194,19 +194,12 @@
 			{#if userDataStore !== undefined}
 				<div class="flex items-center gap-2">
 					<div class="h-12 w-12">
-						{#if userDataStore.avatar}
-							<img
-								src={`${PUBLIC_FLUXER_MEDIA_PROXY_BASE}/avatars/${userDataStore.id}/${userDataStore.avatar}.webp?size=512`}
-								alt="Your Fluxer avatar"
-								class="h-full w-full rounded-full"
-							/>
-						{:else}
-							<img
-								src={`${PUBLIC_FLUXER_STATIC_BASE}/avatars/${BigInt(userDataStore.id) % 6n}.png`}
-								alt="The default Fluxer avatar"
-								class="h-full w-full rounded-full"
-							/>
-						{/if}
+						<!-- svelte-ignore a11y_img_redundant_alt -->
+						<img
+							src={userProfilePictureUrl(userDataStore.id, userDataStore.avatar, 512)}
+							alt="Your Fluxer profile picture"
+							class="h-full w-full rounded-full"
+						/>
 					</div>
 					<div class="flex flex-col">
 						<p class="text-lg font-medium">

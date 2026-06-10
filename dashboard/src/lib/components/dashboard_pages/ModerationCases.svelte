@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { DashboardPagesProps } from './props';
-	import { api, iconSize, type ApiRes } from '$lib';
+	import { api, iconSize, userProfilePictureUrl, type ApiRes } from '$lib';
 	import Loader from '../Loader.svelte';
 	import {
 		ArrowFatLeftIcon,
@@ -96,12 +96,24 @@
 		<div class="flex flex-col gap-1">
 			{#each cases_res.data.cases as moderation_case (moderation_case.case_id)}
 				<div class="border-colors-default rounded-md border-2 px-1">
-					<p><b>{moderation_case.moderation_kind}</b> of <b>{moderation_case.target_id}</b></p>
-					{#if moderation_case.reason}
-						<p><b>Reason:</b> {moderation_case.reason}</p>
-					{:else}
-						<p><i>No reason specified.</i></p>
-					{/if}
+					<div class="flex items-center gap-1">
+						<!-- svelte-ignore a11y_img_redundant_alt -->
+						<img
+							src={userProfilePictureUrl(moderation_case.target_id, null, 128)}
+							alt="The target user's profile picture"
+							class="max-h-5 max-w-5 rounded-full"
+						/>
+						<p>{moderation_case.target_id}</p>
+					</div>
+					<p>
+						<b>{moderation_case.moderation_kind}</b>
+						•
+						{#if moderation_case.reason}
+							{moderation_case.reason}
+						{:else}
+							<i>No reason specified.</i>
+						{/if}
+					</p>
 				</div>
 			{/each}
 		</div>
