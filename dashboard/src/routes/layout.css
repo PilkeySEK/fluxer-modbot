@@ -13,7 +13,7 @@
 	font-family: 'IBM Plex Sans';
 }
 
-button:hover {
+button:hover:not(:disabled) {
 	cursor: pointer;
 }
 
@@ -36,4 +36,21 @@ button:hover {
 
 .border-colors-default {
 	@apply border-neutral-700 bg-neutral-800/80;
+}
+
+textarea:focus,
+input:focus {
+	outline: none;
+	/* background-color: var(--color-neutral-900); */
+}
+
+.no-number-controls {
+	appearance: textfield;
+	-moz-appearance: textfield;
+}
+
+.no-number-controls::-webkit-outer-spin-button,
+.no-number-controls::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
 }

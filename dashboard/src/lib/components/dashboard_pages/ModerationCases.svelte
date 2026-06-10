@@ -1,8 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { DashboardPagesProps } from './props';
-	import { api, type ApiRes } from '$lib';
+	import { api, iconSize, type ApiRes } from '$lib';
 	import Loader from '../Loader.svelte';
+	import {
+		ArrowFatLeftIcon,
+		ArrowFatLinesLeftIcon,
+		ArrowFatLinesRightIcon,
+		ArrowFatRightIcon,
+		MagnifyingGlassIcon,
+	} from 'phosphor-svelte';
 
 	let { params }: DashboardPagesProps = $props();
 
@@ -17,19 +24,24 @@
 		  }
 		| undefined = $state(undefined);
 
-	let query: string = $state('');
+	let searchQuery: string = $state('');
 
-	onMount(fetchCases);
+	let hasNext = $state(false);
+	let hasPrev = $state(false);
+	let currentPage = $state(0);
 
-	async function fetchCases() {
-		let trimmed_query = query.trim();
+	onMount(() => fetchCases(0));
+
+	async function fetchCases(page: number) {
+		cases_res = undefined;
+		let trimmed_query = searchQuery.trim();
 		let fetchedCases = await api.GET('/guilds/{guild_id}/cases', {
 			params: {
 				path: {
 					guild_id: params.guild_id,
 				},
 				query: {
-					page: undefined,
+					page,
 					search: trimmed_query.length === 0 ? undefined : trimmed_query,
 				},
 			},
@@ -40,6 +52,9 @@
 				error: undefined,
 				data: fetchedCases.data,
 			};
+			hasNext = fetchedCases.data.has_next;
+			hasPrev = page > 0;
+			currentPage = page;
 		} else {
 			cases_res = {
 				data: undefined,
@@ -49,27 +64,100 @@
 	}
 </script>
 
-<input bind:value={query} />
-<button
-	onclick={() => {
-		cases_res = undefined;
-		fetchCases();
-	}}>Fetch</button
+<div
+	class="search-field-parent border-colors-default flex items-center gap-2 rounded-md border-2 p-0.5 px-1"
 >
+	<input
+		bind:value={searchQuery}
+		class="w-full px-1"
+		placeholder="Case ID, user ID or reason"
+		onkeydown={(event) => {
+			if (event.key === 'Enter') {
+				fetchCases(0);
+			}
+		}}
+	/>
+	<button
+		onclick={() => {
+			fetchCases(0);
+		}}
+	>
+		<MagnifyingGlassIcon size={iconSize(5)} />
+	</button>
+</div>
+
 {#if cases_res !== undefined}
 	{#if cases_res.data !== undefined}
-		<div>
+		<p class="text-center">
+			Found <b>{cases_res.data.total}</b>
+			{cases_res.data.total === 1 ? 'case' : 'cases'}
+			matching the current filters (<b>{cases_res.data.cases.length}</b> on this page)
+		</p>
+		<div class="flex flex-col gap-1">
 			{#each cases_res.data.cases as moderation_case (moderation_case.case_id)}
-				<div class="border-colors-default border-2">
+				<div class="border-colors-default rounded-md border-2 px-1">
 					<p><b>{moderation_case.moderation_kind}</b> of <b>{moderation_case.target_id}</b></p>
+					{#if moderation_case.reason}
+						<p><b>Reason:</b> {moderation_case.reason}</p>
+					{:else}
+						<p><i>No reason specified.</i></p>
+					{/if}
 				</div>
 			{/each}
 		</div>
-		{#if cases_res.data.has_next}
-			has next
-		{:else}
-			does not have next
-		{/if}
+		<div class="sticky right-0 bottom-2 mt-2 flex w-full items-center justify-center">
+			<div
+				class="grid w-full max-w-100 grid-cols-5 rounded-md border-2 border-neutral-700 bg-neutral-900/80 text-center"
+			>
+				<button
+					disabled={!hasPrev}
+					class="flex items-center justify-center"
+					onclick={() => {
+						fetchCases(0);
+					}}
+				>
+					<ArrowFatLinesLeftIcon size={iconSize(6)} weight={hasPrev ? 'fill' : 'regular'} />
+				</button>
+				<button
+					disabled={!hasPrev}
+					class="flex items-center justify-center"
+					onclick={() => {
+						fetchCases(currentPage - 1);
+					}}><ArrowFatLeftIcon size={iconSize(6)} weight={hasPrev ? 'fill' : 'regular'} /></button
+				>
+				<input
+					class="no-number-controls rounded-md border-2 border-transparent text-center invalid:border-red-500 invalid:bg-red-900/20"
+					type="number"
+					min="0"
+					value={currentPage + 1}
+					onkeydown={(event) => {
+						if (event.key === 'Enter' && !event.currentTarget.validity.patternMismatch) {
+							const page = parseInt(event.currentTarget.value);
+							fetchCases(page - 1);
+						}
+					}}
+				/>
+				<button
+					disabled={!hasNext}
+					class="flex items-center justify-center"
+					onclick={() => {
+						fetchCases(currentPage + 1);
+					}}><ArrowFatRightIcon size={iconSize(6)} weight={hasNext ? 'fill' : 'regular'} /></button
+				>
+				<button
+					disabled={!hasNext}
+					class="flex items-center justify-center"
+					onclick={() => {
+						if (cases_res?.data) {
+							const lastPage = Math.floor(cases_res.data.total / cases_res.data.per_page);
+							fetchCases(lastPage);
+						}
+					}}
+				>
+					<ArrowFatLinesRightIcon size={iconSize(6)} weight={hasNext ? 'fill' : 'regular'} />
+				</button>
+			</div>
+		</div>
 	{:else}
 		<div class="flex h-full w-full items-center justify-center">
 			<p>
@@ -83,3 +171,9 @@
 		<p>Fetching moderation cases...</p>
 	</div>
 {/if}
+
+<style>
+	.search-field-parent:has(input:focus) {
+		background-color: var(--color-neutral-900);
+	}
+</style>

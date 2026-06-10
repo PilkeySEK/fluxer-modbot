@@ -168,6 +168,8 @@ export interface components {
             cases: components["schemas"]["GuildModerationCaseResponse"][];
             has_next: boolean;
             /** Format: int64 */
+            per_page: number;
+            /** Format: int64 */
             total: number;
         };
         GuildUpdates: {

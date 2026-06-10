@@ -122,6 +122,7 @@ pub struct GuildModerationCasesResponseSchema {
     cases: Vec<GuildModerationCaseResponse>,
     total: i64,
     has_next: bool,
+    per_page: i64,
 }
 
 #[derive(serde::Serialize)]
@@ -129,6 +130,7 @@ pub struct GuildModerationCasesResponse {
     cases: Vec<GuildModerationCase>,
     total: i64,
     has_next: bool,
+    per_page: i64,
 }
 
 // TODO: Paging support
@@ -185,5 +187,6 @@ async fn get_guild_moderation_cases(
         cases,
         total: count,
         has_next: offset_num + ENTRIES_PER_PAGE < count,
+        per_page: ENTRIES_PER_PAGE,
     }))
 }

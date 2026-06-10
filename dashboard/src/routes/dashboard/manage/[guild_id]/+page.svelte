@@ -131,7 +131,10 @@
 </script>
 
 <div class="flex min-h-screen w-screen">
-	<div class="grid w-75 min-w-75 grid-rows-[auto_1fr_auto] p-1">
+	<div class="w-75 min-w-75">
+		<!-- So that the sidebar doesn't overlap with the page content -->
+	</div>
+	<div class="fixed grid h-full w-75 min-w-75 grid-rows-[auto_1fr_auto] p-1">
 		<div class="rounded-t-lg border-2 border-b-0 border-neutral-700 bg-neutral-800/80 p-2">
 			{#if guildDataStore !== undefined}
 				{@const data = guildDataStore.fetched[1]}
@@ -190,7 +193,7 @@
 		<div class="rounded-b-lg border-2 border-t-0 border-neutral-700 bg-neutral-800/80 p-1">
 			{#if userDataStore !== undefined}
 				<div class="flex items-center gap-2">
-					<div class="h-14 w-14">
+					<div class="h-12 w-12">
 						{#if userDataStore.avatar}
 							<img
 								src={`${PUBLIC_FLUXER_MEDIA_PROXY_BASE}/avatars/${userDataStore.id}/${userDataStore.avatar}.webp?size=512`}
