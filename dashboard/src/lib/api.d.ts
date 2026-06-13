@@ -116,6 +116,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/info-bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["get_user_info"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -177,6 +193,16 @@ export interface components {
         };
         /** @enum {string} */
         ModerationKind: "Warn" | "Mute" | "Kick" | "Ban";
+        UserInfoRequest: {
+            user_ids: string[];
+        };
+        UserInfoSchema: {
+            avatar?: string | null;
+            discriminator: string;
+            global_name?: string | null;
+            user_id: string;
+            username: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -533,6 +559,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Guild"][];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_user_info: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserInfoRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: components["schemas"]["UserInfoSchema"];
+                    };
                 };
             };
             /** @description Bad request */

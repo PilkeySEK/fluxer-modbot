@@ -67,3 +67,15 @@ CREATE TABLE dash_sessions (
 
 CREATE INDEX idx_dash_sessions_expires_at ON dash_sessions (expires_at);
 CREATE INDEX idx_dash_sessions_session_token ON dash_sessions (session_token);
+
+CREATE TABLE user_info (
+    user_id BIGINT PRIMARY KEY,
+    -- NULL if no avatar is set
+    avatar TEXT,
+    username TEXT NOT NULL,
+    discriminator TEXT NOT NULL,
+    -- NULL if no global name is set
+    global_name TEXT
+);
+
+CREATE INDEX idx_user_info_by_user_id ON user_info (user_id);

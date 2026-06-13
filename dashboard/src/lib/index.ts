@@ -15,13 +15,11 @@ const SPACING = 0.25;
 
 export const api = createClient<paths>({ baseUrl: PUBLIC_API_BASE });
 
-export type ApiRes<P extends keyof paths> = paths[P] extends {
-	get: {
-		responses: {
-			200: {
-				content: {
-					'application/json': infer R;
-				};
+export type ApiRes<P extends keyof paths, M extends keyof paths[P] = 'get'> = paths[P][M] extends {
+	responses: {
+		200: {
+			content: {
+				'application/json': infer R;
 			};
 		};
 	};

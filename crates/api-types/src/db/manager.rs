@@ -6,9 +6,9 @@ use fluxer_neptunium::model::id::{
     Id,
     marker::{GuildMarker, UserMarker},
 };
-use sqlx::{PgPool, Postgres, QueryBuilder};
+use sqlx::{PgPool, Postgres, QueryBuilder, postgres::PgQueryResult};
 
-use crate::db::{CaseId, GuildModerationCase};
+use crate::db::{CaseId, GuildModerationCase, UserInfo};
 
 #[derive(Debug)]
 pub enum DbError {
@@ -176,6 +176,43 @@ impl SharedDatabaseManager {
             .await?
             .unwrap_or(0)
         })
+    }
+
+    pub async fn get_user_info(
+        &self,
+        user_id: Id<UserMarker>,
+    ) -> Result<Option<UserInfo>, DbError> {
+        let record = sqlx::query!(
+            "SELECT * FROM user_info WHERE user_id = $1",
+            user_id.into_inner().cast_signed(),
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(record.map(|record| UserInfo {
+            user_id,
+            avatar: record.avatar,
+            username: record.username,
+            discriminator: record.discriminator,
+            global_name: record.global_name,
+        }))
+    }
+
+    /// Inserts new user info or updates the existing one.
+    pub async fn set_user_info(&self, info: UserInfo) -> Result<PgQueryResult, DbError> {
+        Ok(sqlx::query!(
+            "INSERT INTO user_info (user_id, avatar, username, discriminator, global_name)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (user_id) DO UPDATE
+            SET avatar=$2, username=$3, discriminator=$4, global_name=$5",
+            info.user_id.into_inner().cast_signed(),
+            info.avatar,
+            info.username,
+            info.discriminator,
+            info.global_name,
+        )
+        .execute(&self.pool)
+        .await?)
     }
 }
 

@@ -36,6 +36,24 @@ impl serde::Serialize for CaseId {
     }
 }
 
+#[derive(serde::Serialize)]
+pub struct UserInfo {
+    pub user_id: Id<UserMarker>,
+    pub avatar: Option<String>,
+    pub username: String,
+    pub discriminator: String,
+    pub global_name: Option<String>,
+}
+
+#[derive(utoipa::ToSchema)]
+pub struct UserInfoSchema {
+    pub user_id: String,
+    pub avatar: Option<String>,
+    pub username: String,
+    pub discriminator: String,
+    pub global_name: Option<String>,
+}
+
 #[derive(sqlx::FromRow)]
 pub struct RawGuildModerationCase {
     pub case_id: i64,

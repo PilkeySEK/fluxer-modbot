@@ -1,8 +1,21 @@
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
-use api_types::{FluxerUser, Guild};
-use axum::{Extension, Json, Router, extract::State, middleware, routing::get};
+use api_types::{
+    FluxerUser, Guild,
+    db::{UserInfo, UserInfoSchema},
+};
+use axum::{
+    Extension, Json, Router,
+    extract::State,
+    middleware,
+    routing::{get, post},
+};
 use axum_extra::extract::PrivateCookieJar;
+use fluxer_neptunium::model::id::{Id, marker::UserMarker};
+use reqwest::StatusCode;
 
 use crate::{SESSION_COOKIE_NAME, db::schema::SessionData, error::ApiResult, state::AppState};
 
@@ -25,8 +38,15 @@ pub fn router(state: AppState) -> Router<AppState> {
         .route(
             "/users/@maybe-me",
             get(get_maybe_user_me).layer(middleware::from_fn_with_state(
-                state,
+                state.clone(),
                 crate::middleware::session_optional,
+            )),
+        )
+        .route(
+            "/users/info-bulk",
+            post(get_user_info).layer(middleware::from_fn_with_state(
+                state,
+                crate::middleware::session_required,
             )),
         )
 }
@@ -98,4 +118,42 @@ pub async fn get_maybe_user_me(
         .get_user(&session_data.data.bearer_token)
         .await?;
     Ok((jar, Json(Some(user.into()))))
+}
+
+#[derive(utoipa::ToSchema, serde::Deserialize)]
+pub struct UserInfoRequest {
+    user_ids: Vec<String>,
+}
+
+#[utoipa::path(
+    post,
+    path = "/users/info-bulk",
+    responses((status = 200, body = HashMap<String, UserInfoSchema>)),
+)]
+pub async fn get_user_info(
+    Extension(_session_data): Extension<Arc<SessionData>>,
+    State(state): State<AppState>,
+    Json(body): Json<UserInfoRequest>,
+) -> ApiResult<Json<HashMap<Id<UserMarker>, UserInfo>>> {
+    let Some(user_ids) = body
+        .user_ids
+        .into_iter()
+        .map(|s| Id::try_from(s).ok())
+        .collect::<Option<HashSet<Id<UserMarker>>>>()
+    else {
+        return Err(crate::error::ApiErrorResponse::StatusCode(
+            StatusCode::BAD_REQUEST,
+        ));
+    };
+
+    let mut response = HashMap::new();
+
+    for id in user_ids {
+        let info = state.db.get_user_info(id).await?;
+        if let Some(info) = info {
+            response.insert(id, info);
+        }
+    }
+
+    Ok(Json(response))
 }

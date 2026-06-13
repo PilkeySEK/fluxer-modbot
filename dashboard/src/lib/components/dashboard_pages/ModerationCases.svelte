@@ -10,6 +10,7 @@
 		ArrowFatRightIcon,
 		MagnifyingGlassIcon,
 	} from 'phosphor-svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	let { params }: DashboardPagesProps = $props();
 
@@ -30,7 +31,42 @@
 	let hasPrev = $state(false);
 	let currentPage = $state(0);
 
+	let userInfo:
+		| {
+				error: undefined;
+				data: SvelteMap<string, ApiRes<'/users/info-bulk', 'post'>[string]>;
+		  }
+		| {
+				error: string;
+				data: undefined;
+		  }
+		| undefined = $state(undefined);
+
 	onMount(() => fetchCases(0));
+
+	async function fetchUserInfo(user_ids: string[]) {
+		let res = await api.POST('/users/info-bulk', {
+			body: {
+				user_ids,
+			},
+		});
+
+		if (res.data) {
+			let map = new SvelteMap<string, ApiRes<'/users/info-bulk', 'post'>[string]>();
+			for (const key in res.data) {
+				map.set(key, res.data[key]!);
+			}
+			userInfo = {
+				data: map,
+				error: undefined,
+			};
+		} else {
+			userInfo = {
+				data: undefined,
+				error: 'Failed to fetch user info',
+			};
+		}
+	}
 
 	async function fetchCases(page: number) {
 		cases_res = undefined;
@@ -55,6 +91,9 @@
 			hasNext = fetchedCases.data.has_next;
 			hasPrev = page > 0;
 			currentPage = page;
+			await fetchUserInfo(
+				fetchedCases.data.cases.map((moderation_case) => moderation_case.target_id)
+			);
 		} else {
 			cases_res = {
 				data: undefined,
@@ -99,11 +138,18 @@
 					<div class="flex items-center gap-1">
 						<!-- svelte-ignore a11y_img_redundant_alt -->
 						<img
-							src={userProfilePictureUrl(moderation_case.target_id, null, 128)}
+							src={userProfilePictureUrl(
+								moderation_case.target_id,
+								userInfo?.data?.get(moderation_case.target_id)?.avatar,
+								128
+							)}
 							alt="The target user's profile picture"
 							class="max-h-5 max-w-5 rounded-full"
 						/>
 						<p>{moderation_case.target_id}</p>
+						{#if userInfo === undefined}
+							<Loader size={1.25} />
+						{/if}
 					</div>
 					<p>
 						<b>{moderation_case.moderation_kind}</b>

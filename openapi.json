@@ -305,6 +305,54 @@
           }
         }
       }
+    },
+    "/users/info-bulk": {
+      "post": {
+        "tags": [
+          "crate::routes::users"
+        ],
+        "operationId": "get_user_info",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserInfoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/UserInfoSchema"
+                  },
+                  "propertyNames": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -562,6 +610,51 @@
           "Kick",
           "Ban"
         ]
+      },
+      "UserInfoRequest": {
+        "type": "object",
+        "required": [
+          "user_ids"
+        ],
+        "properties": {
+          "user_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "UserInfoSchema": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "username",
+          "discriminator"
+        ],
+        "properties": {
+          "avatar": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "discriminator": {
+            "type": "string"
+          },
+          "global_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "user_id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
       }
     }
   }

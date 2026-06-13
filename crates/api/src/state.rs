@@ -47,7 +47,7 @@ type OAuthClient = oauth2::Client<
 >;
 
 pub struct InnerAppState {
-    pub db: DbManager,
+    pub db: Arc<DbManager>,
     pub oauth: OAuthClient,
     pub oauth_scopes: Vec<oauth2::Scope>,
     pub oauth_http_client: oauth2::reqwest::Client,
@@ -85,16 +85,18 @@ impl InnerAppState {
 
         let api_to_worker_tx = Arc::new(RwLock::new(None));
 
-        let db = DbManager::new(
-            database_url,
-            default_command_prefix,
-            Arc::clone(&api_to_worker_tx),
-        )
-        .await?;
+        let db = Arc::new(
+            DbManager::new(
+                database_url,
+                default_command_prefix,
+                Arc::clone(&api_to_worker_tx),
+            )
+            .await?,
+        );
 
         Ok(Self {
             oauth,
-            db,
+            db: Arc::clone(&db),
             oauth_scopes: oauth_config.scopes.into_iter().map(Scope::new).collect(),
             oauth_http_client: oauth2::reqwest::Client::builder()
                 .redirect(Policy::none())
@@ -105,6 +107,7 @@ impl InnerAppState {
                 } else {
                     fluxer_api_base
                 },
+                db,
             ),
             cookie_key,
             rng: Mutex::new(rand::make_rng()),

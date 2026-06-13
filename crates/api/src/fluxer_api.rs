@@ -1,5 +1,9 @@
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
+use api_types::db::UserInfo;
 use fluxer_neptunium::{
     http::endpoints::{ExecuteEndpointRequestError, ResponseBody},
     model::{
@@ -14,16 +18,19 @@ use fluxer_neptunium::{
 use moka::future::CacheBuilder;
 use reqwest::Client;
 
+use crate::db::DbManager;
+
 pub struct FluxerApiManager {
     client: reqwest::Client,
     api_base: String,
     guild_member_permissions: moka::future::Cache<(Id<GuildMarker>, Id<UserMarker>), Permissions>,
     /// The cache will be disabled when there is no websocket connection to the worker.
     cache_enabled: AtomicBool,
+    db: Arc<DbManager>,
 }
 
 impl FluxerApiManager {
-    pub fn new(api_base: String) -> Self {
+    pub fn new(api_base: String, db: Arc<DbManager>) -> Self {
         Self {
             client: Client::new(),
             api_base,
@@ -31,6 +38,7 @@ impl FluxerApiManager {
                 .support_invalidation_closures()
                 .build(),
             cache_enabled: AtomicBool::new(false),
+            db,
         }
     }
 
@@ -84,7 +92,7 @@ impl FluxerApiManager {
         &self,
         bearer_token: &str,
     ) -> Result<UserPrivateResponse, Box<ExecuteEndpointRequestError>> {
-        ResponseBody::deserialize(
+        let res: UserPrivateResponse = ResponseBody::deserialize(
             self.client
                 .get(format!("{}/users/@me", self.api_base))
                 .bearer_auth(bearer_token)
@@ -93,7 +101,23 @@ impl FluxerApiManager {
                 .bytes()
                 .await?
                 .to_vec(),
-        )
+        )?;
+
+        if let Err(e) = self
+            .db
+            .set_user_info(UserInfo {
+                user_id: res.id,
+                avatar: res.avatar.clone(),
+                username: res.username.clone(),
+                discriminator: res.discriminator.clone(),
+                global_name: res.global_name.clone(),
+            })
+            .await
+        {
+            tracing::error!("Failed to set user info for {}: {}", res.id, e);
+        }
+
+        Ok(res)
     }
 
     pub async fn get_user_guild_permissions(

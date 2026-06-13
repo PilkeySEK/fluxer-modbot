@@ -102,8 +102,11 @@ async fn main() {
     tracing::info!("Now serving API");
 
     if let Err(e) = axum::serve(listener, app).await {
-        if let Some(inner_state) = Arc::into_inner(state.0) {
-            inner_state.db.stop().await;
+        if let Some(inner_state) = Arc::into_inner(state.0)
+            && let Some(db) = Arc::into_inner(inner_state.db)
+        {
+            db.stop().await;
+            tracing::debug!("Shutdown database manager");
         }
         tracing::error!("{e}");
     }
