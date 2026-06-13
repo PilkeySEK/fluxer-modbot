@@ -21,11 +21,11 @@ serde_json = "1.0.150"
 time = "0.3.47"
 rand = { version = "0.10.1", features = ["chacha"] }
 base64 = "0.22.1"
-chrono = "0.4.44"
+chrono = "0.4.45"
 utoipa-axum = "0.2.0"
 utoipa = { version = "5.5.0", features = ["axum_extras", "time"] }
 utoipauto = "0.2.0"
-zeroize = "1.8.2"
+zeroize = "1.9.0"
 moka = { version = "0.12.15", features = ["future"] }
 
 [lints]

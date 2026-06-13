@@ -247,7 +247,7 @@ fn format_case_list(
     fn format_case_oneline(case: GuildModerationCase) -> String {
         format!(
             "[{}] **{}** of <@{}> - `{}` ({}){}: {}",
-            Timestamp::<UnixMillis>::from(case.created_at).time_string(TimestampDisplayType::Date),
+            Timestamp::<UnixMillis>::from(case.created_at).time_string(TimestampDisplayType::ShortDate),
             case.moderation_kind,
             case.target_id,
             case.case_id,
