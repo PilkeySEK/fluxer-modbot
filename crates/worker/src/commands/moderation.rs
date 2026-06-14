@@ -16,32 +16,35 @@ use crate::{
     commands::{CommandContext, CommandError},
     db::schema::CreateGuildModerationCaseData,
     macros::{debug_panic, embed_default_footer, get_user_arg},
-    util::parse_duration,
+    util::{parse_duration, user_fetcher::fetch_and_add_users_to_db},
 };
 
 pub async fn warn(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandError> {
     let (target_id, expiry, reason, now) = moderation_common(&ctx, args).await?;
 
     ctx.db
-        .create_moderation_case(CreateGuildModerationCaseData {
-            guild_id: ctx.guild_id,
-            target_id,
-            moderator_id: Some(ctx.message.author.id),
-            moderation_kind: ModerationKind::Warn,
-            expiry: match expiry {
-                Some((expires_at, duration)) => {
-                    if let Ok(value) = i64::try_from(duration.as_secs()) {
-                        Some((expires_at, value))
-                    } else {
-                        tracing::error!(?duration, "Failed to convert seconds to i64.");
-                        return Ok(());
+        .create_moderation_case(
+            CreateGuildModerationCaseData {
+                guild_id: ctx.guild_id,
+                target_id,
+                moderator_id: Some(ctx.message.author.id),
+                moderation_kind: ModerationKind::Warn,
+                expiry: match expiry {
+                    Some((expires_at, duration)) => {
+                        if let Ok(value) = i64::try_from(duration.as_secs()) {
+                            Some((expires_at, value))
+                        } else {
+                            tracing::error!(?duration, "Failed to convert seconds to i64.");
+                            return Ok(());
+                        }
                     }
-                }
-                None => None,
+                    None => None,
+                },
+                reason,
+                created_at: now,
             },
-            reason,
-            created_at: now,
-        })
+            fetch_and_add_users_to_db(&ctx, [target_id, ctx.message.author.id]),
+        )
         .await?;
 
     ctx.message
@@ -142,24 +145,27 @@ pub async fn mute(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandErro
 
     let case_id = ctx
         .db
-        .create_moderation_case(CreateGuildModerationCaseData {
-            guild_id: ctx.guild_id,
-            target_id,
-            moderator_id: Some(ctx.message.author.id),
-            moderation_kind: ModerationKind::Mute,
-            reason,
-            expiry: Some((
-                expiry.0,
-                if let Ok(value) = i64::try_from(expiry.1.as_secs()) {
-                    value
-                } else {
-                    let duration = expiry.1;
-                    tracing::error!(?duration, "Failed to convert seconds to i64.");
-                    return Err(CommandError::Ignore);
-                },
-            )),
-            created_at: now,
-        })
+        .create_moderation_case(
+            CreateGuildModerationCaseData {
+                guild_id: ctx.guild_id,
+                target_id,
+                moderator_id: Some(ctx.message.author.id),
+                moderation_kind: ModerationKind::Mute,
+                reason,
+                expiry: Some((
+                    expiry.0,
+                    if let Ok(value) = i64::try_from(expiry.1.as_secs()) {
+                        value
+                    } else {
+                        let duration = expiry.1;
+                        tracing::error!(?duration, "Failed to convert seconds to i64.");
+                        return Err(CommandError::Ignore);
+                    },
+                )),
+                created_at: now,
+            },
+            fetch_and_add_users_to_db(&ctx, [target_id, ctx.message.author.id]),
+        )
         .await?;
     let close_reason = format!("Mute updated by case {case_id}");
     let closed_cases = ctx
@@ -355,15 +361,18 @@ pub async fn kick(ctx: CommandContext<'_>, args: &str) -> Result<(), CommandErro
 
     let case_id = ctx
         .db
-        .create_moderation_case(CreateGuildModerationCaseData {
-            guild_id: ctx.guild_id,
-            target_id,
-            moderator_id: Some(ctx.message.author.id),
-            moderation_kind: ModerationKind::Kick,
-            reason,
-            expiry: None,
-            created_at: Utc::now(),
-        })
+        .create_moderation_case(
+            CreateGuildModerationCaseData {
+                guild_id: ctx.guild_id,
+                target_id,
+                moderator_id: Some(ctx.message.author.id),
+                moderation_kind: ModerationKind::Kick,
+                reason,
+                expiry: None,
+                created_at: Utc::now(),
+            },
+            fetch_and_add_users_to_db(&ctx, [target_id, ctx.message.author.id]),
+        )
         .await?;
 
     ctx.message

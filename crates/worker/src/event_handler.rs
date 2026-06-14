@@ -350,6 +350,7 @@ impl BotEventHandler {
                     bot_name: &self.bot_name,
                     started_at: &self.started_at,
                     db: &self.db_manager,
+                    db_arc: &self.db_manager,
                     guild_id,
                     default_command_configuration: &self.default_command_configuration,
                     max_command_prefix_len: self.max_command_prefix_len,

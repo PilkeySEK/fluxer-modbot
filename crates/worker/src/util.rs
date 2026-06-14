@@ -9,6 +9,7 @@ use nom::{Parser, error::ErrorKind};
 pub mod confirmation;
 pub mod pages;
 pub mod user_arg;
+pub mod user_fetcher;
 
 pub enum MaybeExpired<T> {
     NotExpired(T),

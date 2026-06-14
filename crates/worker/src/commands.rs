@@ -1,4 +1,4 @@
-use std::{collections::HashMap, pin::Pin, time::SystemTime};
+use std::{collections::HashMap, pin::Pin, sync::Arc, time::SystemTime};
 
 use api_types::db::DbError;
 use chrono::{TimeDelta, Utc};
@@ -60,6 +60,7 @@ pub struct CommandContext<'a> {
     pub bot_name: &'a str,
     pub started_at: &'a SystemTime,
     pub db: &'a DatabaseManager,
+    pub db_arc: &'a Arc<DatabaseManager>,
     pub guild_id: Id<GuildMarker>,
     pub default_command_configuration: &'a HashMap<String, Permissions>,
     pub max_command_prefix_len: usize,

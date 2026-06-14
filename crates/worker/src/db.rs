@@ -13,7 +13,10 @@ use sqlx::{
     postgres::{PgPoolOptions, PgQueryResult},
     query, query_as, query_scalar,
 };
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::{
+    sync::mpsc::{UnboundedReceiver, UnboundedSender},
+    task::JoinHandle,
+};
 
 use crate::{
     caches::PrefixCache,
@@ -135,9 +138,11 @@ impl DatabaseManager {
             .update_guild_prefixes(guild_id, prefixes))
     }
 
+    /// The last argument is only used to ensure that the caller will add the user info to the database.
     pub async fn create_moderation_case(
         &self,
         data: CreateGuildModerationCaseData<'_>,
+        _user_info_fetcher_task: JoinHandle<()>,
     ) -> Result<CaseId, DbError> {
         let raw = query_as!(
             RawGuildModerationCase,

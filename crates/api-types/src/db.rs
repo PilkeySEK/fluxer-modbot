@@ -1,8 +1,11 @@
 use std::{str::FromStr, time::Duration};
 
-use fluxer_neptunium::model::id::{
-    Id,
-    marker::{GuildMarker, UserMarker},
+use fluxer_neptunium::model::{
+    id::{
+        Id,
+        marker::{GuildMarker, UserMarker},
+    },
+    user::PartialUser,
 };
 
 mod manager;
@@ -52,6 +55,18 @@ pub struct UserInfoSchema {
     pub username: String,
     pub discriminator: String,
     pub global_name: Option<String>,
+}
+
+impl From<PartialUser> for UserInfo {
+    fn from(value: PartialUser) -> Self {
+        Self {
+            user_id: value.id,
+            avatar: value.avatar,
+            username: value.username,
+            discriminator: value.discriminator,
+            global_name: value.global_name,
+        }
+    }
 }
 
 #[derive(sqlx::FromRow)]
