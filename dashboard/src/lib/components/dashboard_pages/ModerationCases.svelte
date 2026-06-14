@@ -146,7 +146,18 @@
 							alt="The target user's profile picture"
 							class="max-h-5 max-w-5 rounded-full"
 						/>
-						<p>{moderation_case.target_id}</p>
+						<p>
+							{#if userInfo?.data}
+								{@const thisUser = userInfo.data.get(moderation_case.target_id)}
+								{#if thisUser}
+									{thisUser.username}#{thisUser.discriminator} ({thisUser.user_id})
+								{:else}
+									{moderation_case.target_id}
+								{/if}
+							{:else}
+								{moderation_case.target_id}
+							{/if}
+						</p>
 						{#if userInfo === undefined}
 							<Loader size={1.25} />
 						{/if}
