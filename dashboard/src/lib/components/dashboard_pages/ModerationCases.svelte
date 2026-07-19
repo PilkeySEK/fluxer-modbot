@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { DashboardPagesProps } from './props';
-	import { api, iconSize, userProfilePictureUrl, type ApiRes } from '$lib';
+	import { api, iconSize, prettyDuration, userProfilePictureUrl, type ApiRes } from '$lib';
 	import Loader from '../Loader.svelte';
 	import {
 		ArrowFatLeftIcon,
@@ -172,7 +172,7 @@
 						{/if}
 						•
 						{#if moderation_case.expiry}
-							{JSON.stringify(moderation_case.expiry.duration)}
+							{prettyDuration(moderation_case.expiry.duration)}
 						{:else}
 							permanent
 						{/if}
