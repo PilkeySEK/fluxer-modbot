@@ -10,7 +10,12 @@ use fluxer_neptunium::model::{
 
 mod manager;
 pub use manager::*;
-use utoipa::openapi::{ObjectBuilder, schema::SchemaType};
+use utoipa::{
+    ToSchema,
+    openapi::{ObjectBuilder, schema::SchemaType},
+};
+
+use crate::DurationSchema;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct CaseId(pub i64);
@@ -97,9 +102,10 @@ pub struct GuildModerationCaseCloseDataResponse {
     pub closed_by: Option<String>,
 }
 
-#[derive(utoipa::ToSchema, serde::Serialize)]
+#[derive(serde::Serialize, ToSchema)]
 pub struct GuildModerationCaseExpiry {
     pub expires_at: chrono::DateTime<chrono::Utc>,
+    #[schema(value_type = DurationSchema)]
     pub duration: Duration,
 }
 

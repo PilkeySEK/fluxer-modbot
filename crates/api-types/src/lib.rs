@@ -4,6 +4,7 @@ use fluxer_neptunium::model::{
     gateway::payload::incoming::UserPrivateResponse, guild::permissions::Permissions,
 };
 use sqids::{Sqids, SqidsBuilder};
+use utoipa::ToSchema;
 
 pub mod db;
 pub mod ws;
@@ -30,6 +31,14 @@ static SQIDS_NO_BLOCKLIST: LazyLock<Sqids> = LazyLock::new(|| {
         .build()
         .unwrap()
 });
+
+#[derive(ToSchema)]
+pub(crate) struct DurationSchema {
+    #[expect(unused)]
+    pub secs: u64,
+    #[expect(unused)]
+    pub nanos: u32,
+}
 
 #[derive(serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
 pub struct Guild {

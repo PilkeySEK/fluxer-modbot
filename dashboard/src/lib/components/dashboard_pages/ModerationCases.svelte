@@ -170,6 +170,12 @@
 						{:else}
 							<i>No reason specified.</i>
 						{/if}
+						•
+						{#if moderation_case.expiry}
+							{JSON.stringify(moderation_case.expiry.duration)}
+						{:else}
+							permanent
+						{/if}
 					</p>
 				</div>
 			{/each}

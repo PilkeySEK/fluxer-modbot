@@ -360,6 +360,25 @@
       "CaseId": {
         "type": "string"
       },
+      "DurationSchema": {
+        "type": "object",
+        "required": [
+          "secs",
+          "nanos"
+        ],
+        "properties": {
+          "nanos": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "secs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
       "FluxerUser": {
         "type": "object",
         "required": [
@@ -491,7 +510,7 @@
         ],
         "properties": {
           "duration": {
-            "type": "string"
+            "$ref": "#/components/schemas/DurationSchema"
           },
           "expires_at": {
             "type": "string",

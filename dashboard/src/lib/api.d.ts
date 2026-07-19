@@ -137,6 +137,12 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         CaseId: string;
+        DurationSchema: {
+            /** Format: int32 */
+            nanos: number;
+            /** Format: int64 */
+            secs: number;
+        };
         FluxerUser: {
             avatar?: string | null;
             discriminator: string;
@@ -164,7 +170,7 @@ export interface components {
             reason?: string | null;
         };
         GuildModerationCaseExpiry: {
-            duration: string;
+            duration: components["schemas"]["DurationSchema"];
             /** Format: date-time */
             expires_at: string;
         };
