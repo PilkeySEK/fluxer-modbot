@@ -6,7 +6,7 @@
 	import Loader from '$lib/components/Loader.svelte';
 	import { PUBLIC_FLUXER_MEDIA_PROXY_BASE } from '$env/static/public';
 	import CopyButton from '$lib/components/CopyButton.svelte';
-	import { ArrowsLeftRightIcon, GearSixIcon, ScrollIcon } from 'phosphor-svelte';
+	import { ArrowsLeftRightIcon, GearIcon, GearSixIcon, ScrollIcon } from 'phosphor-svelte';
 	import type { ResolvedPathname } from '$app/types';
 	import type { DashboardPagesProps } from '$lib/components/dashboard_pages/props';
 	import GeneralSettings from '$lib/components/dashboard_pages/GeneralSettings.svelte';
@@ -202,9 +202,14 @@
 						/>
 					</div>
 					<div class="flex flex-col">
-						<p class="text-lg font-medium">
-							{userDataStore.username}#{userDataStore.discriminator}
-						</p>
+						<div class="flex items-center gap-2">
+							<p class="text-lg font-medium">
+								{userDataStore.username}#{userDataStore.discriminator}
+							</p>
+							<a title="Settings" href={resolve('/dashboard/settings')}
+								><GearIcon size={iconSize(4)} weight="fill" /></a
+							>
+						</div>
 						<div class="flex gap-1">
 							<p class="text-2sm text-neutral-300">{userDataStore.id}</p>
 							<CopyButton size={3} text={userDataStore.id} />

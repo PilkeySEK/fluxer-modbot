@@ -13,25 +13,27 @@
 	} = $props();
 </script>
 
-<div class="grid w-full grid-cols-[1fr_auto]">
+<div>
 	<!-- eslint-disable-next-line svelte/require-each-key -->
 	{#each switches as elem}
-		{#if elem.sublabel === undefined}
-			<p>{elem.label}</p>
-		{:else}
-			<div>
+		<div class="grid w-full grid-cols-[1fr_auto] items-center gap-2">
+			{#if elem.sublabel === undefined}
 				<p>{elem.label}</p>
-				<p class="text-sm text-neutral-400">{elem.sublabel}</p>
-			</div>
-		{/if}
-		<Switch
-			bind:checked={
-				elem.isChecked,
-				(newChecked) => {
-					elem.onChange(newChecked);
-					return newChecked;
+			{:else}
+				<div>
+					<p>{elem.label}</p>
+					<p class="text-sm text-neutral-400">{elem.sublabel}</p>
+				</div>
+			{/if}
+			<Switch
+				bind:checked={
+					elem.isChecked,
+					(newChecked) => {
+						elem.onChange(newChecked);
+						return newChecked;
+					}
 				}
-			}
-		/>-
+			/>
+		</div>
 	{/each}
 </div>

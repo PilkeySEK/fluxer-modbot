@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { PUBLIC_BOT_NAME } from '$env/static/public';
-	import { api, type ApiRes } from '$lib';
+	import { api, iconSize, type ApiRes } from '$lib';
 	import fluxer_symbol from '$lib/assets/fluxer-symbol-white.svg';
 	import Loader from '$lib/components/Loader.svelte';
 	import NormalButton from '$lib/components/NormalButton.svelte';
 	import SignOutButton from '$lib/components/SignOutButton.svelte';
+	import { GearIcon } from 'phosphor-svelte';
 	import { onMount } from 'svelte';
 
 	let maybe_me: ApiRes<'/users/@maybe-me'> | undefined | null = $state(undefined);
@@ -42,6 +43,14 @@
 			</p>
 			<div class="mt-1 flex items-center gap-2">
 				<a href={resolve('/dashboard')}><NormalButton>Go to dashboard</NormalButton></a>
+				<a href={resolve('/dashboard/settings')}
+					><NormalButton
+						><div class="flex items-center gap-2">
+							<GearIcon size={iconSize(4)} weight="fill" />
+							<p>Settings</p>
+						</div></NormalButton
+					></a
+				>
 				<SignOutButton />
 			</div>
 		{:else}

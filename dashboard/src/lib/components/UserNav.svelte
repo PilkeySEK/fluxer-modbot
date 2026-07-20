@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { PUBLIC_FLUXER_MEDIA_PROXY_BASE, PUBLIC_FLUXER_STATIC_BASE } from '$env/static/public';
-	import { api, type ApiRes } from '$lib';
+	import { api, iconSize, type ApiRes } from '$lib';
 	import { onMount } from 'svelte';
 	import SignOutButton from '$lib/components/SignOutButton.svelte';
+	import NormalButton from './NormalButton.svelte';
+	import { GearIcon } from 'phosphor-svelte';
+	import { resolve } from '$app/paths';
 
 	let me:
 		| {
@@ -54,6 +57,14 @@
 				</p>
 				<p class="truncate text-xs leading-none text-neutral-400">{me.data.id}</p>
 			</div>
+			<a href={resolve('/dashboard/settings')}
+				><NormalButton
+					><div class="flex items-center gap-2">
+						<GearIcon size={iconSize(4)} weight="fill" />
+						<p>Settings</p>
+					</div></NormalButton
+				></a
+			>
 			<SignOutButton />
 		{:else}
 			<p>{me.error} Check the browser console for details.</p>
