@@ -5,7 +5,7 @@
 - [ ] Moderation features
   - [x] Warn/Unwarn
   - [x] Mute/Unmute
-  - [ ] Kick
+  - [x] Kick
   - [ ] Ban/Unban
   - [ ] Moderation cases features
     - [x] Create on punish

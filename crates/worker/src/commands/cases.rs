@@ -187,7 +187,7 @@ fn format_case_info(ctx: &CommandContext<'_>, case: GuildModerationCase) -> Crea
             "/".to_owned()
         } else {
             case.expiry.map_or_else(
-                || "Permanent".to_string(),
+                || "Permanent".to_owned(),
                 |GuildModerationCaseExpiry {
                      expires_at,
                      duration,
@@ -208,7 +208,7 @@ fn format_case_info(ctx: &CommandContext<'_>, case: GuildModerationCase) -> Crea
             )
         },
         case.moderator_id.map_or_else(
-            || "*Automated action.*".to_string(),
+            || "*Automated action.*".to_owned(),
             |moderator_id| format!("<@{moderator_id}>")
         ),
         if let Some(close_data) = case.close_data {

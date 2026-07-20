@@ -103,7 +103,7 @@ impl InnerAppState {
                 .build()?,
             fluxer_api: FluxerApiManager::new(
                 if let Some(suffix_stripped) = fluxer_api_base.strip_suffix("/") {
-                    suffix_stripped.to_string()
+                    suffix_stripped.to_owned()
                 } else {
                     fluxer_api_base
                 },

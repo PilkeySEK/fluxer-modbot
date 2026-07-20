@@ -61,7 +61,7 @@ async fn callback(
 ) -> ApiResult<(PrivateCookieJar, impl IntoResponse)> {
     let stored_csrf = jar
         .get(CSRF_COOKIE)
-        .map(|c| c.value().to_string())
+        .map(|c| c.value().to_owned())
         .ok_or(ApiError::OAuthInvalidState)?;
 
     if stored_csrf != params.state {

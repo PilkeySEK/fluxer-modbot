@@ -185,7 +185,7 @@ pub async fn set_modlog_webhook(ctx: CommandContext<'_>, args: &str) -> Result<(
         .get_http_client()
         .execute(GetWebhookWithToken {
             webhook_id,
-            token: webhook_token.to_string().into(),
+            token: webhook_token.to_owned().into(),
         })
         .await;
 
@@ -364,7 +364,7 @@ pub async fn modlog_channel(ctx: CommandContext<'_>, args: &str) -> Result<(), C
             let webhook = channel
                 .create_webhook(
                     ctx.ctx,
-                    ctx.bot_name.to_string(),
+                    ctx.bot_name.to_owned(),
                     ctx.webhook_avatar_b64.map(String::from),
                 )
                 .await?;

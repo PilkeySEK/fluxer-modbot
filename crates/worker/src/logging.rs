@@ -81,16 +81,14 @@ impl ModLogEntry {
                     case.target_id,
                     case.target_id,
                     case.reason
-                        .unwrap_or_else(|| "*No reason provided.*".to_string()),
-                    case.moderator_id.map_or_else(
-                        || "*Automated action.*".to_string(),
-                        |id| format!("<@{id}>")
-                    ),
+                        .unwrap_or_else(|| "*No reason provided.*".to_owned()),
+                    case.moderator_id
+                        .map_or_else(|| "*Automated action.*".to_owned(), |id| format!("<@{id}>")),
                     if case.moderation_kind == ModerationKind::Kick {
-                        "/".to_string()
+                        "/".to_owned()
                     } else {
                         case.expiry.map_or_else(
-                            || "Permanent".to_string(),
+                            || "Permanent".to_owned(),
                             |GuildModerationCaseExpiry {
                                  expires_at,
                                  duration,

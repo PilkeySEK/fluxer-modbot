@@ -29,3 +29,4 @@ needless_raw_strings = "warn"
 redundant_clone = "warn"
 manual_let_else = "warn"
 unreadable_literal = { level = "allow", priority = 1 }
+str_to_string = "warn"

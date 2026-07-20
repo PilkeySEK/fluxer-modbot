@@ -27,7 +27,7 @@ pub async fn parse_user_arg(
             .ctx
             .request_guild_members(RequestGuildMembers {
                 guild_ids: vec![ctx.guild_id],
-                query: RequestGuildMembersQuery::Text(input.to_string()),
+                query: RequestGuildMembersQuery::Text(input.to_owned()),
                 limit: Some(1),
                 nonce: None,
                 presences: None,
