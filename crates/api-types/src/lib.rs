@@ -55,14 +55,20 @@ pub struct Guild {
     pub online_count: Option<usize>,
 }
 
+#[derive(serde::Serialize, serde::Deserialize, utoipa::ToSchema, Default)]
+pub struct DashboardUserSettings {
+    pub show_duration_zeroes: bool,
+}
+
 #[derive(serde::Serialize, utoipa::ToSchema)]
-pub struct FluxerUser {
+pub struct DashboardUser {
     pub avatar: Option<String>,
     pub discriminator: String,
     pub id: String,
     pub is_staff: bool,
     pub username: String,
     pub global_name: Option<String>,
+    pub settings: DashboardUserSettings,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, utoipa::ToResponse)]
@@ -70,15 +76,16 @@ pub struct ApiErrorBody {
     pub error: String,
 }
 
-impl From<UserPrivateResponse> for FluxerUser {
-    fn from(value: UserPrivateResponse) -> Self {
+impl From<(UserPrivateResponse, DashboardUserSettings)> for DashboardUser {
+    fn from(value: (UserPrivateResponse, DashboardUserSettings)) -> Self {
         Self {
-            avatar: value.avatar,
-            discriminator: value.discriminator,
-            id: value.id.to_string(),
-            is_staff: value.is_staff,
-            username: value.username,
-            global_name: value.global_name,
+            avatar: value.0.avatar,
+            discriminator: value.0.discriminator,
+            id: value.0.id.to_string(),
+            is_staff: value.0.is_staff,
+            username: value.0.username,
+            global_name: value.0.global_name,
+            settings: value.1,
         }
     }
 }

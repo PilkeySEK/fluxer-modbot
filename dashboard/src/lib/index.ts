@@ -51,7 +51,10 @@ export function userProfilePictureUrl(
 /**
  * Format a duration into a human-readable format like "1d 3h 5m 52s"
  */
-export function prettyDuration(duration: { secs: number; nanos: number }): string {
+export function prettyDuration(
+	duration: { secs: number; nanos: number },
+	show_duration_zeroes: boolean
+): string {
 	const totalSeconds = Math.floor(duration.secs + duration.nanos / 1000000000);
 	const seconds = totalSeconds % 60;
 	const minutes = Math.floor(totalSeconds / 60) % 60;
@@ -60,17 +63,32 @@ export function prettyDuration(duration: { secs: number; nanos: number }): strin
 
 	let s = '';
 
-	if (days > 0) {
-		s += `${days}d `;
-	}
-	if (hours > 0 || days > 0) {
-		s += `${hours}h `;
-	}
-	if (minutes > 0 || hours > 0 || days > 0) {
-		s += `${minutes}m `;
-	}
-	if (seconds > 0 || minutes > 0 || hours > 0 || days > 0) {
-		s += `${seconds}s `;
+	if (show_duration_zeroes) {
+		if (days > 0) {
+			s += `${days}d `;
+		}
+		if (hours > 0 || days > 0) {
+			s += `${hours}h `;
+		}
+		if (minutes > 0 || hours > 0 || days > 0) {
+			s += `${minutes}m `;
+		}
+		if (seconds > 0 || minutes > 0 || hours > 0 || days > 0) {
+			s += `${seconds}s `;
+		}
+	} else {
+		if (days > 0) {
+			s += `${days}d `;
+		}
+		if (hours > 0) {
+			s += `${hours}h `;
+		}
+		if (minutes > 0) {
+			s += `${minutes}m `;
+		}
+		if (seconds > 0) {
+			s += `${seconds}s `;
+		}
 	}
 
 	return s.trim();

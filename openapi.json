@@ -217,7 +217,7 @@
                       "type": "null"
                     },
                     {
-                      "$ref": "#/components/schemas/FluxerUser"
+                      "$ref": "#/components/schemas/DashboardUser"
                     }
                   ]
                 }
@@ -251,7 +251,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FluxerUser"
+                  "$ref": "#/components/schemas/DashboardUser"
                 }
               }
             }
@@ -290,6 +290,41 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/users/@me/settings": {
+      "post": {
+        "tags": [
+          "crate::routes::users"
+        ],
+        "operationId": "set_user_me_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DashboardUserSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": ""
           },
           "400": {
             "description": "Bad request"
@@ -360,32 +395,14 @@
       "CaseId": {
         "type": "string"
       },
-      "DurationSchema": {
-        "type": "object",
-        "required": [
-          "secs",
-          "nanos"
-        ],
-        "properties": {
-          "nanos": {
-            "type": "integer",
-            "format": "int32",
-            "minimum": 0
-          },
-          "secs": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0
-          }
-        }
-      },
-      "FluxerUser": {
+      "DashboardUser": {
         "type": "object",
         "required": [
           "discriminator",
           "id",
           "is_staff",
-          "username"
+          "username",
+          "settings"
         ],
         "properties": {
           "avatar": {
@@ -409,8 +426,41 @@
           "is_staff": {
             "type": "boolean"
           },
+          "settings": {
+            "$ref": "#/components/schemas/DashboardUserSettings"
+          },
           "username": {
             "type": "string"
+          }
+        }
+      },
+      "DashboardUserSettings": {
+        "type": "object",
+        "required": [
+          "show_duration_zeroes"
+        ],
+        "properties": {
+          "show_duration_zeroes": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DurationSchema": {
+        "type": "object",
+        "required": [
+          "secs",
+          "nanos"
+        ],
+        "properties": {
+          "nanos": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "secs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           }
         }
       },

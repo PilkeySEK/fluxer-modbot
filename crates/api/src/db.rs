@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use api_types::{
+    DashboardUserSettings,
     db::{DbError, SharedDatabaseManager},
     ws::ApiToWorkerMessage,
 };
@@ -57,7 +58,7 @@ impl DbManager {
         expires_at: chrono::DateTime<chrono::Utc>,
         data: SessionJsonData,
     ) -> Result<(), sqlx::Error> {
-        #[expect(clippy::unwrap_used, reason = "This will never fail")]
+        #[expect(clippy::unwrap_used)]
         sqlx::query!(
             "INSERT INTO dash_sessions (session_token, user_id, data, expires_at)
             VALUES ($1, $2, $3, $4)",
@@ -161,6 +162,46 @@ impl DbManager {
         Ok(GuildConfig {
             command_prefixes: guild.command_prefixes,
         })
+    }
+
+    pub async fn get_dashboard_user_settings_upsert(
+        &self,
+        user_id: Id<UserMarker>,
+    ) -> Result<DashboardUserSettings, DbError> {
+        #[expect(clippy::unwrap_used)]
+        let settings = sqlx::query_scalar!(
+            "INSERT INTO dashboard_user_settings (user_id, settings)
+            VALUES ($1, $2)
+            ON CONFLICT (user_id) DO UPDATE
+            SET user_id = EXCLUDED.user_id
+            RETURNING settings",
+            user_id.into_inner().cast_signed(),
+            serde_json::to_value(DashboardUserSettings::default()).unwrap(),
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(DbError::Sqlx)?;
+
+        serde_json::from_value(settings).map_err(DbError::JsonParse)
+    }
+
+    pub async fn set_dashboard_user_settings(
+        &self,
+        user_id: Id<UserMarker>,
+        settings: DashboardUserSettings,
+    ) -> Result<(), DbError> {
+        #[expect(clippy::unwrap_used)]
+        sqlx::query!(
+            "INSERT INTO dashboard_user_settings (user_id, settings)
+            VALUES ($1, $2)
+            ON CONFLICT (user_id) DO UPDATE
+            SET settings = $2",
+            user_id.into_inner().cast_signed(),
+            serde_json::to_value(settings).unwrap(),
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 
     pub async fn stop(self) {

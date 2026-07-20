@@ -12,7 +12,7 @@
 	} from 'phosphor-svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 
-	let { params }: DashboardPagesProps = $props();
+	let { params, userData }: DashboardPagesProps = $props();
 
 	let cases_res:
 		| {
@@ -172,7 +172,10 @@
 						{/if}
 						•
 						{#if moderation_case.expiry}
-							{prettyDuration(moderation_case.expiry.duration)}
+							{prettyDuration(
+								moderation_case.expiry.duration,
+								userData.settings.show_duration_zeroes
+							)}
 						{:else}
 							permanent
 						{/if}

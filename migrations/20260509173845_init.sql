@@ -79,3 +79,10 @@ CREATE TABLE user_info (
 );
 
 CREATE INDEX idx_user_info_by_user_id ON user_info (user_id);
+
+CREATE TABLE dashboard_user_settings (
+    user_id BIGINT PRIMARY KEY,
+    settings JSONB NOT NULL
+);
+
+CREATE INDEX idx_dashboard_user_settings_by_user_id ON dashboard_user_settings (user_id);

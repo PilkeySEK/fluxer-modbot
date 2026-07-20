@@ -4,7 +4,7 @@ use std::{
 };
 
 use api_types::{
-    FluxerUser, Guild,
+    DashboardUser, DashboardUserSettings, Guild,
     db::{UserInfo, UserInfoSchema},
 };
 use axum::{
@@ -45,6 +45,13 @@ pub fn router(state: AppState) -> Router<AppState> {
         .route(
             "/users/info-bulk",
             post(get_user_info).layer(middleware::from_fn_with_state(
+                state.clone(),
+                crate::middleware::session_required,
+            )),
+        )
+        .route(
+            "/users/@me/settings",
+            post(set_user_me_settings).layer(middleware::from_fn_with_state(
                 state,
                 crate::middleware::session_required,
             )),
@@ -86,29 +93,33 @@ pub async fn get_user_guilds(
 #[utoipa::path(
     get,
     path = "/users/@me",
-    responses((status = 200, body = FluxerUser))
+    responses((status = 200, body = DashboardUser))
 )]
 pub async fn get_user_me(
     Extension(session_data): Extension<Arc<SessionData>>,
     State(state): State<AppState>,
-) -> ApiResult<Json<FluxerUser>> {
+) -> ApiResult<Json<DashboardUser>> {
     let user = state
         .fluxer_api
         .get_user(&session_data.data.bearer_token)
         .await?;
-    Ok(Json(user.into()))
+    let user_settings = state
+        .db
+        .get_dashboard_user_settings_upsert(session_data.data.user_id)
+        .await?;
+    Ok(Json((user, user_settings).into()))
 }
 
 #[utoipa::path(
     get,
     path = "/users/@maybe-me",
-    responses((status = 200, body = Option<FluxerUser>))
+    responses((status = 200, body = Option<DashboardUser>))
 )]
 pub async fn get_maybe_user_me(
     Extension(session_data): Extension<Arc<Option<SessionData>>>,
     State(state): State<AppState>,
     jar: PrivateCookieJar,
-) -> ApiResult<(PrivateCookieJar, Json<Option<FluxerUser>>)> {
+) -> ApiResult<(PrivateCookieJar, Json<Option<DashboardUser>>)> {
     let Some(session_data) = &*session_data else {
         let jar = jar.remove(SESSION_COOKIE_NAME);
         return Ok((jar, Json(None)));
@@ -117,7 +128,11 @@ pub async fn get_maybe_user_me(
         .fluxer_api
         .get_user(&session_data.data.bearer_token)
         .await?;
-    Ok((jar, Json(Some(user.into()))))
+    let user_settings = state
+        .db
+        .get_dashboard_user_settings_upsert(session_data.data.user_id)
+        .await?;
+    Ok((jar, Json(Some((user, user_settings).into()))))
 }
 
 #[derive(utoipa::ToSchema, serde::Deserialize)]
@@ -156,4 +171,21 @@ pub async fn get_user_info(
     }
 
     Ok(Json(response))
+}
+
+#[utoipa::path(
+    post,
+    path = "/users/@me/settings",
+    responses((status = 204))
+)]
+pub async fn set_user_me_settings(
+    Extension(session_data): Extension<Arc<SessionData>>,
+    State(state): State<AppState>,
+    Json(body): Json<DashboardUserSettings>,
+) -> ApiResult<StatusCode> {
+    state
+        .db
+        .set_dashboard_user_settings(session_data.data.user_id, body)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
 }
