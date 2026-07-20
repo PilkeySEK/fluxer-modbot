@@ -33,3 +33,4 @@
 ## Not that important
 
 - [ ] Scan server to look at possible server setup problems
+- [ ] Staff applications
