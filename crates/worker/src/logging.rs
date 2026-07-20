@@ -1,4 +1,4 @@
-use api_types::db::{GuildModerationCase, GuildModerationCaseExpiry};
+use api_types::db::{GuildModerationCase, GuildModerationCaseExpiry, ModerationKind};
 use fluxer_neptunium::{
     create_embed,
     events::context::Context,
@@ -86,18 +86,24 @@ impl ModLogEntry {
                         || "*Automated action.*".to_string(),
                         |id| format!("<@{id}>")
                     ),
-                    case.expiry.map_or_else(
-                        || "Permanent".to_string(),
-                        |GuildModerationCaseExpiry {
-                             expires_at,
-                             duration,
-                         }| format!(
-                            "{} (expires {})",
-                            pretty_duration(&duration, crate::PRETTY_DURATION_OPTIONS),
-                            Timestamp::<UnixMillis>::from(expires_at)
-                                .time_string(TimestampDisplayType::Relative)
+                    if case.moderation_kind == ModerationKind::Kick {
+                        "/".to_string()
+                    } else {
+                        case.expiry.map_or_else(
+                            || "Permanent".to_string(),
+                            |GuildModerationCaseExpiry {
+                                 expires_at,
+                                 duration,
+                             }| {
+                                format!(
+                                    "{} (expires {})",
+                                    pretty_duration(&duration, crate::PRETTY_DURATION_OPTIONS),
+                                    Timestamp::<UnixMillis>::from(expires_at)
+                                        .time_string(TimestampDisplayType::Relative)
+                                )
+                            },
                         )
-                    ),
+                    },
                 );
                 create_embed!(
                     title: format!("Case `{}`", case.case_id),

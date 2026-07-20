@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use api_types::db::{CaseId, GuildModerationCase, GuildModerationCaseExpiry};
+use api_types::db::{CaseId, GuildModerationCase, GuildModerationCaseExpiry, ModerationKind};
 use chrono::Utc;
 use fluxer_neptunium::{
     cache::Cached,
@@ -183,26 +183,30 @@ fn format_case_info(ctx: &CommandContext<'_>, case: GuildModerationCase) -> Crea
         case.target_id,
         case.reason
             .unwrap_or_else(|| "*No reason provided.*".to_owned()),
-        case.expiry.map_or_else(
-            || "Permanent".to_string(),
-            |GuildModerationCaseExpiry {
-                 expires_at,
-                 duration,
-             }| {
-                let now = Utc::now();
-                format!(
-                    "{} ({} {})",
-                    pretty_duration(&duration, crate::PRETTY_DURATION_OPTIONS),
-                    if expires_at > now {
-                        "expires"
-                    } else {
-                        "expired"
-                    },
-                    Timestamp::<UnixMillis>::from(expires_at)
-                        .time_string(TimestampDisplayType::Relative)
-                )
-            }
-        ),
+        if case.moderation_kind == ModerationKind::Kick {
+            "/".to_owned()
+        } else {
+            case.expiry.map_or_else(
+                || "Permanent".to_string(),
+                |GuildModerationCaseExpiry {
+                     expires_at,
+                     duration,
+                 }| {
+                    let now = Utc::now();
+                    format!(
+                        "{} ({} {})",
+                        pretty_duration(&duration, crate::PRETTY_DURATION_OPTIONS),
+                        if expires_at > now {
+                            "expires"
+                        } else {
+                            "expired"
+                        },
+                        Timestamp::<UnixMillis>::from(expires_at)
+                            .time_string(TimestampDisplayType::Relative)
+                    )
+                },
+            )
+        },
         case.moderator_id.map_or_else(
             || "*Automated action.*".to_string(),
             |moderator_id| format!("<@{moderator_id}>")
@@ -246,24 +250,26 @@ fn format_case_list(
 ) -> EditMessageBody {
     fn format_case_oneline(case: GuildModerationCase) -> String {
         format!(
-            "[{}] **{}** of <@{}> - `{}` ({}){}: {}",
+            "[{}] **{}** of <@{}> - `{}`{}{}: {}",
             Timestamp::<UnixMillis>::from(case.created_at)
                 .time_string(TimestampDisplayType::ShortDate),
             case.moderation_kind,
             case.target_id,
             case.case_id,
-            if let Some(GuildModerationCaseExpiry {
+            if case.moderation_kind == ModerationKind::Kick {
+                String::new()
+            } else if let Some(GuildModerationCaseExpiry {
                 expires_at,
                 duration: _,
             }) = case.expiry
             {
                 format!(
-                    "expires {}",
+                    " (expires {})",
                     Timestamp::<UnixMillis>::from(expires_at)
                         .time_string(TimestampDisplayType::Relative)
                 )
             } else {
-                "permanent".to_owned()
+                " (permanent)".to_owned()
             },
             if case.close_data.is_some() {
                 " (**closed**)"

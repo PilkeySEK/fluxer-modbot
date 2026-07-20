@@ -170,14 +170,16 @@
 						{:else}
 							<i>No reason specified.</i>
 						{/if}
-						•
-						{#if moderation_case.expiry}
-							{prettyDuration(
-								moderation_case.expiry.duration,
-								userData.settings.show_duration_zeroes
-							)}
-						{:else}
-							permanent
+						{#if moderation_case.moderation_kind !== 'Kick'}
+							•
+							{#if moderation_case.expiry}
+								{prettyDuration(
+									moderation_case.expiry.duration,
+									userData.settings.show_duration_zeroes
+								)}
+							{:else}
+								permanent
+							{/if}
 						{/if}
 					</p>
 				</div>
