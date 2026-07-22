@@ -14,7 +14,7 @@ mod error;
 pub use error::*;
 
 pub trait CommandExecuteFn<C, R>: Send + Sync {
-    fn call(&self, context: CommandContext<C>) -> Pin<Box<dyn Future<Output = R> + Send + Sync>>;
+    fn call(&self, context: CommandContext<C>) -> Pin<Box<dyn Future<Output = R> + Send>>;
 }
 
 pub struct CommandContext<C> {
@@ -25,9 +25,9 @@ pub struct CommandContext<C> {
 impl<F, Fut, C, R> CommandExecuteFn<C, R> for F
 where
     F: Fn(CommandContext<C>) -> Fut + Send + Sync,
-    Fut: Future<Output = R> + Send + Sync + 'static,
+    Fut: Future<Output = R> + Send + 'static,
 {
-    fn call(&self, context: CommandContext<C>) -> Pin<Box<dyn Future<Output = R> + Send + Sync>> {
+    fn call(&self, context: CommandContext<C>) -> Pin<Box<dyn Future<Output = R> + Send>> {
         Box::pin(self(context))
     }
 }

@@ -1,17 +1,24 @@
-use std::{collections::HashMap, pin::Pin, sync::Arc, time::SystemTime};
+use std::{
+    any::Any,
+    collections::HashMap,
+    pin::Pin,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use api_types::db::DbError;
 use async_brigadier::{
     CommandDispatcher,
-    arg::{CommandArgument, literal},
+    arg::{CommandArgument, greedy_string, literal},
 };
 use chrono::{TimeDelta, Utc};
 use fluxer_neptunium::{
     cache::{Cached, CachedMessage},
     client::error::ClientErrorKind,
+    create_embed,
     events::{EventError, EventErrorKind, context::Context},
     exts::{GuildExt, GuildMemberExt, MessageExt},
-    http::error::error_code::ApiErrorCode,
+    http::{endpoints::channel::CreateMessageBody, error::error_code::ApiErrorCode},
     model::{
         guild::permissions::Permissions,
         id::{
@@ -20,9 +27,11 @@ use fluxer_neptunium::{
         },
     },
 };
+use pretty_duration::pretty_duration;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
+    commands::args::{duration, user_id_or_mention},
     db::{DatabaseManager, schema::GuildCommandConfiguration},
     event_handler::reactions::{
         ReactionExpiryHandlerFn, ReactionHandler, ReactionsEventHandlerMessage,
@@ -31,10 +40,11 @@ use crate::{
     macros::{debug_panic, embed_default_footer, embed_default_footer_raw},
 };
 
-mod cases;
-mod guild_settings;
-mod misc;
-mod moderation;
+// mod cases;
+// mod guild_settings;
+// mod misc;
+// mod moderation;
+mod args;
 
 /*
 pub trait CommandExecuteFn<'a>: Send + Sync + 'static {
@@ -151,6 +161,14 @@ impl CommandContext {
         {
             tracing::error!("The reaction handler is gone.");
         }
+    }
+
+    pub async fn reply(
+        &self,
+        content: impl Into<CreateMessageBody> + Send + Sync,
+    ) -> anyhow::Result<()> {
+        self.message.reply(&self.ctx, content).await?;
+        Ok(())
     }
 }
 
@@ -301,10 +319,65 @@ impl CommandDispatcher {
 */
 
 pub fn register_commands(dispatcher: &mut CommandDispatcher<CommandContext, anyhow::Result<()>>) {
-    // dispatcher.register(
-    // literal("ping")
-    //     .executes(async move |ctx: async_brigadier::CommandContext<CommandContext<'_>>| Ok(()))
-    // );
+    dispatcher.register(literal("ping").executes(
+        async |ctx: async_brigadier::CommandContext<CommandContext>| {
+            ctx.reply(create_embed!(
+                title: "Pong!",
+                description: format!(
+                    "> **Uptime:** {}\n> **Version:** {}+{}\n> {}",
+                    pretty_duration(
+                        &SystemTime::now().duration_since(ctx.started_at).unwrap_or(Duration::ZERO),
+                        crate::PRETTY_DURATION_OPTIONS,
+                    ),
+                    crate::VERSION,
+                    crate::GIT_HASH,
+                    if cfg!(debug_assertions) {
+                        "*This is a debug build.*"
+                    } else {
+                        "*This is a release build.*"
+                    }
+                ),
+            ))
+            .await?;
+            Ok(())
+        },
+    ));
+
+    async fn warn(mut ctx: async_brigadier::CommandContext<CommandContext>) -> anyhow::Result<()> {
+        let duration: Option<Duration> = ctx
+            .try_take_argument("duration")
+            .map(|value| value.downcast().ok())
+            .flatten()
+            .map(|value| *value);
+        let user_id: Id<UserMarker> = ctx.take_argument("user_id");
+        let reason: Option<String> = ctx
+            .try_take_argument("reason")
+            .map(|value| value.downcast().ok())
+            .flatten()
+            .map(|value| *value);
+
+        ctx.reply(format!(
+            "duration: {duration:?}
+            user_id: {user_id}
+            reason: {reason:?}"
+        ))
+        .await?;
+
+        Ok(())
+    }
+
+    dispatcher.register(
+        literal("warn").then(
+            user_id_or_mention("user_id")
+                .then(
+                    duration("duration")
+                        .then(greedy_string("reason").executes(warn))
+                        .executes(warn),
+                )
+                .then(greedy_string("reason").executes(warn))
+                .executes(warn),
+        ),
+    );
 
     /*
     dispatcher.register("ping", [], misc::ping);

@@ -8,12 +8,12 @@ mod string;
 pub use string::*;
 
 pub struct CommandArgument<C, R> {
-    pub(crate) children: Vec<CommandArgument<C, R>>,
-    pub(crate) kind: Box<dyn CommandArgumentKind>,
-    pub(crate) name: Option<&'static str>,
-    pub(crate) executes: Option<Box<dyn CommandExecuteFn<C, R>>>,
+    pub children: Vec<CommandArgument<C, R>>,
+    pub kind: Box<dyn CommandArgumentKind>,
+    pub name: Option<&'static str>,
+    pub executes: Option<Box<dyn CommandExecuteFn<C, R>>>,
     #[expect(clippy::type_complexity)]
-    pub(crate) requires: Option<Box<dyn Fn(&C) -> bool + Send + Sync>>,
+    pub requires: Option<Box<dyn Fn(&C) -> bool + Send + Sync>>,
 }
 
 pub trait CommandArgumentKind: Send + Sync {
