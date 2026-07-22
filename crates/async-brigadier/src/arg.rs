@@ -13,10 +13,10 @@ pub struct CommandArgument<C, R> {
     pub(crate) name: Option<&'static str>,
     pub(crate) executes: Option<Box<dyn CommandExecuteFn<C, R>>>,
     #[expect(clippy::type_complexity)]
-    pub(crate) requires: Option<Box<dyn Fn(&C) -> bool>>,
+    pub(crate) requires: Option<Box<dyn Fn(&C) -> bool + Send + Sync>>,
 }
 
-pub trait CommandArgumentKind {
+pub trait CommandArgumentKind: Send + Sync {
     /// Parse this argument. On success, return `(rest, argument)`.
     ///
     /// # Errors
@@ -41,7 +41,7 @@ impl<C, R> CommandArgument<C, R> {
     }
 
     #[must_use]
-    pub fn requires(mut self, requires: impl Fn(&C) -> bool + 'static) -> Self {
+    pub fn requires(mut self, requires: impl Fn(&C) -> bool + Send + Sync + 'static) -> Self {
         self.requires = Some(Box::new(requires));
         self
     }

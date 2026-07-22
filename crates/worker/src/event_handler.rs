@@ -1,9 +1,10 @@
 use std::{collections::HashMap, sync::Arc, time::SystemTime};
 
 use api_types::ws::WorkerToApiMessage;
+use async_brigadier::CommandDispatcher;
 use fluxer_neptunium::{
     async_trait,
-    cache::{Cached, CachedGuildMember, CachedGuildRole, CachedMessage, Guard},
+    cache::{Cached, CachedGuildMember, CachedGuildRole, CachedMessage},
     cached_payload::{
         CachedGuildRoleUpdateBulk, CachedMessageCreate, CachedMessageReactionAdd, CachedReady,
     },
@@ -21,20 +22,18 @@ use fluxer_neptunium::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    commands::{CommandContext, CommandDispatcher},
-    db::DatabaseManager,
-    event_handler::reactions::ReactionsEventHandler,
+    commands::CommandContext, db::DatabaseManager, event_handler::reactions::ReactionsEventHandler,
     logging::Logger,
 };
 
 pub mod reactions;
 
 pub struct BotEventHandler {
-    dispatcher: CommandDispatcher,
+    dispatcher: CommandDispatcher<CommandContext, anyhow::Result<()>>,
     bot_name: String,
     started_at: SystemTime,
     db_manager: Arc<DatabaseManager>,
-    default_command_configuration: HashMap<String, Permissions>,
+    default_command_configuration: Arc<HashMap<String, Permissions>>,
     max_command_prefix_len: usize,
     max_command_prefixes: usize,
     reactions_event_handler: ReactionsEventHandler,
@@ -47,7 +46,7 @@ pub struct BotEventHandler {
 impl BotEventHandler {
     #[expect(clippy::too_many_arguments)]
     pub fn new(
-        dispatcher: CommandDispatcher,
+        dispatcher: CommandDispatcher<CommandContext, anyhow::Result<()>>,
         bot_name: String,
         db_manager: Arc<DatabaseManager>,
         default_command_configuration: HashMap<String, Permissions>,
@@ -63,7 +62,7 @@ impl BotEventHandler {
             bot_name,
             started_at: SystemTime::now(),
             db_manager,
-            default_command_configuration,
+            default_command_configuration: Arc::new(default_command_configuration),
             max_command_prefix_len,
             max_command_prefixes,
             reactions_event_handler: ReactionsEventHandler::new(),
@@ -111,15 +110,27 @@ impl EventHandler for BotEventHandler {
             };
 
         if let Some(content) = message.content.strip_prefix(&format!("<@{}>", self.bot_id)) {
-            self.execute_command(ctx, &message, guild_id, content, guild_prefixes)
-                .await;
+            self.execute_command(
+                ctx,
+                event.message.clone(),
+                guild_id,
+                content,
+                guild_prefixes,
+            )
+            .await;
             return Ok(());
         }
 
         for prefix in guild_prefixes.iter() {
             if let Some(content) = message.content.strip_prefix(prefix) {
-                self.execute_command(ctx, &message, guild_id, content, guild_prefixes)
-                    .await;
+                self.execute_command(
+                    ctx,
+                    event.message.clone(),
+                    guild_id,
+                    content,
+                    guild_prefixes,
+                )
+                .await;
                 break;
             }
         }
@@ -336,42 +347,44 @@ impl BotEventHandler {
     async fn execute_command(
         &self,
         ctx: Context,
-        message: &Guard<Arc<CachedMessage>>,
+        message: Cached<CachedMessage>,
         guild_id: Id<GuildMarker>,
         content: &str,
         guild_command_prefixes: Arc<Vec<String>>,
     ) {
-        if let Err(e) = self
+        let result = self
             .dispatcher
             .execute(
+                content,
                 CommandContext {
-                    ctx: &ctx,
+                    ctx,
                     message,
-                    bot_name: &self.bot_name,
-                    started_at: &self.started_at,
-                    db: &self.db_manager,
-                    db_arc: &self.db_manager,
+                    bot_name: self.bot_name.clone(),
+                    started_at: self.started_at,
+                    db: Arc::clone(&self.db_manager),
                     guild_id,
-                    default_command_configuration: &self.default_command_configuration,
+                    default_command_configuration: Arc::clone(&self.default_command_configuration),
                     max_command_prefix_len: self.max_command_prefix_len,
                     max_command_prefixes: self.max_command_prefixes,
-                    reaction_handler_tx: &self.reactions_event_handler.tx,
-                    logger: &self.logger,
+                    reaction_handler_tx: self.reactions_event_handler.tx.clone(),
+                    logger: Arc::clone(&self.logger),
                     webhook_avatar_b64: match &self.webhook_avatar_b64 {
-                        Some(avatar) => Some(avatar),
+                        Some(avatar) => Some(avatar.clone()),
                         None => None,
                     },
                     bot_id: self.bot_id,
-                    guild_command_prefixes: guild_command_prefixes
-                        .iter()
-                        .map(String::as_str)
-                        .collect(),
+                    guild_command_prefixes,
                 },
-                content.trim_start(),
             )
-            .await
-        {
-            tracing::error!("Error executing command: {e}");
+            .await;
+        match result {
+            Err(e) => {
+                tracing::error!("Command error: {e}")
+            }
+            Ok(Err(e)) => {
+                tracing::error!("Error executing command: {e:?}")
+            }
+            Ok(Ok(())) => {}
         }
     }
 }

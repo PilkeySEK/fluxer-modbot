@@ -1,5 +1,6 @@
 use std::{env, str::FromStr, sync::Arc};
 
+use async_brigadier::CommandDispatcher;
 use fluxer_neptunium::{
     client::{Client, ClientConfig},
     http::endpoints::channel::AllowedMentions,
@@ -11,7 +12,7 @@ use tracing::Level;
 use crate::{
     api_connection::api_connection,
     case_expiration::case_expiry_listener,
-    commands::{CommandDispatcher, register_commands},
+    commands::register_commands,
     config::{Config, ConfigLoadError},
     db::create_db_manager_and_case_expiration_actor,
     event_handler::BotEventHandler,

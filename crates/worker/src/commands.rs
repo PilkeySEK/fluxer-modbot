@@ -1,9 +1,13 @@
 use std::{collections::HashMap, pin::Pin, sync::Arc, time::SystemTime};
 
 use api_types::db::DbError;
+use async_brigadier::{
+    CommandDispatcher,
+    arg::{CommandArgument, literal},
+};
 use chrono::{TimeDelta, Utc};
 use fluxer_neptunium::{
-    cache::CachedMessage,
+    cache::{Cached, CachedMessage},
     client::error::ClientErrorKind,
     events::{EventError, EventErrorKind, context::Context},
     exts::{GuildExt, GuildMemberExt, MessageExt},
@@ -32,6 +36,7 @@ mod guild_settings;
 mod misc;
 mod moderation;
 
+/*
 pub trait CommandExecuteFn<'a>: Send + Sync + 'static {
     fn call(
         &self,
@@ -53,23 +58,23 @@ where
         Box::pin(self(ctx, args))
     }
 }
+    */
 
-pub struct CommandContext<'a> {
-    pub ctx: &'a Context,
-    pub message: &'a CachedMessage,
-    pub bot_name: &'a str,
-    pub started_at: &'a SystemTime,
-    pub db: &'a DatabaseManager,
-    pub db_arc: &'a Arc<DatabaseManager>,
+pub struct CommandContext {
+    pub ctx: Context,
+    pub message: Cached<CachedMessage>,
+    pub bot_name: String,
+    pub started_at: SystemTime,
+    pub db: Arc<DatabaseManager>,
     pub guild_id: Id<GuildMarker>,
-    pub default_command_configuration: &'a HashMap<String, Permissions>,
+    pub default_command_configuration: Arc<HashMap<String, Permissions>>,
     pub max_command_prefix_len: usize,
     pub max_command_prefixes: usize,
-    pub reaction_handler_tx: &'a UnboundedSender<ReactionsEventHandlerMessage>,
-    pub logger: &'a Logger,
-    pub webhook_avatar_b64: Option<&'a str>,
+    pub reaction_handler_tx: UnboundedSender<ReactionsEventHandlerMessage>,
+    pub logger: Arc<Logger>,
+    pub webhook_avatar_b64: Option<String>,
     pub bot_id: Id<UserMarker>,
-    pub guild_command_prefixes: Vec<&'a str>,
+    pub guild_command_prefixes: Arc<Vec<String>>,
 }
 
 #[derive(Debug)]
@@ -103,13 +108,15 @@ impl From<DbError> for CommandError {
     }
 }
 
+/*
 pub struct CommandDispatcher {
     /// (alias, primary).
     aliases: HashMap<&'static str, &'static str>,
     commands: HashMap<&'static str, Box<dyn for<'a> CommandExecuteFn<'a>>>,
 }
+*/
 
-impl CommandContext<'_> {
+impl CommandContext {
     /// Helper for registering a reaction handler. For more control, use `reaction_handler_tx` on this struct.
     ///
     /// If an error occurs, it is logged but no panics will happen.
@@ -147,6 +154,7 @@ impl CommandContext<'_> {
     }
 }
 
+/*
 impl CommandDispatcher {
     pub fn new() -> Self {
         Self {
@@ -290,8 +298,15 @@ impl CommandDispatcher {
         Ok(())
     }
 }
+*/
 
-pub fn register_commands(dispatcher: &mut CommandDispatcher) {
+pub fn register_commands(dispatcher: &mut CommandDispatcher<CommandContext, anyhow::Result<()>>) {
+    // dispatcher.register(
+    // literal("ping")
+    //     .executes(async move |ctx: async_brigadier::CommandContext<CommandContext<'_>>| Ok(()))
+    // );
+
+    /*
     dispatcher.register("ping", [], misc::ping);
     dispatcher.register("add-prefix", [], guild_settings::add_prefix);
     dispatcher.register(
@@ -338,4 +353,5 @@ pub fn register_commands(dispatcher: &mut CommandDispatcher) {
         guild_settings::modlog_channel,
     );
     dispatcher.register("kick", [], moderation::kick);
+    */
 }
