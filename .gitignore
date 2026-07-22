@@ -6,6 +6,7 @@ crates/*/target
 config.json5
 api-config.json5
 worker-config.json5
+**/*.ignore
 
 .vscode
 .zed

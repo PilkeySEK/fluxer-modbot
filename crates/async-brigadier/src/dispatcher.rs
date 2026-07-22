@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{
-    CommandContext, CommandError, CommandErrorKind, CommandNode, CommandParseError,
-    arg::CommandArgument,
-};
+use crate::{CommandContext, CommandError, CommandNode, CommandParseError, arg::CommandArgument};
 
 pub struct CommandDispatcher<C, R> {
     root_children: Vec<CommandArgument<C, R>>,
@@ -25,12 +22,9 @@ impl<C, R> CommandDispatcher<C, R> {
     /// Returns an error if the command has invalid syntax.
     pub async fn execute(&self, command: &str, context: C) -> Result<R, CommandError> {
         let command_trimmed = command.trim_start();
-        let matched_node = parse_args_recursively(command_trimmed, &self.root_children, &context)
-            .map_err(|e| CommandError { kind: e })?;
+        let matched_node = parse_args_recursively(command_trimmed, &self.root_children, &context)?;
         let Some(executes) = matched_node.executes else {
-            return Err(CommandError {
-                kind: CommandErrorKind::NotExecutable,
-            });
+            return Err(CommandError::NotExecutable);
         };
         Ok(executes
             .call(CommandContext {
@@ -45,7 +39,7 @@ fn parse_args_recursively<'a, C, R>(
     rest: &str,
     args: &'a Vec<CommandArgument<C, R>>,
     ctx: &C,
-) -> Result<CommandNode<'a, C, R>, CommandErrorKind> {
+) -> Result<CommandNode<'a, C, R>, CommandError> {
     for arg in args {
         if !arg.pass_empty && rest.is_empty() {
             continue;
@@ -54,7 +48,7 @@ fn parse_args_recursively<'a, C, R>(
             if let Some(requires) = &arg.requires
                 && !requires(ctx)
             {
-                return Err(CommandErrorKind::RequirementNotSatisfied);
+                return Err(CommandError::RequirementNotSatisfied);
             }
             let rest = rest.trim_start();
             if rest.is_empty() && arg.children.iter().find(|arg| arg.pass_empty).is_none() {
@@ -80,7 +74,7 @@ fn parse_args_recursively<'a, C, R>(
             return Ok(node);
         }
     }
-    Err(CommandErrorKind::Parse(CommandParseError::NoMatch))
+    Err(CommandError::Parse(CommandParseError::NoMatch))
 }
 
 impl<C, R> Default for CommandDispatcher<C, R> {

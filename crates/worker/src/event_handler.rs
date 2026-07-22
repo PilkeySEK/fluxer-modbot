@@ -1,15 +1,16 @@
 use std::{collections::HashMap, sync::Arc, time::SystemTime};
 
+use anyhow::Context as _;
 use api_types::ws::WorkerToApiMessage;
-use async_brigadier::CommandDispatcher;
 use fluxer_neptunium::{
     async_trait,
     cache::{Cached, CachedGuildMember, CachedGuildRole, CachedMessage},
     cached_payload::{
         CachedGuildRoleUpdateBulk, CachedMessageCreate, CachedMessageReactionAdd, CachedReady,
     },
+    create_embed,
     events::{EventError, EventHandler, context::Context},
-    exts::ChannelExt,
+    exts::{ChannelExt, MessageExt},
     model::{
         gateway::payload::incoming::{GuildMemberRemove, GuildRoleDelete},
         guild::permissions::Permissions,
@@ -20,16 +21,19 @@ use fluxer_neptunium::{
     },
 };
 use tokio::sync::mpsc::UnboundedSender;
+use tracing::instrument;
 
 use crate::{
-    commands::CommandContext, db::DatabaseManager, event_handler::reactions::ReactionsEventHandler,
+    commands::{CommandContext, Dispatcher},
+    db::DatabaseManager,
+    event_handler::reactions::ReactionsEventHandler,
     logging::Logger,
 };
 
 pub mod reactions;
 
 pub struct BotEventHandler {
-    dispatcher: CommandDispatcher<CommandContext, anyhow::Result<()>>,
+    dispatcher: Dispatcher,
     bot_name: String,
     started_at: SystemTime,
     db_manager: Arc<DatabaseManager>,
@@ -46,7 +50,7 @@ pub struct BotEventHandler {
 impl BotEventHandler {
     #[expect(clippy::too_many_arguments)]
     pub fn new(
-        dispatcher: CommandDispatcher<CommandContext, anyhow::Result<()>>,
+        dispatcher: Dispatcher,
         bot_name: String,
         db_manager: Arc<DatabaseManager>,
         default_command_configuration: HashMap<String, Permissions>,
@@ -344,6 +348,7 @@ impl EventHandler for BotEventHandler {
 }
 
 impl BotEventHandler {
+    #[instrument(skip(self, ctx, message, guild_command_prefixes), fields(user_id = message.author.id.into_inner(), guild_id = guild_id.into_inner()))]
     async fn execute_command(
         &self,
         ctx: Context,
@@ -357,8 +362,8 @@ impl BotEventHandler {
             .execute(
                 content,
                 CommandContext {
-                    ctx,
-                    message,
+                    ctx: ctx.clone(),
+                    message: message.clone(),
                     bot_name: self.bot_name.clone(),
                     started_at: self.started_at,
                     db: Arc::clone(&self.db_manager),
@@ -368,10 +373,7 @@ impl BotEventHandler {
                     max_command_prefixes: self.max_command_prefixes,
                     reaction_handler_tx: self.reactions_event_handler.tx.clone(),
                     logger: Arc::clone(&self.logger),
-                    webhook_avatar_b64: match &self.webhook_avatar_b64 {
-                        Some(avatar) => Some(avatar.clone()),
-                        None => None,
-                    },
+                    webhook_avatar_b64: self.webhook_avatar_b64.clone(),
                     bot_id: self.bot_id,
                     guild_command_prefixes,
                 },
@@ -379,10 +381,22 @@ impl BotEventHandler {
             .await;
         match result {
             Err(e) => {
-                tracing::error!("Command error: {e}")
+                tracing::error!("Command error: {e}");
+                if let Err(e) = message.reply(&ctx, create_embed!(
+                    description: format!("There was an error executing your command:\n`{e}`"),
+                    color: 0xff0000,
+                )).await.context("Replying to message with the command error") {
+                    tracing::error!("{e:?}");
+                }
             }
             Ok(Err(e)) => {
-                tracing::error!("Error executing command: {e:?}")
+                tracing::error!("Error executing command: {e:?}");
+                if let Err(e) = message.reply(&ctx, create_embed!(
+                    description: format!("There was an error executing your command:\n```\n{e:?}\n```"),
+                    color: 0xff0000,
+                )).await.context("Replying to message with the command error") {
+                    tracing::error!("{e:?}");
+                }
             }
             Ok(Ok(())) => {}
         }

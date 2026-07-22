@@ -1,24 +1,17 @@
 use std::{
-    any::Any,
     collections::HashMap,
-    pin::Pin,
     sync::Arc,
     time::{Duration, SystemTime},
 };
 
-use api_types::db::DbError;
-use async_brigadier::{
-    CommandDispatcher,
-    arg::{CommandArgument, greedy_string, literal, optional},
-};
+use async_brigadier::{CommandDispatcher, arg::literal};
 use chrono::{TimeDelta, Utc};
 use fluxer_neptunium::{
     cache::{Cached, CachedMessage},
-    client::error::ClientErrorKind,
     create_embed,
-    events::{EventError, EventErrorKind, context::Context},
-    exts::{GuildExt, GuildMemberExt, MessageExt},
-    http::{endpoints::channel::CreateMessageBody, error::error_code::ApiErrorCode},
+    events::context::Context,
+    exts::MessageExt,
+    http::endpoints::channel::CreateMessageBody,
     model::{
         guild::permissions::Permissions,
         id::{
@@ -31,20 +24,21 @@ use pretty_duration::pretty_duration;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    commands::args::{duration, user_id_or_mention},
-    db::{DatabaseManager, schema::GuildCommandConfiguration},
+    db::DatabaseManager,
     event_handler::reactions::{
         ReactionExpiryHandlerFn, ReactionHandler, ReactionsEventHandlerMessage,
     },
     logging::Logger,
-    macros::{debug_panic, embed_default_footer, embed_default_footer_raw},
 };
 
 // mod cases;
 // mod guild_settings;
 // mod misc;
-// mod moderation;
 mod args;
+mod moderation;
+
+pub type Dispatcher = CommandDispatcher<CommandContext, anyhow::Result<()>>;
+type Ctx = async_brigadier::CommandContext<CommandContext>;
 
 /*
 pub trait CommandExecuteFn<'a>: Send + Sync + 'static {
@@ -86,7 +80,7 @@ pub struct CommandContext {
     pub bot_id: Id<UserMarker>,
     pub guild_command_prefixes: Arc<Vec<String>>,
 }
-
+/*
 #[derive(Debug)]
 pub enum CommandError {
     EventError(EventError),
@@ -117,6 +111,7 @@ impl From<DbError> for CommandError {
         Self::DatabaseError(value)
     }
 }
+*/
 
 /*
 pub struct CommandDispatcher {
@@ -318,7 +313,7 @@ impl CommandDispatcher {
 }
 */
 
-pub fn register_commands(dispatcher: &mut CommandDispatcher<CommandContext, anyhow::Result<()>>) {
+pub fn register_commands(dispatcher: &mut Dispatcher) {
     dispatcher.register(literal("ping").executes(
         async |ctx: async_brigadier::CommandContext<CommandContext>| {
             ctx.reply(create_embed!(
@@ -343,32 +338,7 @@ pub fn register_commands(dispatcher: &mut CommandDispatcher<CommandContext, anyh
         },
     ));
 
-    async fn warn(mut ctx: async_brigadier::CommandContext<CommandContext>) -> anyhow::Result<()> {
-        let duration: Option<Duration> = ctx
-            .try_take_argument("duration")
-            .map(|value| value.downcast().ok())
-            .flatten()
-            .map(|value| *value);
-        let user_id: Id<UserMarker> = ctx.take_argument("user_id");
-        let reason: Option<String> = ctx
-            .try_take_argument("reason")
-            .map(|value| value.downcast().ok())
-            .flatten()
-            .map(|value| *value);
-
-        ctx.reply(format!(
-            "duration: {duration:?}
-            user_id: {user_id}
-            reason: {reason:?}"
-        ))
-        .await?;
-
-        Ok(())
-    }
-
-    dispatcher.register(literal("warn").then(user_id_or_mention("user_id").then(
-        optional(duration("duration")).then(optional(greedy_string("reason")).executes(warn)),
-    )));
+    moderation::register(dispatcher);
 
     /*
     dispatcher.register("ping", [], misc::ping);

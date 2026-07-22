@@ -1,16 +1,13 @@
 use std::{error::Error, fmt::Display};
 
 #[derive(Debug)]
-pub struct CommandError {
-    pub kind: CommandErrorKind,
-}
-
-#[derive(Debug)]
-pub enum CommandErrorKind {
+pub enum CommandError {
     Parse(CommandParseError),
     NotExecutable,
     /// A function in `.requires()` returned `false`.
     RequirementNotSatisfied,
+    Other(&'static str),
+    OtherString(String),
 }
 
 #[derive(Debug)]
@@ -27,13 +24,15 @@ impl Error for CommandError {}
 
 impl Display for CommandError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.kind {
-            CommandErrorKind::NotExecutable => f.write_str("Not executable at this node"),
-            CommandErrorKind::Parse(e) => {
+        match self {
+            CommandError::NotExecutable => f.write_str("Not executable at this node"),
+            CommandError::Parse(e) => {
                 f.write_str("Parse error: ")?;
                 e.fmt(f)
             }
-            CommandErrorKind::RequirementNotSatisfied => f.write_str("Requirement not satisfied"),
+            CommandError::RequirementNotSatisfied => f.write_str("Requirement not satisfied"),
+            CommandError::Other(s) => s.fmt(f),
+            CommandError::OtherString(s) => s.fmt(f),
         }
     }
 }

@@ -1,6 +1,5 @@
 use std::{env, str::FromStr, sync::Arc};
 
-use async_brigadier::CommandDispatcher;
 use fluxer_neptunium::{
     client::{Client, ClientConfig},
     http::endpoints::channel::AllowedMentions,
@@ -12,7 +11,7 @@ use tracing::Level;
 use crate::{
     api_connection::api_connection,
     case_expiration::case_expiry_listener,
-    commands::register_commands,
+    commands::{Dispatcher, register_commands},
     config::{Config, ConfigLoadError},
     db::create_db_manager_and_case_expiration_actor,
     event_handler::BotEventHandler,
@@ -120,7 +119,7 @@ async fn main() {
         Arc::clone(&db_manager),
     ));
 
-    let mut dispatcher = CommandDispatcher::new();
+    let mut dispatcher = Dispatcher::new();
     register_commands(&mut dispatcher);
 
     let event_handler = BotEventHandler::new(
