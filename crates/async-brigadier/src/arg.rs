@@ -6,6 +6,8 @@ mod literal;
 pub use literal::*;
 mod string;
 pub use string::*;
+mod optional;
+pub use optional::*;
 
 pub struct CommandArgument<C, R> {
     pub children: Vec<CommandArgument<C, R>>,
@@ -14,6 +16,7 @@ pub struct CommandArgument<C, R> {
     pub executes: Option<Box<dyn CommandExecuteFn<C, R>>>,
     #[expect(clippy::type_complexity)]
     pub requires: Option<Box<dyn Fn(&C) -> bool + Send + Sync>>,
+    pub pass_empty: bool,
 }
 
 pub trait CommandArgumentKind: Send + Sync {
@@ -21,10 +24,11 @@ pub trait CommandArgumentKind: Send + Sync {
     ///
     /// # Errors
     /// Returns an error if parsing failed.
+    #[expect(clippy::type_complexity)]
     fn parse<'a>(
         &self,
         command: &'a str,
-    ) -> Result<(&'a str, Box<dyn Any + Send + Sync>), CommandParseError>;
+    ) -> Result<(&'a str, Option<Box<dyn Any + Send + Sync>>), CommandParseError>;
 }
 
 impl<C, R> CommandArgument<C, R> {

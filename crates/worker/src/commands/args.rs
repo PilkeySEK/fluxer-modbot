@@ -9,8 +9,10 @@ impl CommandArgumentKind for UserIdOrMentionArgumentKind {
     fn parse<'a>(
         &self,
         command: &'a str,
-    ) -> Result<(&'a str, Box<dyn std::any::Any + Send + Sync>), async_brigadier::CommandParseError>
-    {
+    ) -> Result<
+        (&'a str, Option<Box<dyn std::any::Any + Send + Sync>>),
+        async_brigadier::CommandParseError,
+    > {
         let (id_or_mention, rest) = command.split_once(' ').unwrap_or((command, ""));
         let id = if let Some(prefix_stripped) = id_or_mention.strip_prefix("<@")
             && let Some(suffix_stripped) = prefix_stripped.strip_suffix(">")
@@ -25,7 +27,7 @@ impl CommandArgumentKind for UserIdOrMentionArgumentKind {
             };
             id
         };
-        Ok((rest, Box::new(id)))
+        Ok((rest, Some(Box::new(id))))
     }
 }
 
@@ -37,6 +39,7 @@ pub fn user_id_or_mention<C, R>(name: &'static str) -> CommandArgument<C, R> {
         name: Some(name),
         executes: None,
         requires: None,
+        pass_empty: false,
     }
 }
 
@@ -46,12 +49,14 @@ impl CommandArgumentKind for DurationArgumentKind {
     fn parse<'a>(
         &self,
         command: &'a str,
-    ) -> Result<(&'a str, Box<dyn std::any::Any + Send + Sync>), async_brigadier::CommandParseError>
-    {
+    ) -> Result<
+        (&'a str, Option<Box<dyn std::any::Any + Send + Sync>>),
+        async_brigadier::CommandParseError,
+    > {
         let (duration, rest) = command.split_once(' ').unwrap_or((command, ""));
         let duration = parse_duration(duration);
         if let Some(duration) = duration {
-            Ok((rest, Box::new(duration)))
+            Ok((rest, Some(Box::new(duration))))
         } else {
             Err(async_brigadier::CommandParseError::NoMatch)
         }
@@ -66,5 +71,6 @@ pub fn duration<C, R>(name: &'static str) -> CommandArgument<C, R> {
         name: Some(name),
         executes: None,
         requires: None,
+        pass_empty: false,
     }
 }

@@ -19,7 +19,7 @@ pub trait CommandExecuteFn<C, R>: Send + Sync {
 
 pub struct CommandContext<C> {
     pub context: C,
-    pub args: HashMap<Option<&'static str>, Box<dyn Any + Send + Sync>>,
+    pub args: HashMap<&'static str, Box<dyn Any + Send + Sync>>,
 }
 
 impl<F, Fut, C, R> CommandExecuteFn<C, R> for F
@@ -52,7 +52,7 @@ impl<C> CommandContext<C> {
     /// Panics if an argument with that name does not exist or it is not of type `T`.
     #[expect(clippy::unwrap_used)]
     pub fn take_argument<T: 'static>(&mut self, name: &'static str) -> T {
-        let arg = self.args.remove(&Some(name)).unwrap();
+        let arg = self.args.remove(&name).unwrap();
         let arg = arg.downcast().unwrap();
         *arg
     }
@@ -61,7 +61,7 @@ impl<C> CommandContext<C> {
     /// Returns `None` if there is no argument with that name. If it returns `Some(...)`, you need
     /// to downcast the argument to a concrete type yourself.
     pub fn try_take_argument(&mut self, name: &'static str) -> Option<Box<dyn Any + Send + Sync>> {
-        self.args.remove(&Some(name))
+        self.args.remove(&name)
     }
 
     /// Gets a reference to the argument. This can be called multiple times for the same argument name.
@@ -70,13 +70,13 @@ impl<C> CommandContext<C> {
     /// Panics if an argument with that name does not exist or it is not of type `T`.
     #[expect(clippy::unwrap_used)]
     pub fn get_argument<T: 'static>(&mut self, name: &'static str) -> &T {
-        self.args.get(&Some(name)).unwrap().downcast_ref().unwrap()
+        self.args.get(&name).unwrap().downcast_ref().unwrap()
     }
 
     /// Gets a reference to the argument. This can be called multiple times for the same argument name.
     /// Returns `None` if there is no argument with that name. If it returns `Some(...)`, you need
     /// to downcast the argument to a concrete type yourself.
     pub fn try_get_argument(&mut self, name: &'static str) -> Option<&Box<dyn Any + Send + Sync>> {
-        self.args.get(&Some(name))
+        self.args.get(&name)
     }
 }

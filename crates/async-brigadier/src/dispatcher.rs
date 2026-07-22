@@ -47,6 +47,9 @@ fn parse_args_recursively<'a, C, R>(
     ctx: &C,
 ) -> Result<CommandNode<'a, C, R>, CommandErrorKind> {
     for arg in args {
+        if !arg.pass_empty && rest.is_empty() {
+            continue;
+        }
         if let Ok((rest, value)) = arg.kind.parse(rest) {
             if let Some(requires) = &arg.requires
                 && !requires(ctx)
@@ -54,16 +57,26 @@ fn parse_args_recursively<'a, C, R>(
                 return Err(CommandErrorKind::RequirementNotSatisfied);
             }
             let rest = rest.trim_start();
-            if rest.is_empty() {
+            if rest.is_empty() && arg.children.iter().find(|arg| arg.pass_empty).is_none() {
                 let mut hashmap = HashMap::new();
                 hashmap.insert(arg.name, value);
                 return Ok(CommandNode {
-                    args: hashmap,
+                    args: hashmap
+                        .into_iter()
+                        .filter_map(|(k, v)| match (k, v) {
+                            (Some(k), Some(v)) => Some((k, v)),
+                            _ => None,
+                        })
+                        .collect(),
                     executes: arg.executes.as_deref(),
                 });
             }
             let mut node = parse_args_recursively(rest, &arg.children, ctx)?;
-            node.args.insert(arg.name, value);
+            if let Some(name) = arg.name
+                && let Some(value) = value
+            {
+                node.args.insert(name, value);
+            }
             return Ok(node);
         }
     }

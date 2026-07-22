@@ -9,7 +9,7 @@ use std::{
 use api_types::db::DbError;
 use async_brigadier::{
     CommandDispatcher,
-    arg::{CommandArgument, greedy_string, literal},
+    arg::{CommandArgument, greedy_string, literal, optional},
 };
 use chrono::{TimeDelta, Utc};
 use fluxer_neptunium::{
@@ -366,18 +366,9 @@ pub fn register_commands(dispatcher: &mut CommandDispatcher<CommandContext, anyh
         Ok(())
     }
 
-    dispatcher.register(
-        literal("warn").then(
-            user_id_or_mention("user_id")
-                .then(
-                    duration("duration")
-                        .then(greedy_string("reason").executes(warn))
-                        .executes(warn),
-                )
-                .then(greedy_string("reason").executes(warn))
-                .executes(warn),
-        ),
-    );
+    dispatcher.register(literal("warn").then(user_id_or_mention("user_id").then(
+        optional(duration("duration")).then(optional(greedy_string("reason")).executes(warn)),
+    )));
 
     /*
     dispatcher.register("ping", [], misc::ping);
