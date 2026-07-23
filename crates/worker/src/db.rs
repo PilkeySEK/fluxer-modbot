@@ -22,9 +22,7 @@ use tokio::{
 use crate::{
     caches::PrefixCache,
     case_expiration::{ExpiringCase, start_case_expiration_actor},
-    db::schema::{
-        CreateGuildModerationCaseData, GuildCommandConfiguration, RawGuildCommandConfiguration,
-    },
+    db::schema::CreateGuildModerationCaseData,
     logging::{Logger, ModLogEntry},
     macros::debug_panic,
 };
@@ -60,31 +58,6 @@ impl DatabaseManager {
             self.cached_prefixes
                 .update_guild_prefixes(guild_id, vec![self.default_prefix.clone()])
         })
-    }
-
-    pub async fn get_guild_command_configuration(
-        &self,
-        guild_id: Id<GuildMarker>,
-        command_name: &str,
-    ) -> Result<Option<GuildCommandConfiguration>, DbError> {
-        let raw_configuration = query_as!(
-            RawGuildCommandConfiguration,
-            "SELECT * FROM guild_command_configuration
-            WHERE guild_id = $1 AND command_name = $2",
-            guild_id.into_inner().cast_signed(),
-            command_name
-        )
-        .fetch_optional(&self.pool)
-        .await?;
-
-        match raw_configuration {
-            Some(raw_configuration) => match GuildCommandConfiguration::from_raw(raw_configuration)
-            {
-                Some(configuration) => Ok(Some(configuration)),
-                None => Err(DbError::OtherParseError),
-            },
-            None => Ok(None),
-        }
     }
 
     pub async fn add_guild_command_prefix_upsert(
@@ -179,67 +152,69 @@ impl DatabaseManager {
         Ok(case_id)
     }
 
-    pub async fn close_existing_cases_by_kind_and_user(
-        &self,
-        guild_id: Id<GuildMarker>,
-        target_id: Id<UserMarker>,
-        kind: ModerationKind,
-        reason: Option<&str>,
-        exclude_id: CaseId,
-    ) -> Result<Vec<CaseId>, DbError> {
-        let case_ids = query_scalar!(
-            "UPDATE guild_moderation_cases
+    /*
+        pub async fn close_existing_cases_by_kind_and_user(
+            &self,
+            guild_id: Id<GuildMarker>,
+            target_id: Id<UserMarker>,
+            kind: ModerationKind,
+            reason: Option<&str>,
+            exclude_id: CaseId,
+        ) -> Result<Vec<CaseId>, DbError> {
+            let case_ids = query_scalar!(
+                "UPDATE guild_moderation_cases
             SET closed = true, close_reason = $1, closed_by = NULL
             WHERE guild_id = $2 AND target_id = $3 AND closed = false AND moderation_kind = $4 AND case_id != $5
             RETURNING case_id",
-            reason,
-            guild_id.into_inner().cast_signed(),
-            target_id.into_inner().cast_signed(),
-            kind.to_string(),
-            exclude_id.0,
-        )
-        .fetch_all(&self.pool)
-        .await?;
-        let case_ids = case_ids.into_iter().map(CaseId).collect::<Vec<_>>();
-        if kind.manual_expiration() {
-            for &id in &case_ids {
-                if let Err(e) = self.expiring_cases_tx.send((None, id)) {
-                    tracing::error!("{e}");
+                reason,
+                guild_id.into_inner().cast_signed(),
+                target_id.into_inner().cast_signed(),
+                kind.to_string(),
+                exclude_id.0,
+            )
+            .fetch_all(&self.pool)
+            .await?;
+            let case_ids = case_ids.into_iter().map(CaseId).collect::<Vec<_>>();
+            if kind.manual_expiration() {
+                for &id in &case_ids {
+                    if let Err(e) = self.expiring_cases_tx.send((None, id)) {
+                        tracing::error!("{e}");
+                    }
                 }
             }
-        }
 
-        Ok(case_ids)
-    }
+            Ok(case_ids)
+        }
+    */
 
     /*
-    pub async fn get_latest_open_moderation_case_by_kind_and_user(
-        &self,
-        guild_id: Id<GuildMarker>,
-        target_id: Id<UserMarker>,
-        kind: ModerationKind,
-    ) -> Result<Option<GuildModerationCase>, DbError> {
-        let raw = query_as!(
-            RawGuildModerationCase,
-            "SELECT * FROM guild_moderation_cases
+        pub async fn get_latest_open_moderation_case_by_kind_and_user(
+            &self,
+            guild_id: Id<GuildMarker>,
+            target_id: Id<UserMarker>,
+            kind: ModerationKind,
+        ) -> Result<Option<GuildModerationCase>, DbError> {
+            let raw = query_as!(
+                RawGuildModerationCase,
+                "SELECT * FROM guild_moderation_cases
             WHERE guild_id = $1 AND target_id = $2 AND moderation_kind = $3 AND closed = false
             ORDER BY case_id DESC
             LIMIT 1",
-            guild_id.into_inner().cast_signed(),
-            target_id.into_inner().cast_signed(),
-            kind.to_string(),
-        )
-        .fetch_optional(&self.pool)
-        .await?;
+                guild_id.into_inner().cast_signed(),
+                target_id.into_inner().cast_signed(),
+                kind.to_string(),
+            )
+            .fetch_optional(&self.pool)
+            .await?;
 
-        Ok(match raw {
-            Some(raw) => match GuildModerationCase::from_raw(raw) {
-                Some(case) => Some(case),
-                None => return Err(DbError::ParseError),
-            },
-            None => None,
-        })
-    }
+            Ok(match raw {
+                Some(raw) => match GuildModerationCase::from_raw(raw) {
+                    Some(case) => Some(case),
+                    None => return Err(DbError::ParseError),
+                },
+                None => None,
+            })
+        }
     */
 
     pub async fn close_and_get_latest_open_moderation_case_by_kind_and_user(
@@ -516,52 +491,10 @@ pub async fn create_db_manager_and_case_expiration_actor(
 
 pub mod schema {
     use api_types::db::ModerationKind;
-    use fluxer_neptunium::model::{
-        guild::permissions::Permissions,
-        id::{
-            Id,
-            marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
-        },
+    use fluxer_neptunium::model::id::{
+        Id,
+        marker::{GuildMarker, UserMarker},
     };
-
-    pub struct GuildCommandConfiguration {
-        #[expect(unused)]
-        pub guild_id: Id<GuildMarker>,
-        #[expect(unused)]
-        pub command_name: String,
-        pub roles: Vec<Id<RoleMarker>>,
-        pub permissions: Permissions,
-        pub channels: Vec<Id<ChannelMarker>>,
-    }
-
-    #[derive(sqlx::FromRow)]
-    pub(super) struct RawGuildCommandConfiguration {
-        pub guild_id: i64,
-        pub command_name: String,
-        pub roles: Vec<String>,
-        pub permissions: String,
-        pub channels: Vec<String>,
-    }
-
-    impl GuildCommandConfiguration {
-        pub(super) fn from_raw(raw: RawGuildCommandConfiguration) -> Option<Self> {
-            Some(Self {
-                guild_id: raw.guild_id.cast_unsigned().into(),
-                command_name: raw.command_name,
-                roles: raw
-                    .roles
-                    .into_iter()
-                    .map(|id_str| id_str.parse::<u64>().ok().map(Id::new))
-                    .collect::<Option<_>>()?,
-                permissions: Permissions::from_bits_truncate(raw.permissions.parse::<u64>().ok()?),
-                channels: raw
-                    .channels
-                    .into_iter()
-                    .map(|id_str| id_str.parse::<u64>().ok().map(Id::new))
-                    .collect::<Option<_>>()?,
-            })
-        }
-    }
 
     pub struct CreateGuildModerationCaseData<'a> {
         pub guild_id: Id<GuildMarker>,
