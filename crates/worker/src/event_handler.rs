@@ -2,6 +2,7 @@ use std::{sync::Arc, time::SystemTime};
 
 use anyhow::Context as _;
 use api_types::ws::WorkerToApiMessage;
+use async_brigadier::CommandError;
 use fluxer_neptunium::{
     async_trait,
     cache::{Cached, CachedGuildMember, CachedGuildRole, CachedMessage},
@@ -410,12 +411,21 @@ impl BotEventHandler {
             .await;
         match result {
             Err(e) => {
-                tracing::error!("Command error: {e}");
-                if let Err(e) = message.reply(&ctx, create_embed!(
+                if let CommandError::RequirementNotSatisfied = e {
+                    if let Err(e) = message.reply(&ctx, create_embed!(
+                        description: "You do not have the permissions to execute this command.",
+                        color: 0xff0000,
+                    )).await.context("Failed to reply with missing permissions message") {
+                        tracing::error!("{e:?}");
+                    }
+                } else {
+                    tracing::error!("Command error: {e}");
+                    if let Err(e) = message.reply(&ctx, create_embed!(
                     description: format!("There was an error executing your command:\n`{e}`"),
                     color: 0xff0000,
                 )).await.context("Replying to message with the command error") {
                     tracing::error!("{e:?}");
+                }
                 }
             }
             Ok(Err(e)) => {
