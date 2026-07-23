@@ -2,16 +2,23 @@ use std::time::Duration;
 
 use async_brigadier::CommandError;
 use chrono::{TimeDelta, Utc};
-use fluxer_neptunium::model::id::{
-    Id,
-    marker::{ChannelMarker, GuildMarker, UserMarker, WebhookMarker},
+use fluxer_neptunium::model::{
+    guild::permissions::Permissions,
+    id::{
+        Id,
+        marker::{ChannelMarker, GuildMarker, UserMarker, WebhookMarker},
+    },
 };
 use nom::{Parser, error::ErrorKind};
+
+use crate::commands::Ctx;
 
 // pub mod confirmation;
 // pub mod pages;
 // pub mod user_arg;
 pub mod user_fetcher;
+
+pub type Expiry = (chrono::DateTime<Utc>, Duration);
 
 pub enum MaybeExpired<T> {
     NotExpired(T),
@@ -111,4 +118,12 @@ pub fn expiry_from_duration(
         },
         std_duration,
     ))
+}
+
+pub fn has_permission(permissions: Permissions, require: Permissions) -> bool {
+    if permissions.contains(Permissions::ADMINISTRATOR) {
+        true
+    } else {
+        permissions.contains(require)
+    }
 }

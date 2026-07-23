@@ -34,7 +34,6 @@ pub struct Config {
     pub default_command_prefix: String,
     pub token: Zeroizing<String>,
     pub bot_name: String,
-    pub default_command_configuration: HashMap<String, Permissions>,
     pub max_command_prefix_len: usize,
     pub prefix_cache_capacity: u64,
     pub log_level: String,

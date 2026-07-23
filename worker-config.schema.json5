@@ -13,12 +13,6 @@
         "bot_name": {
             "type": "string",
         },
-        "default_command_configuration": {
-            "type": "object",
-            "additionalProperties": {
-                "type": "string"
-            }
-        },
         "max_command_prefix_len": {
             "type": "number",
         },
@@ -63,7 +57,6 @@
         "default_command_prefix",
         "token",
         "bot_name",
-        "default_command_configuration",
         "max_command_prefix_len",
         "prefix_cache_capacity",
         "log_level",

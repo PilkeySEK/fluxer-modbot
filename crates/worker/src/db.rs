@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use anyhow::{Context, bail};
 use api_types::db::{
     CaseId, DbError, GuildModerationCase, ModerationKind, RawGuildModerationCase,
     SharedDatabaseManager,
@@ -143,7 +144,7 @@ impl DatabaseManager {
         &self,
         data: CreateGuildModerationCaseData<'_>,
         _user_info_fetcher_task: JoinHandle<()>,
-    ) -> Result<CaseId, DbError> {
+    ) -> anyhow::Result<CaseId> {
         let raw = query_as!(
             RawGuildModerationCase,
             "INSERT INTO guild_moderation_cases (guild_id, target_id, moderator_id, moderation_kind, expires_at, reason, duration, created_at)
@@ -157,9 +158,9 @@ impl DatabaseManager {
             data.reason,
             data.expiry.map(|value| value.1),
             data.created_at,
-        ).fetch_one(&self.pool).await?;
+        ).fetch_one(&self.pool).await.context("Failed to execute database query")?;
         let Some(case) = GuildModerationCase::from_raw(raw) else {
-            return Err(DbError::OtherParseError);
+            bail!("Failed to parse database response");
         };
 
         let case_id = case.case_id;

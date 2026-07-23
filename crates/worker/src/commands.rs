@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     sync::Arc,
     time::{Duration, SystemTime},
 };
@@ -38,7 +37,7 @@ mod args;
 mod moderation;
 
 pub type Dispatcher = CommandDispatcher<CommandContext, anyhow::Result<()>>;
-type Ctx = async_brigadier::CommandContext<CommandContext>;
+pub type Ctx = async_brigadier::CommandContext<CommandContext>;
 
 /*
 pub trait CommandExecuteFn<'a>: Send + Sync + 'static {
@@ -71,7 +70,6 @@ pub struct CommandContext {
     pub started_at: SystemTime,
     pub db: Arc<DatabaseManager>,
     pub guild_id: Id<GuildMarker>,
-    pub default_command_configuration: Arc<HashMap<String, Permissions>>,
     pub max_command_prefix_len: usize,
     pub max_command_prefixes: usize,
     pub reaction_handler_tx: UnboundedSender<ReactionsEventHandlerMessage>,
@@ -79,6 +77,7 @@ pub struct CommandContext {
     pub webhook_avatar_b64: Option<String>,
     pub bot_id: Id<UserMarker>,
     pub guild_command_prefixes: Arc<Vec<String>>,
+    pub member_permissions: Permissions,
 }
 /*
 #[derive(Debug)]

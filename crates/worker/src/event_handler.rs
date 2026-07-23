@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc, time::SystemTime};
+use std::{sync::Arc, time::SystemTime};
 
 use anyhow::Context as _;
 use api_types::ws::WorkerToApiMessage;
@@ -10,10 +10,9 @@ use fluxer_neptunium::{
     },
     create_embed,
     events::{EventError, EventHandler, context::Context},
-    exts::{ChannelExt, MessageExt},
+    exts::{ChannelExt, GuildExt, GuildMemberExt, MessageExt},
     model::{
         gateway::payload::incoming::{GuildMemberRemove, GuildRoleDelete},
-        guild::permissions::Permissions,
         id::{
             Id,
             marker::{GuildMarker, UserMarker},
@@ -37,7 +36,6 @@ pub struct BotEventHandler {
     bot_name: String,
     started_at: SystemTime,
     db_manager: Arc<DatabaseManager>,
-    default_command_configuration: Arc<HashMap<String, Permissions>>,
     max_command_prefix_len: usize,
     max_command_prefixes: usize,
     reactions_event_handler: ReactionsEventHandler,
@@ -53,7 +51,6 @@ impl BotEventHandler {
         dispatcher: Dispatcher,
         bot_name: String,
         db_manager: Arc<DatabaseManager>,
-        default_command_configuration: HashMap<String, Permissions>,
         max_command_prefix_len: usize,
         max_command_prefixes: usize,
         logger: Arc<Logger>,
@@ -66,7 +63,6 @@ impl BotEventHandler {
             bot_name,
             started_at: SystemTime::now(),
             db_manager,
-            default_command_configuration: Arc::new(default_command_configuration),
             max_command_prefix_len,
             max_command_prefixes,
             reactions_event_handler: ReactionsEventHandler::new(),
@@ -357,6 +353,29 @@ impl BotEventHandler {
         content: &str,
         guild_command_prefixes: Arc<Vec<String>>,
     ) {
+        let mut guild_member = match guild_id
+            .get_member(&ctx, message.author.id)
+            .await
+            .context("Failed to fetch guild member")
+        {
+            Ok(member) => member,
+            Err(e) => {
+                tracing::error!("{e}");
+                if let Err(e) = message
+                    .reply(
+                        &ctx,
+                        create_embed!(
+                            description: format!("There was an error executing your command:\n```\n{e:?}\n```"),
+                            color: 0xff0000,
+                        ),
+                    )
+                    .await.context("Replying to message with the command error") {
+                        tracing::error!("{e:?}");
+                    }
+                return;
+            }
+        };
+        guild_member.refresh();
         let result = self
             .dispatcher
             .execute(
@@ -368,7 +387,6 @@ impl BotEventHandler {
                     started_at: self.started_at,
                     db: Arc::clone(&self.db_manager),
                     guild_id,
-                    default_command_configuration: Arc::clone(&self.default_command_configuration),
                     max_command_prefix_len: self.max_command_prefix_len,
                     max_command_prefixes: self.max_command_prefixes,
                     reaction_handler_tx: self.reactions_event_handler.tx.clone(),
@@ -376,6 +394,17 @@ impl BotEventHandler {
                     webhook_avatar_b64: self.webhook_avatar_b64.clone(),
                     bot_id: self.bot_id,
                     guild_command_prefixes,
+                    member_permissions: match guild_member
+                        .get_permissions(&ctx)
+                        .await
+                        .context("Failed to fetch guild member permissions")
+                    {
+                        Ok(permissions) => permissions,
+                        Err(e) => {
+                            tracing::error!("{e:?}");
+                            return;
+                        }
+                    },
                 },
             )
             .await;

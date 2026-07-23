@@ -8,6 +8,8 @@ mod string;
 pub use string::*;
 mod optional;
 pub use optional::*;
+mod from_str;
+pub use from_str::*;
 
 pub struct CommandArgument<C, R> {
     pub children: Vec<CommandArgument<C, R>>,

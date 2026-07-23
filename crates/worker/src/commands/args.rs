@@ -1,7 +1,8 @@
 use async_brigadier::arg::{CommandArgument, CommandArgumentKind};
+use chrono::Utc;
 use fluxer_neptunium::model::id::{Id, marker::UserMarker};
 
-use crate::util::parse_duration;
+use crate::util::{expiry_from_duration, parse_duration};
 
 pub struct UserIdOrMentionArgumentKind;
 
@@ -68,6 +69,41 @@ pub fn duration<C, R>(name: &'static str) -> CommandArgument<C, R> {
     CommandArgument {
         children: Vec::new(),
         kind: Box::new(DurationArgumentKind),
+        name: Some(name),
+        executes: None,
+        requires: None,
+        pass_empty: false,
+    }
+}
+
+pub struct ExpiryArgumentKind;
+
+impl CommandArgumentKind for ExpiryArgumentKind {
+    fn parse<'a>(
+        &self,
+        command: &'a str,
+    ) -> Result<
+        (&'a str, Option<Box<dyn std::any::Any + Send + Sync>>),
+        async_brigadier::CommandParseError,
+    > {
+        let (duration, rest) = command.split_once(' ').unwrap_or((command, ""));
+        let duration = parse_duration(duration);
+        if let Some(duration) = duration {
+            Ok((
+                rest,
+                Some(Box::new(expiry_from_duration(Utc::now(), duration))),
+            ))
+        } else {
+            Err(async_brigadier::CommandParseError::NoMatch)
+        }
+    }
+}
+
+#[must_use]
+pub fn expiry<C, R>(name: &'static str) -> CommandArgument<C, R> {
+    CommandArgument {
+        children: Vec::new(),
+        kind: Box::new(ExpiryArgumentKind),
         name: Some(name),
         executes: None,
         requires: None,

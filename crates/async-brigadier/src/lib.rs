@@ -64,19 +64,29 @@ impl<C> CommandContext<C> {
         self.args.remove(&name)
     }
 
+    /// Same as `try_take_argument`, except downcasts for you.
+    ///
+    /// Returns `None` if an argument with that name does not exist or it is not of type `T`.
+    pub fn try_take_argument_downcast<T: 'static>(&mut self, name: &'static str) -> Option<T> {
+        self.args
+            .remove(name)
+            .and_then(|value| value.downcast().ok())
+            .map(|value| *value)
+    }
+
     /// Gets a reference to the argument. This can be called multiple times for the same argument name.
     ///
     /// # Panics
     /// Panics if an argument with that name does not exist or it is not of type `T`.
     #[expect(clippy::unwrap_used)]
-    pub fn get_argument<T: 'static>(&mut self, name: &'static str) -> &T {
+    pub fn get_argument<T: 'static>(&self, name: &'static str) -> &T {
         self.args.get(&name).unwrap().downcast_ref().unwrap()
     }
 
     /// Gets a reference to the argument. This can be called multiple times for the same argument name.
     /// Returns `None` if there is no argument with that name. If it returns `Some(...)`, you need
     /// to downcast the argument to a concrete type yourself.
-    pub fn try_get_argument(&mut self, name: &'static str) -> Option<&Box<dyn Any + Send + Sync>> {
+    pub fn try_get_argument(&self, name: &'static str) -> Option<&Box<dyn Any + Send + Sync>> {
         self.args.get(&name)
     }
 }

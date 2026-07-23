@@ -126,7 +126,6 @@ async fn main() {
         dispatcher,
         config.bot_name,
         db_manager,
-        config.default_command_configuration,
         config.max_command_prefix_len,
         config.max_command_prefixes,
         logger,
