@@ -91,7 +91,7 @@ impl CommandArgumentKind for ExpiryArgumentKind {
         if let Some(duration) = duration {
             Ok((
                 rest,
-                Some(Box::new(expiry_from_duration(Utc::now(), duration))),
+                Some(Box::new(expiry_from_duration(Utc::now(), duration)?)),
             ))
         } else {
             Err(async_brigadier::CommandParseError::NoMatch)

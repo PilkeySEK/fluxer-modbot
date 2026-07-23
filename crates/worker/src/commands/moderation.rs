@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use api_types::db::ModerationKind;
-use async_brigadier::arg::{greedy_string, literal, optional};
+use async_brigadier::arg::{greedy_string, literal, multi_literal, optional};
 use chrono::Utc;
 use fluxer_neptunium::{
+    client::error::ClientErrorKind,
     create_embed,
     exts::GuildExt,
     http::endpoints::guild::BanGuildMemberBody,
@@ -61,6 +62,38 @@ async fn warn(mut ctx: Ctx) -> anyhow::Result<()> {
     Ok(())
 }
 
+async fn unwarn(mut ctx: Ctx) -> anyhow::Result<()> {
+    let target_id: Id<UserMarker> = ctx.take_argument("target_id");
+    let reason: Option<String> = ctx.try_take_argument_downcast("reason");
+
+    let case_id = ctx
+        .db
+        .close_latest_guild_moderation_case_of_kind(
+            ctx.guild_id,
+            target_id,
+            ModerationKind::Warn,
+            reason.as_deref(),
+            Some(ctx.message.author.id),
+        )
+        .await?;
+
+    if let Some(case_id) = case_id {
+        ctx.reply(create_embed!(
+            description: format!("Case `{case_id}` closed."),
+            color: 0xffffff,
+        ))
+        .await?;
+    } else {
+        ctx.reply(create_embed!(
+            description: "The user does not have any open warn cases.",
+            color: 0xff0000,
+        ))
+        .await?;
+    }
+
+    Ok(())
+}
+
 async fn mute(mut ctx: Ctx) -> anyhow::Result<()> {
     let expiry: Expiry = ctx.take_argument("duration");
     let target_id: Id<UserMarker> = ctx.take_argument("target_id");
@@ -95,6 +128,91 @@ async fn mute(mut ctx: Ctx) -> anyhow::Result<()> {
         color: 0xffffff,
     ))
     .await?;
+
+    Ok(())
+}
+
+async fn unmute(mut ctx: Ctx) -> anyhow::Result<()> {
+    let target_id: Id<UserMarker> = ctx.take_argument("target_id");
+    let reason: Option<String> = ctx.try_take_argument_downcast("reason");
+
+    let mut member = match ctx.guild_id.get_member(&ctx.ctx, target_id).await {
+        Ok(member) => member,
+        Err(e) => {
+            if let ClientErrorKind::HttpNotFound(_) = e.kind() {
+                ctx.reply(create_embed!(
+                    description: "That user is not a member of this community.",
+                    color: 0xff0000,
+                ))
+                .await?;
+                return Ok(());
+            }
+            return Err(e.into());
+        }
+    };
+
+    member.refresh();
+
+    let mut member_is_timed_out = true;
+
+    if let Some(communication_disabled_until) = member.communication_disabled_until
+        && chrono::DateTime::from(communication_disabled_until) < Utc::now()
+    {
+        member_is_timed_out = false;
+    } else if member.communication_disabled_until.is_none() {
+        member_is_timed_out = false;
+    }
+
+    if !member_is_timed_out {
+        ctx.reply(create_embed!(
+            description: "The member is not timed out.",
+            color: 0xff0000,
+        ))
+        .await?;
+        return Ok(());
+    }
+
+    let _member = ctx
+        .guild_id
+        .untimeout_member_with_reason(
+            &ctx.ctx,
+            target_id,
+            format!(
+                "Unmuted by {}#{} - {}",
+                ctx.message.author.username,
+                ctx.message.author.discriminator,
+                if let Some(reason) = &reason {
+                    reason
+                } else {
+                    "No reason provided"
+                }
+            ),
+        )
+        .await?;
+
+    let maybe_case = ctx
+        .db
+        .close_and_get_latest_open_moderation_case_by_kind_and_user(
+            ctx.guild_id,
+            target_id,
+            ModerationKind::Mute,
+            reason.as_deref(),
+            Some(ctx.message.author.id),
+        )
+        .await?;
+
+    if let Some(case_id) = maybe_case {
+        ctx.reply(create_embed!(
+            description: format!("Unmuted <@{target_id}>, and closed case `{case_id}`"),
+            color: 0xffffff,
+        ))
+        .await?;
+    } else {
+        ctx.reply(create_embed!(
+            description: format!("Unmuted <@{target_id}>, but no case associated with the mute could be found."),
+            color: 0xffffff,
+        )).await?;
+    }
 
     Ok(())
 }
@@ -187,6 +305,56 @@ async fn ban(mut ctx: Ctx) -> anyhow::Result<()> {
     Ok(())
 }
 
+async fn unban(mut ctx: Ctx) -> anyhow::Result<()> {
+    let target_id: Id<UserMarker> = ctx.take_argument("target_id");
+    let reason: Option<String> = ctx.try_take_argument_downcast("reason");
+
+    let result = if let Some(reason) = &reason {
+        ctx.guild_id
+            .unban_member_with_reason(&ctx.ctx, target_id, reason)
+            .await
+    } else {
+        ctx.guild_id.unban_member(&ctx.ctx, target_id).await
+    };
+    if let Err(e) = result {
+        if let ClientErrorKind::HttpNotFound(_) = e.kind() {
+            ctx.reply(create_embed!(
+                description: "That user is not banned in this community.",
+                color: 0xff0000,
+            ))
+            .await?;
+            return Ok(());
+        }
+        return Err(e.into());
+    }
+
+    let maybe_case = ctx
+        .db
+        .close_and_get_latest_open_moderation_case_by_kind_and_user(
+            ctx.guild_id,
+            target_id,
+            ModerationKind::Ban,
+            reason.as_deref(),
+            Some(ctx.message.author.id),
+        )
+        .await?;
+
+    if let Some(case_id) = maybe_case {
+        ctx.reply(create_embed!(
+            description: format!("Unbanned <@{target_id}>, and closed case `{case_id}`"),
+            color: 0xffffff,
+        ))
+        .await?;
+    } else {
+        ctx.reply(create_embed!(
+            description: format!("Unbanned <@{target_id}>, but no case associated with the mute could be found."),
+            color: 0xffffff,
+        )).await?;
+    }
+
+    Ok(())
+}
+
 #[instrument(skip(ctx, expiry, reason, moderation_kind), fields(target_id = target_id.into_inner(), guild_id = ctx.guild_id.into_inner()))]
 async fn create_moderation_case(
     ctx: &Ctx,
@@ -238,7 +406,17 @@ pub fn register(dispatcher: &mut Dispatcher) {
             )),
     );
     dispatcher.register(
-        literal("mute")
+        literal("unwarn")
+            .requires(|ctx: &CommandContext| {
+                has_permission(ctx.member_permissions, Permissions::MODERATE_MEMBERS)
+            })
+            .then(
+                user_id_or_mention("target_id")
+                    .then(optional(greedy_string("reason")).executes(unwarn)),
+            ),
+    );
+    dispatcher.register(
+        multi_literal(vec!["mute", "timeout"])
             .requires(|ctx: &CommandContext| {
                 has_permission(ctx.member_permissions, Permissions::MODERATE_MEMBERS)
             })
@@ -246,6 +424,16 @@ pub fn register(dispatcher: &mut Dispatcher) {
                 user_id_or_mention("target_id").then(
                     expiry("duration").then(optional(greedy_string("reason")).executes(mute)),
                 ),
+            ),
+    );
+    dispatcher.register(
+        multi_literal(vec!["unmute", "untimeout"])
+            .requires(|ctx: &CommandContext| {
+                has_permission(ctx.member_permissions, Permissions::MODERATE_MEMBERS)
+            })
+            .then(
+                user_id_or_mention("target_id")
+                    .then(optional(greedy_string("reason")).executes(unmute)),
             ),
     );
     dispatcher.register(
@@ -266,5 +454,15 @@ pub fn register(dispatcher: &mut Dispatcher) {
             .then(user_id_or_mention("target_id").then(
                 optional(expiry("duration")).then(optional(greedy_string("reason")).executes(ban)),
             )),
+    );
+    dispatcher.register(
+        literal("unban")
+            .requires(|ctx: &CommandContext| {
+                has_permission(ctx.member_permissions, Permissions::MODERATE_MEMBERS)
+            })
+            .then(
+                user_id_or_mention("target_id")
+                    .then(optional(greedy_string("reason")).executes(unban)),
+            ),
     );
 }

@@ -17,7 +17,8 @@ pub enum CommandParseError {
     /// present or the number expected by a number parser contained
     /// non-numeric characters.
     NoMatch,
-    Other(String),
+    Other(&'static str),
+    OtherString(String),
 }
 
 impl Error for CommandError {}
@@ -43,6 +44,7 @@ impl Display for CommandParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::NoMatch => f.write_str("No arguments matched"),
+            Self::OtherString(s) => s.fmt(f),
             Self::Other(s) => s.fmt(f),
         }
     }
