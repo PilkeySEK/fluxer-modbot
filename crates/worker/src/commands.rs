@@ -1,13 +1,9 @@
-use std::{
-    sync::Arc,
-    time::{Duration, SystemTime},
-};
+use std::{sync::Arc, time::SystemTime};
 
-use async_brigadier::{CommandDispatcher, arg::literal};
+use async_brigadier::CommandDispatcher;
 use chrono::{TimeDelta, Utc};
 use fluxer_neptunium::{
     cache::{Cached, CachedMessage},
-    create_embed,
     events::context::Context,
     exts::MessageExt,
     http::endpoints::channel::CreateMessageBody,
@@ -19,7 +15,6 @@ use fluxer_neptunium::{
         },
     },
 };
-use pretty_duration::pretty_duration;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
@@ -34,6 +29,7 @@ use crate::{
 // mod guild_settings;
 // mod misc;
 mod args;
+mod misc;
 mod moderation;
 
 pub type Dispatcher = CommandDispatcher<CommandContext, anyhow::Result<()>>;
@@ -313,30 +309,7 @@ impl CommandDispatcher {
 */
 
 pub fn register_commands(dispatcher: &mut Dispatcher) {
-    dispatcher.register(literal("ping").executes(
-        async |ctx: async_brigadier::CommandContext<CommandContext>| {
-            ctx.reply(create_embed!(
-                title: "Pong!",
-                description: format!(
-                    "> **Uptime:** {}\n> **Version:** {}+{}\n> {}",
-                    pretty_duration(
-                        &SystemTime::now().duration_since(ctx.started_at).unwrap_or(Duration::ZERO),
-                        crate::PRETTY_DURATION_OPTIONS,
-                    ),
-                    crate::VERSION,
-                    crate::GIT_HASH,
-                    if cfg!(debug_assertions) {
-                        "*This is a debug build.*"
-                    } else {
-                        "*This is a release build.*"
-                    }
-                ),
-            ))
-            .await?;
-            Ok(())
-        },
-    ));
-
+    misc::register(dispatcher);
     moderation::register(dispatcher);
 
     /*
