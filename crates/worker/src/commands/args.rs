@@ -1,5 +1,6 @@
-use std::any::Any;
+use std::{any::Any, str::FromStr};
 
+use api_types::db::CaseId;
 use async_brigadier::{
     CommandParseError,
     arg::{CommandArgument, CommandArgumentKind},
@@ -172,6 +173,33 @@ pub fn channel_id_or_mention_or_link<C, R>(name: &'static str) -> CommandArgumen
     CommandArgument {
         children: Vec::new(),
         kind: Box::new(ChannelIdOrMentionOrLinkArgumentKind),
+        name: Some(name),
+        executes: None,
+        requires: None,
+        pass_empty: false,
+    }
+}
+
+pub struct CaseIdArgumentKind;
+
+impl CommandArgumentKind for CaseIdArgumentKind {
+    fn parse<'a>(
+        &self,
+        command: &'a str,
+    ) -> Result<(&'a str, Option<Box<dyn Any + Send + Sync>>), CommandParseError> {
+        let (word, rest) = command.split_once(' ').unwrap_or((command, ""));
+        let Ok(case_id) = CaseId::from_str(word) else {
+            return Err(CommandParseError::Other("Invalid case ID"));
+        };
+        Ok((rest, Some(Box::new(case_id))))
+    }
+}
+
+#[must_use]
+pub fn case_id<C, R>(name: &'static str) -> CommandArgument<C, R> {
+    CommandArgument {
+        children: Vec::new(),
+        kind: Box::new(CaseIdArgumentKind),
         name: Some(name),
         executes: None,
         requires: None,

@@ -27,6 +27,7 @@ tokio-tungstenite = "0.29.0"
 futures = "0.3.32"
 async-brigadier = { path = "../async-brigadier" }
 anyhow = { workspace = true }
+either = "1.16.0"
 
 [lints]
 workspace = true

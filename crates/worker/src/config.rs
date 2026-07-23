@@ -1,9 +1,6 @@
-use std::{collections::HashMap, fs::File, io::Read, path::Path};
+use std::{fs::File, io::Read, path::Path};
 
-use fluxer_neptunium::model::{
-    guild::permissions::Permissions,
-    id::{Id, marker::UserMarker},
-};
+use fluxer_neptunium::model::id::{Id, marker::UserMarker};
 use serde::Deserialize;
 use zeroize::Zeroizing;
 

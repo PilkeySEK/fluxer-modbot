@@ -13,7 +13,7 @@ use fluxer_neptunium::{
 use tokio::sync::mpsc::unbounded_channel;
 
 use crate::{
-    commands::{CommandContext, CommandError},
+    commands::Ctx,
     macros::debug_panic,
     util::{MaybeExpired, MaybeExpiringResult},
 };
@@ -25,11 +25,11 @@ pub enum PageAction {
 }
 
 pub async fn pages(
-    ctx: &CommandContext<'_>,
+    ctx: &Ctx,
     pages_message: Cached<CachedMessage>,
     allowed_reactor: Id<UserMarker>,
     allowed_actions: EnumSet<PageAction>,
-) -> MaybeExpiringResult<PageAction, CommandError> {
+) -> MaybeExpiringResult<PageAction, anyhow::Error> {
     const BACK: &str = "⬅️";
     const CONTINUE: &str = "➡️";
 
@@ -38,10 +38,10 @@ pub async fn pages(
         Expired,
     }
 
-    if let Err(e) = pages_message.add_reaction(ctx.ctx, BACK).await {
+    if let Err(e) = pages_message.add_reaction(&ctx.ctx, BACK).await {
         return MaybeExpiringResult::Err(e.into());
     }
-    if let Err(e) = pages_message.add_reaction(ctx.ctx, CONTINUE).await {
+    if let Err(e) = pages_message.add_reaction(&ctx.ctx, CONTINUE).await {
         return MaybeExpiringResult::Err(e.into());
     }
 
