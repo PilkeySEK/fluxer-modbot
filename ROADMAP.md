@@ -6,9 +6,9 @@
   - [x] Warn/Unwarn
   - [x] Mute/Unmute
   - [x] Kick
-  - [ ] Ban/Unban
+  - [X] Ban/Unban
   - [ ] Moderation cases features
-    - [x] Create on punish
+    - [ ] Create on punish
     - [x] List in dashboard and via command
     - [ ] Edit
     - [ ] Delete via dashboard and command
@@ -29,6 +29,7 @@
   - [ ] Activity tracking
   - [ ] Anti-nuke (detect suspicious staff activity)
 - [ ] Verification
+- [ ] Sapphire-like bot permissions
 
 ## Not that important
 
