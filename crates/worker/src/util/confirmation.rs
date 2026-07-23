@@ -10,18 +10,20 @@ use fluxer_neptunium::{
     },
 };
 use tokio::sync::mpsc::unbounded_channel;
+use tracing::instrument;
 
 use crate::{
-    commands::{CommandContext, CommandError},
+    commands::Ctx,
     macros::debug_panic,
     util::{MaybeExpired, MaybeExpiringResult},
 };
 
+#[instrument(skip(ctx, confirmation_message), fields(allowed_reactor = allowed_reactor.into_inner()))]
 pub async fn confirmation(
-    ctx: &CommandContext<'_>,
+    ctx: &Ctx,
     confirmation_message: Cached<CachedMessage>,
     allowed_reactor: Id<UserMarker>,
-) -> MaybeExpiringResult<bool, CommandError> {
+) -> MaybeExpiringResult<bool, anyhow::Error> {
     const CONFIRM: &str = "✅";
     const CANCEL: &str = "❌";
 
@@ -30,10 +32,10 @@ pub async fn confirmation(
         Expired,
     }
 
-    if let Err(e) = confirmation_message.add_reaction(ctx.ctx, CONFIRM).await {
+    if let Err(e) = confirmation_message.add_reaction(&ctx.ctx, CONFIRM).await {
         return MaybeExpiringResult::Err(e.into());
     }
-    if let Err(e) = confirmation_message.add_reaction(ctx.ctx, CANCEL).await {
+    if let Err(e) = confirmation_message.add_reaction(&ctx.ctx, CANCEL).await {
         return MaybeExpiringResult::Err(e.into());
     }
 
@@ -73,7 +75,7 @@ pub async fn confirmation(
         match message {
             ConfirmationMessage::Expired => Ok(MaybeExpired::Expired),
             ConfirmationMessage::Ok(confirmed) => {
-                confirmation_message.delete(ctx.ctx).await?;
+                confirmation_message.delete(&ctx.ctx).await?;
                 Ok(MaybeExpired::NotExpired(confirmed))
             }
         }

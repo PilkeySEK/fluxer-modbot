@@ -1,8 +1,15 @@
-use async_brigadier::arg::{CommandArgument, CommandArgumentKind};
+use std::any::Any;
+
+use async_brigadier::{
+    CommandParseError,
+    arg::{CommandArgument, CommandArgumentKind},
+};
 use chrono::Utc;
 use fluxer_neptunium::model::id::{Id, marker::UserMarker};
 
-use crate::util::{expiry_from_duration, parse_duration};
+use crate::util::{
+    expiry_from_duration, parse_channel_mention_or_id_or_link, parse_duration, parse_webhook_url,
+};
 
 pub struct UserIdOrMentionArgumentKind;
 
@@ -15,20 +22,15 @@ impl CommandArgumentKind for UserIdOrMentionArgumentKind {
         async_brigadier::CommandParseError,
     > {
         let (id_or_mention, rest) = command.split_once(' ').unwrap_or((command, ""));
-        let id = if let Some(prefix_stripped) = id_or_mention.strip_prefix("<@")
-            && let Some(suffix_stripped) = prefix_stripped.strip_suffix(">")
-        {
-            let Ok(id) = Id::<UserMarker>::try_from(suffix_stripped) else {
-                return Err(async_brigadier::CommandParseError::NoMatch);
-            };
-            id
-        } else {
-            let Ok(id) = Id::<UserMarker>::try_from(id_or_mention) else {
-                return Err(async_brigadier::CommandParseError::NoMatch);
-            };
-            id
-        };
-        Ok((rest, Some(Box::new(id))))
+        Id::<UserMarker>::try_from(
+            id_or_mention
+                .trim_start()
+                .strip_prefix("<@")
+                .and_then(|input| input.strip_suffix('>'))
+                .unwrap_or(id_or_mention),
+        )
+        .map_err(|_| CommandParseError::Other("Invalid user ID or mention"))
+        .map(|value| (rest, Some(Box::new(value) as Box<dyn Any + Send + Sync>)))
     }
 }
 
@@ -44,6 +46,7 @@ pub fn user_id_or_mention<C, R>(name: &'static str) -> CommandArgument<C, R> {
     }
 }
 
+/*
 pub struct DurationArgumentKind;
 
 impl CommandArgumentKind for DurationArgumentKind {
@@ -75,6 +78,7 @@ pub fn duration<C, R>(name: &'static str) -> CommandArgument<C, R> {
         pass_empty: false,
     }
 }
+*/
 
 pub struct ExpiryArgumentKind;
 
@@ -104,6 +108,70 @@ pub fn expiry<C, R>(name: &'static str) -> CommandArgument<C, R> {
     CommandArgument {
         children: Vec::new(),
         kind: Box::new(ExpiryArgumentKind),
+        name: Some(name),
+        executes: None,
+        requires: None,
+        pass_empty: false,
+    }
+}
+
+pub struct WebhookUrlArgumentKind;
+
+impl CommandArgumentKind for WebhookUrlArgumentKind {
+    fn parse<'a>(
+        &self,
+        command: &'a str,
+    ) -> Result<
+        (&'a str, Option<Box<dyn std::any::Any + Send + Sync>>),
+        async_brigadier::CommandParseError,
+    > {
+        let (url_str, rest) = command.split_once(' ').unwrap_or((command, ""));
+        if let Some((webhook_id, webhook_token)) = parse_webhook_url(url_str) {
+            Ok((rest, Some(Box::new((webhook_id, webhook_token.to_owned())))))
+        } else {
+            Err(CommandParseError::Other("Invalid webhook URL"))
+        }
+    }
+}
+
+#[must_use]
+pub fn webhook_url<C, R>(name: &'static str) -> CommandArgument<C, R> {
+    CommandArgument {
+        children: Vec::new(),
+        kind: Box::new(WebhookUrlArgumentKind),
+        name: Some(name),
+        executes: None,
+        requires: None,
+        pass_empty: false,
+    }
+}
+
+pub struct ChannelIdOrMentionOrLinkArgumentKind;
+
+impl CommandArgumentKind for ChannelIdOrMentionOrLinkArgumentKind {
+    fn parse<'a>(
+        &self,
+        command: &'a str,
+    ) -> Result<
+        (&'a str, Option<Box<dyn std::any::Any + Send + Sync>>),
+        async_brigadier::CommandParseError,
+    > {
+        let (id_or_mention, rest) = command.split_once(' ').unwrap_or((command, ""));
+        if let Some((_, channel_id)) = parse_channel_mention_or_id_or_link(id_or_mention) {
+            Ok((rest, Some(Box::new(channel_id))))
+        } else {
+            Err(CommandParseError::Other(
+                "Invalid channel ID, channel mention or channel link",
+            ))
+        }
+    }
+}
+
+#[must_use]
+pub fn channel_id_or_mention_or_link<C, R>(name: &'static str) -> CommandArgument<C, R> {
+    CommandArgument {
+        children: Vec::new(),
+        kind: Box::new(ChannelIdOrMentionOrLinkArgumentKind),
         name: Some(name),
         executes: None,
         requires: None,

@@ -6,13 +6,12 @@ use fluxer_neptunium::model::{
     guild::permissions::Permissions,
     id::{
         Id,
-        marker::{ChannelMarker, GuildMarker, UserMarker, WebhookMarker},
+        marker::{ChannelMarker, GuildMarker, WebhookMarker},
     },
 };
 use nom::{Parser, error::ErrorKind};
-use tracing::instrument;
 
-// pub mod confirmation;
+pub mod confirmation;
 // pub mod pages;
 // pub mod user_arg;
 pub mod user_fetcher;
@@ -25,17 +24,6 @@ pub enum MaybeExpired<T> {
 }
 
 pub type MaybeExpiringResult<T, E> = Result<MaybeExpired<T>, E>;
-
-pub fn parse_mention_or_id(input: &str) -> Option<Id<UserMarker>> {
-    Id::try_from(
-        input
-            .trim_start()
-            .strip_prefix("<@")
-            .and_then(|input| input.strip_suffix('>'))
-            .unwrap_or(input),
-    )
-    .ok()
-}
 
 pub fn parse_duration(input: &str) -> Option<Duration> {
     let Ok((_, duration_elems)) = nom::multi::many1(nom::sequence::pair(
@@ -73,7 +61,6 @@ pub fn parse_webhook_url(url: &str) -> Option<(Id<WebhookMarker>, &str)> {
 pub fn parse_channel_mention_or_id_or_link(
     input: &str,
 ) -> Option<(Option<Id<GuildMarker>>, Id<ChannelMarker>)> {
-    let input = input.trim();
     if let Some(input) = input.strip_prefix("<#") {
         if let Some(input) = input.strip_suffix(">")
             && let Ok(id) = input.try_into()

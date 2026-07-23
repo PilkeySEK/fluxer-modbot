@@ -29,6 +29,7 @@ use crate::{
 // mod guild_settings;
 // mod misc;
 mod args;
+mod guild_settings;
 mod misc;
 mod moderation;
 
@@ -311,6 +312,7 @@ impl CommandDispatcher {
 pub fn register_commands(dispatcher: &mut Dispatcher) {
     misc::register(dispatcher);
     moderation::register(dispatcher);
+    guild_settings::register(dispatcher);
 
     /*
     dispatcher.register("ping", [], misc::ping);
