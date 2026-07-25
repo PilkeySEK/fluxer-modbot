@@ -6,7 +6,6 @@ use async_brigadier::arg::{greedy_string, optional};
 use chrono::Utc;
 use fluxer_neptunium::{
     client::error::ClientErrorKind,
-    create_embed,
     exts::GuildExt,
     http::endpoints::guild::BanGuildMemberBody,
     model::{
@@ -91,16 +90,14 @@ pub fn unwarn() -> Arg {
                     .await?;
 
                 if let Some(case_id) = case_id {
-                    ctx.reply(create_embed!(
-                        description: format!("Case `{case_id}` closed."),
-                        color: 0xffffff,
-                    ))
-                    .await?;
+                    ctx.reply_embed(None, format!("Case `{case_id}` closed."), Some(0xffffff))
+                        .await?;
                 } else {
-                    ctx.reply(create_embed!(
-                        description: "The user does not have any open warn cases.",
-                        color: 0xff0000,
-                    ))
+                    ctx.reply_embed(
+                        None,
+                        "The user does not have any open warn cases.",
+                        Some(0xff0000),
+                    )
                     .await?;
                 }
 
@@ -135,7 +132,7 @@ pub fn mute() -> Arg {
                     None,
                     format!(
                         "**Muted** <@{target_id}>{}\n{}",
-                        format!(
+                        format_args!(
                             " until {}.",
                             Timestamp::<UnixMillis>::from(expiry.0).time_string(
                                 TimestampDisplayType::VerboseDateWithDayOfWeekAndShortTime
@@ -169,10 +166,11 @@ pub fn unmute() -> Arg {
                         Ok(member) => member,
                         Err(e) => {
                             if let ClientErrorKind::HttpNotFound(_) = e.kind() {
-                                ctx.reply(create_embed!(
-                                    description: "That user is not a member of this community.",
-                                    color: 0xff0000,
-                                ))
+                                ctx.reply_embed(
+                                    None,
+                                    "That user is not a member of this community.",
+                                    Some(0xff0000),
+                                )
                                 .await?;
                                 return Ok(());
                             }
@@ -193,10 +191,11 @@ pub fn unmute() -> Arg {
                     }
 
                     if !member_is_timed_out {
-                        ctx.reply(create_embed!(
-                            description: "The member is not timed out.",
-                            color: 0xff0000,
-                        ))
+                        ctx.reply_embed(
+                            None,
+                            "The member is not timed out.",
+                            Some(0xff0000),
+                        )
                         .await?;
                         return Ok(());
                     }

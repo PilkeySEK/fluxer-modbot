@@ -59,7 +59,7 @@ pub fn add_prefix() -> Arg {
 
         ctx.reply_embed(
             None,
-            format!("Added the command prefix `{}`", prefix),
+            format!("Added the command prefix `{prefix}`"),
             Some(0xffffff),
         )
         .await?;
@@ -229,6 +229,7 @@ pub fn modlog_channel() -> Arg {
 
                 for webhook in webhooks {
                     if webhook.creator.id == ctx.bot_id {
+                        #[expect(clippy::disallowed_macros)]
                         let confirmation_message = ctx.message.reply(&ctx.ctx, fluxer_neptunium::create_embed!(
                                 description: format!(
                                     "There is already a webhook named \"{}\" in <#{}> created by me, should it be reused?\n-# The ID of that webhook is `{}`.",
