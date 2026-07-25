@@ -72,6 +72,7 @@ impl Logger {
 }
 
 impl ModLogEntry {
+    #[expect(clippy::disallowed_macros)]
     fn into_message(self) -> CreateMessageBody {
         match self {
             ModLogEntry::CaseCreated(case) => {
