@@ -2,8 +2,8 @@
 
 use std::{sync::Arc, time::Duration};
 
-use api_types::db::CaseId;
 use chrono::Utc;
+use rust_shared::db::CaseId;
 use tokio::sync::{
     Mutex,
     mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},

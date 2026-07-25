@@ -1,7 +1,7 @@
 use std::{ops::ControlFlow, sync::Arc, time::Duration};
 
-use api_types::ws::{ApiToWorkerMessage, WorkerToApiMessage};
 use futures::{SinkExt, TryStreamExt};
+use rust_shared::ws::{ApiToWorkerMessage, WorkerToApiMessage};
 use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream,
     tungstenite::{Message, client::IntoClientRequest, http::HeaderValue},

@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use api_types::db::{GuildModerationCase, GuildModerationCaseResponse};
 use axum::{
     Extension, Json, Router,
     extract::{Path, Query, State},
@@ -9,6 +8,7 @@ use axum::{
 };
 use fluxer_neptunium::model::id::{Id, marker::GuildMarker};
 use reqwest::StatusCode;
+use rust_shared::db::{GuildModerationCase, GuildModerationCaseResponse};
 use serde::Deserialize;
 
 use crate::{

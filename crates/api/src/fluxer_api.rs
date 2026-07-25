@@ -3,7 +3,6 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
-use api_types::db::UserInfo;
 use fluxer_neptunium::{
     http::endpoints::{ExecuteEndpointRequestError, ResponseBody},
     model::{
@@ -17,6 +16,7 @@ use fluxer_neptunium::{
 };
 use moka::future::CacheBuilder;
 use reqwest::Client;
+use rust_shared::db::UserInfo;
 
 use crate::db::DbManager;
 

@@ -1,9 +1,9 @@
 use std::{ops::ControlFlow, time::Duration};
 
-use api_types::ws::{
+use axum::extract::ws::{CloseFrame, Message, WebSocket};
+use rust_shared::ws::{
     ApiToWorkerMessage, WORKER_API_HEARTBEAT_INTERVAL, WorkerApiWsCloseCode, WorkerToApiMessage,
 };
-use axum::extract::ws::{CloseFrame, Message, WebSocket};
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::state::AppState;

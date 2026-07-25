@@ -1,10 +1,10 @@
-use api_types::db::DbError;
 use axum::{Json, response::IntoResponse};
 use fluxer_neptunium::http::endpoints::ExecuteEndpointRequestError;
 use oauth2::{
     HttpClientError, RequestTokenError, StandardErrorResponse, basic::BasicErrorResponseType,
 };
 use reqwest::StatusCode;
+use rust_shared::db::DbError;
 
 pub type ApiResult<T> = Result<T, ApiErrorResponse>;
 
@@ -152,6 +152,6 @@ impl IntoResponse for ApiError {
             }
         };
 
-        (status, Json(api_types::ApiErrorBody { error: message })).into_response()
+        (status, Json(rust_shared::ApiErrorBody { error: message })).into_response()
     }
 }

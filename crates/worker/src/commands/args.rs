@@ -1,12 +1,12 @@
 use std::{any::Any, str::FromStr};
 
-use api_types::db::CaseId;
 use async_brigadier::{
     CommandParseError,
     arg::{CommandArgument, CommandArgumentKind},
 };
 use chrono::Utc;
 use fluxer_neptunium::model::id::{Id, marker::UserMarker};
+use rust_shared::db::CaseId;
 
 use crate::util::{
     expiry_from_duration, parse_channel_mention_or_id_or_link, parse_duration, parse_webhook_url,

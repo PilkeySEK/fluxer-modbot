@@ -1,9 +1,9 @@
 [workspace]
 resolver = "3"
-members = ["api", "api-types", "async-brigadier", "worker"]
+members = ["api", "rust-shared", "async-brigadier", "worker"]
 
 [workspace.dependencies]
-api-types = { path = "api-types" }
+rust-shared = { path = "rust-shared" }
 fluxer-neptunium = { git = "https://github.com/PilkeySEK/fluxer-neptunium.git", features = [
     "experimental-macros",
     "chrono-timestamp-conversion",

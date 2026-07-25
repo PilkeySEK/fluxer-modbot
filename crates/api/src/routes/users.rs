@@ -3,10 +3,6 @@ use std::{
     sync::Arc,
 };
 
-use api_types::{
-    DashboardUser, DashboardUserSettings, Guild,
-    db::{UserInfo, UserInfoSchema},
-};
 use axum::{
     Extension, Json, Router,
     extract::State,
@@ -16,6 +12,10 @@ use axum::{
 use axum_extra::extract::PrivateCookieJar;
 use fluxer_neptunium::model::id::{Id, marker::UserMarker};
 use reqwest::StatusCode;
+use rust_shared::{
+    DashboardUser, DashboardUserSettings, Guild,
+    db::{UserInfo, UserInfoSchema},
+};
 
 use crate::{SESSION_COOKIE_NAME, db::schema::SessionData, error::ApiResult, state::AppState};
 
@@ -61,7 +61,7 @@ pub fn router(state: AppState) -> Router<AppState> {
 #[utoipa::path(
     get,
     path = "/users/@me/guilds",
-    responses((status = 200, body = Vec<api_types::Guild>)),
+    responses((status = 200, body = Vec<rust_shared::Guild>)),
 )]
 pub async fn get_user_guilds(
     Extension(session_data): Extension<Arc<SessionData>>,

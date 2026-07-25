@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use api_types::is_guild_manager_permissions;
 use axum::{
     extract::{Request, State},
     middleware::Next,
@@ -9,6 +8,7 @@ use axum::{
 use axum_extra::extract::PrivateCookieJar;
 use fluxer_neptunium::model::id::{Id, marker::GuildMarker};
 use reqwest::StatusCode;
+use rust_shared::is_guild_manager_permissions;
 use zeroize::Zeroizing;
 
 use crate::{

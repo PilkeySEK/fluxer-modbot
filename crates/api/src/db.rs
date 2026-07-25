@@ -1,13 +1,13 @@
 use std::{sync::Arc, time::Duration};
 
-use api_types::{
-    DashboardUserSettings,
-    db::{DbError, SharedDatabaseManager},
-    ws::ApiToWorkerMessage,
-};
 use fluxer_neptunium::model::id::{
     Id,
     marker::{GuildMarker, UserMarker},
+};
+use rust_shared::{
+    DashboardUserSettings,
+    db::{DbError, SharedDatabaseManager},
+    ws::ApiToWorkerMessage,
 };
 use sqlx::{FromRow, PgPool, QueryBuilder};
 use tokio::{

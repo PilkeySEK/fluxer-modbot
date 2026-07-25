@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use api_types::db::ModerationKind;
 use async_brigadier::arg::{greedy_string, optional};
 use chrono::Utc;
 use fluxer_neptunium::{
@@ -13,6 +12,7 @@ use fluxer_neptunium::{
         time::timestamp::{Timestamp, TimestampDisplayType, representations::UnixMillis},
     },
 };
+use rust_shared::db::ModerationKind;
 use tracing::instrument;
 
 use crate::{

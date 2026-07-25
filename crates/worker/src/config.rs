@@ -1,12 +1,12 @@
 use std::{collections::HashMap, path::Path};
 
 use anyhow::Context;
-use api_types::db::CommandId;
 use enum_map::EnumMap;
 use fluxer_neptunium::model::{
     guild::permissions::Permissions,
     id::{Id, marker::UserMarker},
 };
+use rust_shared::db::CommandId;
 use serde::{Deserialize, de::DeserializeOwned};
 use zeroize::Zeroizing;
 

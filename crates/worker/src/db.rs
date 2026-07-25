@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use anyhow::{Context, bail};
-use api_types::db::{
-    CaseId, DbError, GuildModerationCase, ModerationKind, RawGuildModerationCase,
-    SharedDatabaseManager,
-};
 use fluxer_neptunium::model::id::{
     Id,
     marker::{ChannelMarker, GuildMarker, UserMarker, WebhookMarker},
+};
+use rust_shared::db::{
+    CaseId, DbError, GuildModerationCase, ModerationKind, RawGuildModerationCase,
+    SharedDatabaseManager,
 };
 use sqlx::{
     PgPool,
@@ -490,11 +490,11 @@ pub async fn create_db_manager_and_case_expiration_actor(
 }
 
 pub mod schema {
-    use api_types::db::ModerationKind;
     use fluxer_neptunium::model::id::{
         Id,
         marker::{GuildMarker, UserMarker},
     };
+    use rust_shared::db::ModerationKind;
 
     pub struct CreateGuildModerationCaseData<'a> {
         pub guild_id: Id<GuildMarker>,

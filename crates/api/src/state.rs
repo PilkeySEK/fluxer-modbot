@@ -1,6 +1,5 @@
 use std::{ops::Deref, sync::Arc};
 
-use api_types::ws::ApiToWorkerMessage;
 use axum::extract::FromRef;
 use axum_extra::extract::cookie::Key;
 use oauth2::{
@@ -11,6 +10,7 @@ use oauth2::{
     reqwest::redirect::Policy,
 };
 use rand::rngs::ChaCha20Rng;
+use rust_shared::ws::ApiToWorkerMessage;
 use tokio::sync::{Mutex, RwLock, mpsc::UnboundedSender};
 
 use crate::{

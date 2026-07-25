@@ -1,7 +1,6 @@
 use std::{sync::Arc, time::SystemTime};
 
 use anyhow::Context as _;
-use api_types::ws::WorkerToApiMessage;
 use fluxer_neptunium::{
     async_trait,
     cache::{Cached, CachedGuildMember, CachedGuildRole, CachedMessage},
@@ -20,6 +19,7 @@ use fluxer_neptunium::{
     },
 };
 use rand::distr::{Alphanumeric, SampleString};
+use rust_shared::ws::WorkerToApiMessage;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::instrument;
 

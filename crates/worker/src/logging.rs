@@ -1,4 +1,3 @@
-use api_types::db::{GuildModerationCase, GuildModerationCaseExpiry, ModerationKind};
 use fluxer_neptunium::{
     create_embed,
     events::context::Context,
@@ -15,6 +14,7 @@ use fluxer_neptunium::{
     },
 };
 use pretty_duration::pretty_duration;
+use rust_shared::db::{GuildModerationCase, GuildModerationCaseExpiry, ModerationKind};
 use zeroize::Zeroizing;
 
 use crate::db::DatabaseManager;
