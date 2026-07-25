@@ -55,8 +55,8 @@ async fn main() -> anyhow::Result<()> {
 
     let config_file_path =
         env::var("CONFIG_FILE_PATH").unwrap_or_else(|_| String::from("../worker-config.json5"));
-    let default_command_config_file_path = env::var("DEFAULT_COMMAND_NAMES_FILE_PATH")
-        .unwrap_or_else(|_| String::from("../default-command-names.json5"));
+    let default_command_config_file_path = env::var("DEFAULT_COMMAND_CONFIG_FILE_PATH")
+        .unwrap_or_else(|_| String::from("../default-command-config.json5"));
 
     let (config, default_command_config) = match tokio::try_join!(
         async {

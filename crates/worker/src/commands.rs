@@ -193,8 +193,9 @@ impl Dispatcher {
                 (v.0, v.1.command_id)
             } else {
                 'blk: {
+                    let (word, rest) = command.split_once(' ').unwrap_or((command, ""));
                     for (name, id) in &self.default_command_config.names {
-                        if let Some(rest) = command.strip_prefix(name) {
+                        if word == name {
                             break 'blk (rest, *id);
                         }
                     }
@@ -210,9 +211,17 @@ impl Dispatcher {
             .get_member(&context.ctx, context.message.author.id)
             .await
             .context("Failed to fetch guild member")?;
+        let guild = context
+            .guild_id
+            .fetch(&context.ctx)
+            .await
+            .context("Failed to fetch guild")?;
 
         let has_permission = match permissions {
             either::Left(permissions) => 'blk: {
+                if guild.load().owner_id == context.message.author.id {
+                    break 'blk true;
+                }
                 let channel_id = context.message.channel_id;
                 let roles = &guild_member.roles;
                 let user_permissions = guild_member
