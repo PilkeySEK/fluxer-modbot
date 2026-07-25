@@ -2,7 +2,6 @@ use std::{sync::Arc, time::SystemTime};
 
 use anyhow::Context as _;
 use api_types::ws::WorkerToApiMessage;
-use async_brigadier::CommandError;
 use fluxer_neptunium::{
     async_trait,
     cache::{Cached, CachedGuildMember, CachedGuildRole, CachedMessage},
@@ -11,7 +10,7 @@ use fluxer_neptunium::{
     },
     create_embed,
     events::{EventError, EventHandler, context::Context},
-    exts::{ChannelExt, GuildExt, GuildMemberExt, MessageExt},
+    exts::{ChannelExt, MessageExt},
     model::{
         gateway::payload::incoming::{GuildMemberRemove, GuildRoleDelete},
         id::{
@@ -20,11 +19,12 @@ use fluxer_neptunium::{
         },
     },
 };
+use rand::distr::{Alphanumeric, SampleString};
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::instrument;
 
 use crate::{
-    commands::{CommandContext, Dispatcher},
+    commands::{BotCommandError, CommandContext, Dispatcher},
     db::DatabaseManager,
     event_handler::reactions::ReactionsEventHandler,
     logging::Logger,
@@ -354,29 +354,6 @@ impl BotEventHandler {
         content: &str,
         guild_command_prefixes: Arc<Vec<String>>,
     ) {
-        let mut guild_member = match guild_id
-            .get_member(&ctx, message.author.id)
-            .await
-            .context("Failed to fetch guild member")
-        {
-            Ok(member) => member,
-            Err(e) => {
-                tracing::error!("{e}");
-                if let Err(e) = message
-                    .reply(
-                        &ctx,
-                        create_embed!(
-                            description: format!("There was an error executing your command:\n```\n{e:?}\n```"),
-                            color: 0xff0000,
-                        ),
-                    )
-                    .await.context("Replying to message with the command error") {
-                        tracing::error!("{e:?}");
-                    }
-                return;
-            }
-        };
-        guild_member.refresh();
         let result = self
             .dispatcher
             .execute(
@@ -395,47 +372,75 @@ impl BotEventHandler {
                     webhook_avatar_b64: self.webhook_avatar_b64.clone(),
                     bot_id: self.bot_id,
                     guild_command_prefixes,
-                    member_permissions: match guild_member
-                        .get_permissions(&ctx)
-                        .await
-                        .context("Failed to fetch guild member permissions")
-                    {
-                        Ok(permissions) => permissions,
-                        Err(e) => {
-                            tracing::error!("{e:?}");
-                            return;
-                        }
-                    },
                 },
             )
             .await;
         match result {
-            Err(e) => {
-                if let CommandError::RequirementNotSatisfied = e {
-                    if let Err(e) = message.reply(&ctx, create_embed!(
-                        description: "You do not have the permissions to execute this command.",
-                        color: 0xff0000,
-                    )).await.context("Failed to reply with missing permissions message") {
-                        tracing::error!("{e:?}");
-                    }
-                } else {
-                    tracing::error!("Command error: {e}");
-                    if let Err(e) = message.reply(&ctx, create_embed!(
-                    description: format!("There was an error executing your command:\n`{e}`"),
-                    color: 0xff0000,
-                )).await.context("Replying to message with the command error") {
+            Err(BotCommandError::MissingPermissions) => {
+                #[expect(clippy::disallowed_macros)]
+                if let Err(e) = message
+                    .reply(
+                        &ctx,
+                        create_embed!(
+                            description: "You do not have the permissions to execute this command.",
+                            color: 0xff0000,
+                        ),
+                    )
+                    .await
+                    .context("Failed to reply with missing permissions message")
+                {
                     tracing::error!("{e:?}");
-                }
                 }
             }
-            Ok(Err(e)) => {
-                tracing::error!("Error executing command: {e:?}");
-                if let Err(e) = message.reply(&ctx, create_embed!(
-                    description: format!("There was an error executing your command:\n```\n{e:?}\n```"),
-                    color: 0xff0000,
-                )).await.context("Replying to message with the command error") {
+            Err(BotCommandError::UnknownCommand) => {
+                #[expect(clippy::disallowed_macros)]
+                if let Err(e) = message
+                    .reply(
+                        &ctx,
+                        create_embed!(
+                            description: "Unknown command.",
+                            color: 0xff0000,
+                        ),
+                    )
+                    .await
+                    .context("Failed to reply with unknown command message")
+                {
                     tracing::error!("{e:?}");
                 }
+            }
+            Err(BotCommandError::Command(_)) => {
+                #[expect(clippy::disallowed_macros)]
+                if let Err(e) = message
+                    .reply(
+                        &ctx,
+                        create_embed!(
+                            description: "Wrong usage.",
+                            color: 0xff0000,
+                        ),
+                    )
+                    .await
+                    .context("Failed to reply with wrong usage message")
+                {
+                    tracing::error!("{e:?}");
+                }
+            }
+            Err(BotCommandError::Any(e)) | Ok(Err(e)) => {
+                let error_id = Alphanumeric.sample_string(&mut rand::rng(), 16);
+                #[expect(clippy::disallowed_macros)]
+                if let Err(e) = message
+                    .reply(
+                        &ctx,
+                        create_embed!(
+                            description: format!("Internal error [{error_id}]."),
+                            color: 0xff0000,
+                        ),
+                    )
+                    .await
+                    .context("Failed to reply with internal error message")
+                {
+                    tracing::error!(%error_id, "{e:?}");
+                }
+                tracing::error!(%error_id, "{e:?}");
             }
             Ok(Ok(())) => {}
         }

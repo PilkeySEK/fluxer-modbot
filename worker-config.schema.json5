@@ -19,20 +19,6 @@
         "prefix_cache_capacity": {
             "type": "number",
         },
-        "log_level": {
-            "enum": [
-                "error",
-                "warn",
-                "info",
-                "debug",
-                "trace",
-                "1",
-                "2",
-                "3",
-                "4",
-                "5",
-            ],
-        },
         "webhook_avatar_b64": {
             "type": "string",
         },
@@ -59,7 +45,6 @@
         "bot_name",
         "max_command_prefix_len",
         "prefix_cache_capacity",
-        "log_level",
         "bot_id",
         "worker_api_token",
         "api_worker_ws_url",

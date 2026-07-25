@@ -1,0 +1,49 @@
+{
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  type: "object",
+  properties: {
+    $schema: {
+      type: "string",
+    },
+    names: {
+      type: "object",
+      additionalProperties: {
+        $ref: "#/$defs/CommandIds",
+      },
+    },
+    permissions: {
+      type: "object",
+      propertyNames: {
+        $ref: "#/$defs/CommandIds",
+      },
+      additionalProperties: {
+        pattern: "^\\d+$",
+        type: "string",
+      },
+    },
+  },
+  $defs: {
+    CommandIds: {
+      type: "string",
+      enum: [
+        "ListCases",
+        "CaseInfo",
+        "AddPrefix",
+        "RemovePrefix",
+        "ListPrefixes",
+        "SetModlogWebhook",
+        "ClearModlogWebhook",
+        "SetModlogChannel",
+        "Ping",
+        "Warn",
+        "Unwarn",
+        "Mute",
+        "Unmute",
+        "Kick",
+        "Ban",
+        "Unban",
+      ],
+    },
+  },
+  required: ["names", "permissions"],
+}

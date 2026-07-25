@@ -1,18 +1,19 @@
-use std::{env, str::FromStr, sync::Arc};
+use std::{env, sync::Arc};
 
+use anyhow::Context;
 use fluxer_neptunium::{
     client::{Client, ClientConfig},
     http::endpoints::channel::AllowedMentions,
 };
 use pretty_duration::{PrettyDurationOptions, PrettyDurationOutputFormat};
 use tokio::sync::mpsc::unbounded_channel;
-use tracing::Level;
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::{
     api_connection::api_connection,
     case_expiration::case_expiry_listener,
-    commands::{Dispatcher, register_commands},
-    config::{Config, ConfigLoadError},
+    commands::Dispatcher,
+    config::{Config, ConfigExt, DefaultCommandConfig},
     db::create_db_manager_and_case_expiration_actor,
     event_handler::BotEventHandler,
     logging::Logger,
@@ -46,30 +47,36 @@ const PRETTY_DURATION_OPTIONS: Option<PrettyDurationOptions> = Some(PrettyDurati
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .with(EnvFilter::from_default_env())
+        .init();
+
     let config_file_path =
         env::var("CONFIG_FILE_PATH").unwrap_or_else(|_| String::from("../worker-config.json5"));
+    let default_command_config_file_path = env::var("DEFAULT_COMMAND_NAMES_FILE_PATH")
+        .unwrap_or_else(|_| String::from("../default-command-names.json5"));
 
-    let config = match Config::load(&config_file_path) {
-        Ok(config) => config,
-        Err(e) => {
-            match e {
-                ConfigLoadError::Io(e) => {
-                    println!("I/O error loading config at {config_file_path}: {e}");
-                }
-                ConfigLoadError::Parse(e) => {
-                    println!("Failed to parse config at {config_file_path}: {e}");
-                }
-            }
-            return;
+    let (config, default_command_config) = match tokio::try_join!(
+        async {
+            Config::load_from_file(&config_file_path)
+                .await
+                .with_context(|| format!("Failed to load config `{config_file_path}`"))
+        },
+        async {
+            DefaultCommandConfig::load_from_file(&default_command_config_file_path)
+                .await
+                .with_context(|| {
+                    format!(
+                        "Failed to load default command config from `{default_command_config_file_path}`"
+                    )
+                })
         }
-    };
-
-    let log_level = match Level::from_str(&config.log_level) {
-        Ok(level) => level,
+    ) {
+        Ok(values) => values,
         Err(e) => {
-            println!("Failed to parse log level from config: {e}");
-            return;
+            return Err(e);
         }
     };
 
@@ -87,22 +94,14 @@ async fn main() {
 
     let logger = Arc::new(Logger::new(client.context().clone()));
 
-    tracing_subscriber::fmt().with_max_level(log_level).init();
-
-    let (db_manager, expired_cases_rx) = match create_db_manager_and_case_expiration_actor(
+    let (db_manager, expired_cases_rx) = create_db_manager_and_case_expiration_actor(
         &config.database_url,
         config.prefix_cache_capacity,
         config.default_command_prefix,
         Arc::clone(&logger),
     )
     .await
-    {
-        Ok(value) => value,
-        Err(e) => {
-            tracing::error!("Error connecting to database: {e}");
-            return;
-        }
-    };
+    .context("Error connecting to database")?;
 
     let db_manager = Arc::new(db_manager);
 
@@ -119,11 +118,8 @@ async fn main() {
         Arc::clone(&db_manager),
     ));
 
-    let mut dispatcher = Dispatcher::new();
-    register_commands(&mut dispatcher);
-
     let event_handler = BotEventHandler::new(
-        dispatcher,
+        Dispatcher::new(Arc::clone(&db_manager), default_command_config),
         config.bot_name,
         db_manager,
         config.max_command_prefix_len,
@@ -139,4 +135,6 @@ async fn main() {
     if let Err(e) = client.start().await {
         tracing::error!("Fatal client error: {e}");
     }
+
+    Ok(())
 }

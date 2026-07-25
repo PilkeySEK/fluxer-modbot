@@ -28,6 +28,8 @@ futures = "0.3.32"
 async-brigadier = { path = "../async-brigadier" }
 anyhow = { workspace = true }
 either = "1.16.0"
+enum-map = { version = "3.1.0", features = ["serde"] }
+rand = { workspace = true }
 
 [lints]
 workspace = true

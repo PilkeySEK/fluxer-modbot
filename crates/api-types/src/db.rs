@@ -1,15 +1,20 @@
-use std::{str::FromStr, time::Duration};
+use std::{str::FromStr, sync::Arc, time::Duration};
 
+use anyhow::Context;
+use enum_map::Enum;
 use fluxer_neptunium::model::{
+    guild::permissions::Permissions,
     id::{
         Id,
-        marker::{GuildMarker, UserMarker},
+        marker::{ChannelMarker, GuildMarker, RoleMarker, UserMarker},
     },
     user::PartialUser,
 };
 
 mod manager;
 pub use manager::*;
+use serde::Deserialize;
+use sqlx::prelude::FromRow;
 use utoipa::{
     ToSchema,
     openapi::{ObjectBuilder, schema::SchemaType},
@@ -226,4 +231,77 @@ impl FromStr for CaseId {
             None => Err(()),
         }
     }
+}
+
+/// ID of a default bot command.
+#[derive(
+    strum::Display, strum::EnumString, Enum, Hash, PartialEq, Eq, Copy, Clone, Deserialize,
+)]
+pub enum CommandId {
+    ListCases,
+    CaseInfo,
+    AddPrefix,
+    RemovePrefix,
+    ListPrefixes,
+    SetModlogWebhook,
+    ClearModlogWebhook,
+    SetModlogChannel,
+    Ping,
+    Warn,
+    Unwarn,
+    Mute,
+    Unmute,
+    Kick,
+    Ban,
+    Unban,
+}
+
+pub struct GuildCommandPermissionConfig {
+    pub required_roles: Vec<Id<RoleMarker>>,
+    pub required_permissions: Permissions,
+    pub required_channels: Vec<Id<ChannelMarker>>,
+}
+
+pub struct GuildCommandConfig {
+    pub guild_id: Id<GuildMarker>,
+    pub command_id: CommandId,
+    pub perms: Arc<GuildCommandPermissionConfig>,
+    pub names: Vec<String>,
+}
+
+impl TryFrom<GuildCommandConfigSchema> for GuildCommandConfig {
+    type Error = anyhow::Error;
+    fn try_from(value: GuildCommandConfigSchema) -> Result<Self, Self::Error> {
+        Ok(Self {
+            guild_id: value.guild_id.cast_unsigned().into(),
+            command_id: CommandId::from_str(&value.command_id)
+                .context("Failed to convert command ID")?,
+            perms: Arc::new(GuildCommandPermissionConfig {
+                required_roles: value
+                    .required_roles
+                    .into_iter()
+                    .map(|id| id.cast_unsigned().into())
+                    .collect::<Vec<_>>(),
+                required_permissions: Permissions::from_bits_truncate(
+                    value.required_permissions.cast_unsigned(),
+                ),
+                required_channels: value
+                    .required_channels
+                    .into_iter()
+                    .map(|id| id.cast_unsigned().into())
+                    .collect::<Vec<_>>(),
+            }),
+            names: value.names,
+        })
+    }
+}
+
+#[derive(FromRow)]
+struct GuildCommandConfigSchema {
+    pub guild_id: i64,
+    pub command_id: String,
+    pub required_roles: Vec<i64>,
+    pub required_permissions: i64,
+    pub required_channels: Vec<i64>,
+    pub names: Vec<String>,
 }

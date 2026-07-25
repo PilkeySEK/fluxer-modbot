@@ -2,12 +2,9 @@ use std::time::Duration;
 
 use async_brigadier::CommandParseError;
 use chrono::{TimeDelta, Utc};
-use fluxer_neptunium::model::{
-    guild::permissions::Permissions,
-    id::{
-        Id,
-        marker::{ChannelMarker, GuildMarker, WebhookMarker},
-    },
+use fluxer_neptunium::model::id::{
+    Id,
+    marker::{ChannelMarker, GuildMarker, WebhookMarker},
 };
 use nom::{Parser, error::ErrorKind};
 
@@ -105,12 +102,4 @@ pub fn expiry_from_duration(
         },
         std_duration,
     ))
-}
-
-pub fn has_permission(permissions: Permissions, require: Permissions) -> bool {
-    if permissions.contains(Permissions::ADMINISTRATOR) {
-        true
-    } else {
-        permissions.contains(require)
-    }
 }

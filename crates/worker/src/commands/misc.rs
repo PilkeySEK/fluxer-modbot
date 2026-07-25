@@ -1,18 +1,16 @@
+use crate::commands::{Arg, Ctx, args::empty};
 use std::time::{Duration, SystemTime};
 
-use async_brigadier::arg::literal;
-use fluxer_neptunium::create_embed;
-
-use crate::commands::{Ctx, Dispatcher};
-
-pub fn register(dispatcher: &mut Dispatcher) {
-    dispatcher.register(literal("ping").executes(async |ctx: Ctx| {
-        ctx.reply(create_embed!(
-            title: "Pong!",
-            description: format!(
+pub fn ping() -> Arg {
+    empty().executes(async |ctx: Ctx| {
+        ctx.reply_embed(
+            Some("Pong!"),
+            format!(
                 "> **Uptime:** {}\n> **Version:** {}+{}\n> {}",
                 pretty_duration::pretty_duration(
-                    &SystemTime::now().duration_since(ctx.started_at).unwrap_or(Duration::ZERO),
+                    &SystemTime::now()
+                        .duration_since(ctx.started_at)
+                        .unwrap_or(Duration::ZERO),
                     crate::PRETTY_DURATION_OPTIONS,
                 ),
                 crate::VERSION,
@@ -23,8 +21,9 @@ pub fn register(dispatcher: &mut Dispatcher) {
                     "*This is a release build.*"
                 }
             ),
-        ))
+            None,
+        )
         .await?;
         Ok(())
-    }));
+    })
 }

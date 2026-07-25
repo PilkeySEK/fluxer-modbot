@@ -73,3 +73,14 @@ CREATE TABLE dashboard_user_settings (
 );
 
 CREATE INDEX idx_dashboard_user_settings_by_user_id ON dashboard_user_settings (user_id);
+
+CREATE TABLE guild_commands (
+    guild_id BIGINT NOT NULL,
+    command_id TEXT NOT NULL,
+    required_roles BIGINT[] NOT NULL DEFAULT ARRAY[]::BIGINT[],
+    required_permissions BIGINT NOT NULL,
+    required_channels BIGINT[] NOT NULL DEFAULT ARRAY[]::BIGINT[],
+    names TEXT[] NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_guild_commands_by_guild_id_and_command_id ON guild_commands (guild_id, command_id);

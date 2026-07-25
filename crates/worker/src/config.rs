@@ -1,7 +1,13 @@
-use std::{fs::File, io::Read, path::Path};
+use std::{collections::HashMap, path::Path};
 
-use fluxer_neptunium::model::id::{Id, marker::UserMarker};
-use serde::Deserialize;
+use anyhow::Context;
+use api_types::db::CommandId;
+use enum_map::EnumMap;
+use fluxer_neptunium::model::{
+    guild::permissions::Permissions,
+    id::{Id, marker::UserMarker},
+};
+use serde::{Deserialize, de::DeserializeOwned};
 use zeroize::Zeroizing;
 
 /*
@@ -25,6 +31,10 @@ impl Config {
 }
 */
 
+pub trait ConfigExt: DeserializeOwned {
+    async fn load_from_file(path: impl AsRef<Path>) -> anyhow::Result<Self>;
+}
+
 #[derive(Deserialize)]
 pub struct Config {
     pub database_url: Zeroizing<String>,
@@ -33,7 +43,6 @@ pub struct Config {
     pub bot_name: String,
     pub max_command_prefix_len: usize,
     pub prefix_cache_capacity: u64,
-    pub log_level: String,
     pub webhook_avatar_b64: Option<String>,
     pub bot_id: Id<UserMarker>,
     pub worker_api_token: String,
@@ -41,18 +50,20 @@ pub struct Config {
     pub max_command_prefixes: usize,
 }
 
-pub enum ConfigLoadError {
-    Io(std::io::Error),
-    Parse(json5::Error),
+#[derive(Deserialize)]
+pub struct DefaultCommandConfig {
+    pub names: HashMap<String, CommandId>,
+    pub permissions: EnumMap<CommandId, Permissions>,
 }
 
-impl Config {
-    pub fn load(path: impl AsRef<Path>) -> Result<Self, ConfigLoadError> {
-        let mut file_string = String::new();
-        File::open(path)
-            .map_err(ConfigLoadError::Io)?
-            .read_to_string(&mut file_string)
-            .map_err(ConfigLoadError::Io)?;
-        json5::from_str(&file_string).map_err(ConfigLoadError::Parse)
+impl<T> ConfigExt for T
+where
+    T: DeserializeOwned,
+{
+    async fn load_from_file(path: impl AsRef<Path>) -> anyhow::Result<Self> {
+        let file_string = tokio::fs::read_to_string(path)
+            .await
+            .context("Failed to open file")?;
+        json5::from_str(&file_string).context("Failed to deserialize")
     }
 }

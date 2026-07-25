@@ -8,7 +8,9 @@ use fluxer_neptunium::model::id::{
 };
 use sqlx::{PgPool, Postgres, QueryBuilder, postgres::PgQueryResult};
 
-use crate::db::{CaseId, GuildModerationCase, UserInfo};
+use crate::db::{
+    CaseId, CommandId, GuildCommandConfig, GuildCommandConfigSchema, GuildModerationCase, UserInfo,
+};
 
 #[derive(Debug)]
 pub enum DbError {
@@ -213,6 +215,46 @@ impl SharedDatabaseManager {
         )
         .execute(&self.pool)
         .await?)
+    }
+
+    pub async fn get_guild_command_config(
+        &self,
+        guild_id: Id<GuildMarker>,
+        command_id: CommandId,
+    ) -> anyhow::Result<Option<GuildCommandConfig>> {
+        let raw = sqlx::query_as!(
+            GuildCommandConfigSchema,
+            "SELECT * FROM guild_commands
+            WHERE guild_id = $1 AND command_id = $2",
+            guild_id.into_inner().cast_signed(),
+            command_id.to_string(),
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+        let Some(raw) = raw else {
+            return Ok(None);
+        };
+        Ok(Some(raw.try_into()?))
+    }
+
+    pub async fn get_guild_command_config_from_command_name(
+        &self,
+        guild_id: Id<GuildMarker>,
+        name: &str,
+    ) -> anyhow::Result<Option<GuildCommandConfig>> {
+        let raw = sqlx::query_as!(
+            GuildCommandConfigSchema,
+            "SELECT * FROM guild_commands
+            WHERE guild_id = $1 AND $2 = ANY(names)",
+            guild_id.into_inner().cast_signed(),
+            name,
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+        let Some(raw) = raw else {
+            return Ok(None);
+        };
+        Ok(Some(raw.try_into()?))
     }
 }
 

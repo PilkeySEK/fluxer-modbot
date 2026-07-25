@@ -1,5 +1,5 @@
 use api_types::db::{CaseId, GuildModerationCase, GuildModerationCaseExpiry, ModerationKind};
-use async_brigadier::arg::{multi_literal, optional};
+use async_brigadier::arg::optional;
 use chrono::Utc;
 use fluxer_neptunium::{
     cache::Cached,
@@ -7,7 +7,6 @@ use fluxer_neptunium::{
     exts::MessageExt,
     http::endpoints::channel::{CreateMessageBody, EditMessageBody},
     model::{
-        guild::permissions::Permissions,
         id::{Id, marker::UserMarker},
         time::timestamp::{Timestamp, TimestampDisplayType, representations::UnixMillis},
     },
@@ -15,174 +14,190 @@ use fluxer_neptunium::{
 
 use crate::{
     commands::{
-        CommandContext, Ctx, Dispatcher,
-        args::{case_id, user_id_or_mention},
+        Arg, Ctx,
+        args::{case_id, empty, user_id_or_mention},
     },
     macros::debug_panic,
     util::{
-        MaybeExpired, MaybeExpiringResult, has_permission,
+        MaybeExpired, MaybeExpiringResult,
         pages::{PageAction, pages},
     },
 };
 
 const MAX_GUILD_MODERATION_CASES_PER_MESSAGE: i64 = 10;
 
-async fn list_cases(mut ctx: Ctx) -> anyhow::Result<()> {
-    let involving_user: Option<Id<UserMarker>> = ctx.try_take_argument_downcast("involving_user");
+pub fn list_cases() -> Arg {
+    empty().then(
+        optional(user_id_or_mention("involving_user")).executes(async |mut ctx: Ctx| {
+            let involving_user: Option<Id<UserMarker>> =
+                ctx.try_take_argument_downcast("involving_user");
 
-    let (cases, case_count) = tokio::join!(
-        ctx.db.list_guild_moderation_cases_by_involving_user(
-            ctx.guild_id,
-            MAX_GUILD_MODERATION_CASES_PER_MESSAGE,
-            None,
-            involving_user
-        ),
-        ctx.db
-            .count_guild_moderation_cases_by_involving_user(ctx.guild_id, involving_user)
-    );
-    let cases = cases?;
-    let case_count = case_count?;
-
-    let message = ctx
-        .message
-        .reply(
-            &ctx.ctx,
-            format_case_list(cases, case_count, involving_user, 0),
-        )
-        .await?;
-
-    if case_count > MAX_GUILD_MODERATION_CASES_PER_MESSAGE {
-        let mut current_offset: i64 = 0;
-        loop {
-            let page_action = match pages(
-                &ctx,
-                Cached::clone(&message),
-                ctx.message.author.id,
-                if current_offset + MAX_GUILD_MODERATION_CASES_PER_MESSAGE >= case_count {
-                    [PageAction::Back].into()
-                } else if current_offset <= 0 {
-                    if current_offset < 0 {
-                        debug_panic!("current_offset = {current_offset} < 0");
-                    }
-                    [PageAction::Continue].into()
-                } else {
-                    [PageAction::Back, PageAction::Continue].into()
-                },
-            )
-            .await
-            {
-                MaybeExpiringResult::Err(e) => break Err(e),
-                MaybeExpiringResult::Ok(MaybeExpired::Expired) => break Ok(()),
-                MaybeExpiringResult::Ok(MaybeExpired::NotExpired(action)) => action,
-            };
-
-            match page_action {
-                PageAction::Back => {
-                    current_offset -= 10;
-                    if current_offset < 0 {
-                        debug_panic!("Offset of {current_offset} > 0");
-                    }
-                }
-                PageAction::Continue => {
-                    current_offset += 10;
-                    if current_offset >= case_count {
-                        debug_panic!("Offset of {current_offset} > case count {case_count}");
-                    }
-                }
-            }
-
-            let cases = ctx
-                .db
-                .list_guild_moderation_cases_by_involving_user(
+            let (cases, case_count) = tokio::join!(
+                ctx.db.list_guild_moderation_cases_by_involving_user(
                     ctx.guild_id,
                     MAX_GUILD_MODERATION_CASES_PER_MESSAGE,
-                    Some(current_offset),
-                    involving_user,
+                    None,
+                    involving_user
+                ),
+                ctx.db
+                    .count_guild_moderation_cases_by_involving_user(ctx.guild_id, involving_user)
+            );
+            let cases = cases?;
+            let case_count = case_count?;
+
+            let message = ctx
+                .message
+                .reply(
+                    &ctx.ctx,
+                    format_case_list(cases, case_count, involving_user, 0),
                 )
                 .await?;
 
-            let result = message
-                .edit(
-                    &ctx.ctx,
-                    format_case_list(cases, case_count, involving_user, current_offset),
-                )
-                .await?;
-            tracing::info!(?result);
-        }
-    } else {
-        Ok(())
-    }
+            if case_count > MAX_GUILD_MODERATION_CASES_PER_MESSAGE {
+                let mut current_offset: i64 = 0;
+                loop {
+                    let page_action = match pages(
+                        &ctx,
+                        Cached::clone(&message),
+                        ctx.message.author.id,
+                        if current_offset + MAX_GUILD_MODERATION_CASES_PER_MESSAGE >= case_count {
+                            [PageAction::Back].into()
+                        } else if current_offset <= 0 {
+                            if current_offset < 0 {
+                                debug_panic!("current_offset = {current_offset} < 0");
+                            }
+                            [PageAction::Continue].into()
+                        } else {
+                            [PageAction::Back, PageAction::Continue].into()
+                        },
+                    )
+                    .await
+                    {
+                        MaybeExpiringResult::Err(e) => break Err(e),
+                        MaybeExpiringResult::Ok(MaybeExpired::Expired) => break Ok(()),
+                        MaybeExpiringResult::Ok(MaybeExpired::NotExpired(action)) => action,
+                    };
+
+                    match page_action {
+                        PageAction::Back => {
+                            current_offset -= 10;
+                            if current_offset < 0 {
+                                debug_panic!("Offset of {current_offset} > 0");
+                            }
+                        }
+                        PageAction::Continue => {
+                            current_offset += 10;
+                            if current_offset >= case_count {
+                                debug_panic!(
+                                    "Offset of {current_offset} > case count {case_count}"
+                                );
+                            }
+                        }
+                    }
+
+                    let cases = ctx
+                        .db
+                        .list_guild_moderation_cases_by_involving_user(
+                            ctx.guild_id,
+                            MAX_GUILD_MODERATION_CASES_PER_MESSAGE,
+                            Some(current_offset),
+                            involving_user,
+                        )
+                        .await?;
+
+                    let result = message
+                        .edit(
+                            &ctx.ctx,
+                            format_case_list(cases, case_count, involving_user, current_offset),
+                        )
+                        .await?;
+                    tracing::info!(?result);
+                }
+            } else {
+                Ok(())
+            }
+        }),
+    )
 }
 
-async fn case_info(ctx: Ctx) -> anyhow::Result<()> {
-    let maybe_case_id_or_user_id = ctx.try_get_argument("case_id_or_user");
+pub fn case_info() -> Arg {
+    async fn case_info(ctx: Ctx) -> anyhow::Result<()> {
+        let maybe_case_id_or_user_id = ctx.try_get_argument("case_id_or_user");
 
-    let maybe_case_id_or_user_id = if let Some(case_id_or_user_id) = maybe_case_id_or_user_id {
-        if let Some(case_id) = case_id_or_user_id.downcast_ref::<CaseId>() {
-            Some(either::Right(*case_id))
-        } else if let Some(user_id) = case_id_or_user_id.downcast_ref::<Id<UserMarker>>() {
-            Some(either::Left(*user_id))
+        let maybe_case_id_or_user_id = if let Some(case_id_or_user_id) = maybe_case_id_or_user_id {
+            if let Some(case_id) = case_id_or_user_id.downcast_ref::<CaseId>() {
+                Some(either::Right(*case_id))
+            } else if let Some(user_id) = case_id_or_user_id.downcast_ref::<Id<UserMarker>>() {
+                Some(either::Left(*user_id))
+            } else {
+                tracing::error!("case_id_or_user_id was neither");
+                return Ok(());
+            }
         } else {
-            tracing::error!("case_id_or_user_id was neither");
-            return Ok(());
-        }
-    } else {
-        None
-    };
+            None
+        };
 
-    let case = match maybe_case_id_or_user_id {
-        Some(either::Right(case_id)) => {
-            let Some(case) = ctx
-                .db
-                .get_guild_moderation_case(ctx.guild_id, case_id)
-                .await?
-            else {
-                ctx.reply(create_embed!(
-                    description: "A case with that ID does not exist.",
-                    color: 0xff0000,
-                ))
-                .await?;
-                return Ok(());
-            };
-            case
-        }
-        Some(either::Left(user_id)) => {
-            if let Some(case) = ctx
-                .db
-                .get_last_guild_moderation_case_involving_user(ctx.guild_id, user_id)
-                .await?
-            {
+        let case = match maybe_case_id_or_user_id {
+            Some(either::Right(case_id)) => {
+                let Some(case) = ctx
+                    .db
+                    .get_guild_moderation_case(ctx.guild_id, case_id)
+                    .await?
+                else {
+                    ctx.reply_embed(None, "A case with that ID does not exist.", Some(0xff0000))
+                        .await?;
+                    return Ok(());
+                };
                 case
-            } else {
-                ctx.reply(create_embed!(
-                    description: "That user does not have any previous moderation cases.",
-                    color: 0xffffff,
-                ))
-                .await?;
-                return Ok(());
             }
-        }
-        None => {
-            if let Some(case) = ctx
-                .db
-                .get_last_guild_moderation_case_involving_user(ctx.guild_id, ctx.message.author.id)
-                .await?
-            {
-                case
-            } else {
-                ctx.reply(create_embed!(
-                    description: "You do not have any previous moderation cases.",
-                    color: 0xffffff,
-                ))
-                .await?;
-                return Ok(());
+            Some(either::Left(user_id)) => {
+                if let Some(case) = ctx
+                    .db
+                    .get_last_guild_moderation_case_involving_user(ctx.guild_id, user_id)
+                    .await?
+                {
+                    case
+                } else {
+                    ctx.reply_embed(
+                        None,
+                        "That user does not have any previous moderation cases.",
+                        Some(0xffffff),
+                    )
+                    .await?;
+                    return Ok(());
+                }
             }
-        }
-    };
+            None => {
+                if let Some(case) = ctx
+                    .db
+                    .get_last_guild_moderation_case_involving_user(
+                        ctx.guild_id,
+                        ctx.message.author.id,
+                    )
+                    .await?
+                {
+                    case
+                } else {
+                    ctx.reply_embed(
+                        None,
+                        "You do not have any previous moderation cases.",
+                        Some(0xffffff),
+                    )
+                    .await?;
+                    return Ok(());
+                }
+            }
+        };
 
-    ctx.reply(format_case_info(case)).await?;
+        ctx.reply(format_case_info(case)).await?;
 
-    Ok(())
+        Ok(())
+    }
+
+    empty()
+        .then(case_id("case_id_or_user").executes(case_info))
+        .then(user_id_or_mention("case_id_or_user").executes(case_info))
+        .executes(case_info)
 }
 
 fn format_case_info(case: GuildModerationCase) -> CreateMessageBody {
@@ -240,6 +255,7 @@ fn format_case_info(case: GuildModerationCase) -> CreateMessageBody {
         },
     );
 
+    #[expect(clippy::disallowed_macros)]
     create_embed!(
         title: format!("Case `{}`", case.case_id),
         description: case_string,
@@ -296,7 +312,7 @@ fn format_case_list(
         cases_formatted.join("\n")
     };
 
-    #[expect(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+    #[expect(clippy::cast_possible_truncation, clippy::cast_precision_loss, clippy::disallowed_macros)]
     EditMessageBody::builder().embeds(vec![create_embed!(
         description: format!(
             "Displaying `{}` out of `{}` cases{}:\n\n{}\n-# Page {}/{}",
@@ -313,23 +329,4 @@ fn format_case_list(
         ),
         color: 0xffffff,
     )]).build()
-}
-
-pub fn register(dispatcher: &mut Dispatcher) {
-    dispatcher.register(
-        multi_literal(vec!["list-cases", "cases", "caselist", "listcases"])
-            .requires(|ctx: &CommandContext| {
-                has_permission(ctx.member_permissions, Permissions::MANAGE_GUILD)
-            })
-            .then(optional(user_id_or_mention("involving_user")).executes(list_cases)),
-    );
-    dispatcher.register(
-        multi_literal(vec!["case", "case-info"])
-            .requires(|ctx: &CommandContext| {
-                has_permission(ctx.member_permissions, Permissions::MANAGE_GUILD)
-            })
-            .then(case_id("case_id_or_user").executes(case_info))
-            .then(user_id_or_mention("case_id_or_user").executes(case_info))
-            .executes(case_info),
-    );
 }

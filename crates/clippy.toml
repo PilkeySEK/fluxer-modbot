@@ -1,0 +1,3 @@
+disallowed-macros = [
+    { path = "fluxer_neptunium::create_embed", reason = "Consider using CommandContext::reply_embed" },
+]

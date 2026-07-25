@@ -206,3 +206,26 @@ pub fn case_id<C, R>(name: &'static str) -> CommandArgument<C, R> {
         pass_empty: false,
     }
 }
+
+pub struct EmptyArgumentKind;
+
+impl CommandArgumentKind for EmptyArgumentKind {
+    fn parse<'a>(
+        &self,
+        command: &'a str,
+    ) -> Result<(&'a str, Option<Box<dyn Any + Send + Sync>>), CommandParseError> {
+        Ok((command, None))
+    }
+}
+
+#[must_use]
+pub fn empty<C, R>() -> CommandArgument<C, R> {
+    CommandArgument {
+        children: Vec::new(),
+        kind: Box::new(EmptyArgumentKind),
+        name: None,
+        executes: None,
+        requires: None,
+        pass_empty: true,
+    }
+}
