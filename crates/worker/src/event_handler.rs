@@ -116,6 +116,7 @@ impl EventHandler for BotEventHandler {
                 event.message.clone(),
                 guild_id,
                 content,
+                "@bot",
                 guild_prefixes,
             )
             .await;
@@ -124,11 +125,13 @@ impl EventHandler for BotEventHandler {
 
         for prefix in guild_prefixes.iter() {
             if let Some(content) = message.content.strip_prefix(prefix) {
+                let prefix_clone = prefix.clone();
                 self.execute_command(
                     ctx,
                     event.message.clone(),
                     guild_id,
                     content,
+                    &prefix_clone,
                     guild_prefixes,
                 )
                 .await;
@@ -352,6 +355,7 @@ impl BotEventHandler {
         message: Cached<CachedMessage>,
         guild_id: Id<GuildMarker>,
         content: &str,
+        prefix_used: &str,
         guild_command_prefixes: Arc<Vec<String>>,
     ) {
         let result = self
@@ -373,6 +377,7 @@ impl BotEventHandler {
                     bot_id: self.bot_id,
                     guild_command_prefixes,
                 },
+                prefix_used,
             )
             .await;
         match result {
@@ -408,13 +413,13 @@ impl BotEventHandler {
                     tracing::error!("{e:?}");
                 }
             }
-            Err(BotCommandError::Command(_)) => {
+            Err(BotCommandError::Command(_, usage)) => {
                 #[expect(clippy::disallowed_macros)]
                 if let Err(e) = message
                     .reply(
                         &ctx,
                         create_embed!(
-                            description: "Wrong usage.",
+                            description: format!("Wrong usage.\n```\n{usage}\n```"),
                             color: 0xff0000,
                         ),
                     )

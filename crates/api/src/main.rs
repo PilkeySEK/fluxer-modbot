@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum_extra::extract::cookie::Key;
 use base64::{Engine, engine::general_purpose::STANDARD};
-use tracing::Level;
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::{
     config::{ApiConfig, ConfigLoadError},
@@ -29,8 +29,9 @@ async fn main() {
         return;
     }
     #[cfg_attr(feature = "openapi-gen", expect(unreachable_code))]
-    tracing_subscriber::fmt()
-        .with_max_level(Level::DEBUG)
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .with(EnvFilter::from_default_env())
         .init();
 
     let config_file_path =

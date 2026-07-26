@@ -56,18 +56,13 @@ pub enum BotCommandError {
     MissingPermissions,
     UnknownCommand,
     #[expect(unused)]
-    Command(CommandError),
+    Command(CommandError, String),
     Any(anyhow::Error),
 }
 
 impl From<anyhow::Error> for BotCommandError {
     fn from(value: anyhow::Error) -> Self {
         Self::Any(value)
-    }
-}
-impl From<CommandError> for BotCommandError {
-    fn from(value: CommandError) -> Self {
-        Self::Command(value)
     }
 }
 
@@ -95,6 +90,7 @@ pub struct Dispatcher {
         mini_moka::sync::Cache<(Id<GuildMarker>, CommandId), Arc<GuildCommandConfig>>,
     db: Arc<DatabaseManager>,
     default_command_config: DefaultCommandConfig,
+    command_usage: EnumMap<CommandId, &'static str>,
 }
 
 impl Dispatcher {
@@ -123,16 +119,33 @@ impl Dispatcher {
             config_cache_by_id: Cache::new(4096),
             db,
             default_command_config,
+            command_usage: enum_map! {
+                CommandId::ListCases => " [involving user]",
+                CommandId::CaseInfo => " [case id | user]",
+                CommandId::AddPrefix => " <prefix>",
+                CommandId::RemovePrefix => " <prefix>",
+                CommandId::ListPrefixes => "",
+                CommandId::SetModlogWebhook => " [webhook url]",
+                CommandId::ClearModlogWebhook => "",
+                CommandId::SetModlogChannel => " [channel]",
+                CommandId::Ping => "",
+                CommandId::Warn => " <user> [time] [reason]",
+                CommandId::Unwarn => " <user> [reason]",
+                CommandId::Mute => " <user> <time> [reason]",
+                CommandId::Unmute => " <user> [reason]",
+                CommandId::Kick => " <user> [reason]",
+                CommandId::Ban => " <user> [time] [reason]",
+                CommandId::Unban => " <user> [reason]",
+            },
         }
     }
 
     async fn get_command_config<'a>(
         &self,
-        command: &'a str,
+        word: &'a str,
+        rest: &'a str,
         guild_id: Id<GuildMarker>,
     ) -> anyhow::Result<Option<(&'a str, Arc<GuildCommandConfig>)>> {
-        let command = command.trim_start();
-        let (word, rest) = command.split_once(' ').unwrap_or((command, ""));
         let word = word.to_owned();
 
         if let Some(config) = self.config_cache_by_name.get(&(guild_id, word.clone())) {
@@ -187,21 +200,25 @@ impl Dispatcher {
         &self,
         command: &str,
         context: CommandContext,
+        prefix_used: &str,
     ) -> Result<anyhow::Result<()>, BotCommandError> {
-        let (rest, command_id) =
-            if let Some(v) = self.get_command_config(command, context.guild_id).await? {
-                (v.0, v.1.command_id)
-            } else {
-                'blk: {
-                    let (word, rest) = command.split_once(' ').unwrap_or((command, ""));
-                    for (name, id) in &self.default_command_config.names {
-                        if word == name {
-                            break 'blk (rest, *id);
-                        }
+        let command = command.trim_start();
+        let (command_word, rest) = command.split_once(' ').unwrap_or((command, ""));
+        let (rest, command_id) = if let Some(v) = self
+            .get_command_config(command_word, rest, context.guild_id)
+            .await?
+        {
+            (v.0, v.1.command_id)
+        } else {
+            'blk: {
+                for (name, id) in &self.default_command_config.names {
+                    if command_word == name {
+                        break 'blk (rest, *id);
                     }
-                    return Err(BotCommandError::UnknownCommand);
                 }
-            };
+                return Err(BotCommandError::UnknownCommand);
+            }
+        };
         let permissions = self
             .get_command_permissions_of_id(context.guild_id, command_id)
             .await?;
@@ -257,9 +274,26 @@ impl Dispatcher {
 
         let arg = &self.commands[command_id];
 
-        let node = parse_arg_recursively(rest, arg, &context)?;
+        let node = match parse_arg_recursively(rest, arg, &context) {
+            Ok(node) => node,
+            Err(e) => {
+                return Err(BotCommandError::Command(
+                    e,
+                    format!(
+                        "{prefix_used}{command_word}{}",
+                        self.command_usage[command_id]
+                    ),
+                ));
+            }
+        };
         let Some(executes) = node.executes else {
-            return Err(CommandError::NotExecutable.into());
+            return Err(BotCommandError::Command(
+                CommandError::NotExecutable,
+                format!(
+                    "{prefix_used}{command_word}{}",
+                    self.command_usage[command_id]
+                ),
+            ));
         };
         Ok(executes
             .call(async_brigadier::CommandContext {
