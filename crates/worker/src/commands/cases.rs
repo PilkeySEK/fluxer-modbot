@@ -20,6 +20,7 @@ use crate::{
     macros::debug_panic,
     util::{
         MaybeExpired, MaybeExpiringResult,
+        confirmation::confirmation,
         pages::{PageAction, pages},
     },
 };
@@ -120,6 +121,30 @@ pub fn list_cases() -> Arg {
     )
 }
 
+async fn try_get_case_from_maybe_case_id_or_user_id(
+    ctx: &Ctx,
+    maybe_case_id_or_user_id: Option<either::Either<Id<UserMarker>, CaseId>>,
+) -> anyhow::Result<Option<GuildModerationCase>> {
+    let case = match maybe_case_id_or_user_id {
+        Some(either::Right(case_id)) => {
+            ctx.db
+                .get_guild_moderation_case(ctx.guild_id, case_id)
+                .await?
+        }
+        Some(either::Left(user_id)) => {
+            ctx.db
+                .get_last_guild_moderation_case_involving_user(ctx.guild_id, user_id)
+                .await?
+        }
+        None => {
+            ctx.db
+                .get_last_guild_moderation_case_involving_user(ctx.guild_id, ctx.message.author.id)
+                .await?
+        }
+    };
+    Ok(case)
+}
+
 pub fn case_info() -> Arg {
     async fn case_info(ctx: Ctx) -> anyhow::Result<()> {
         let maybe_case_id_or_user_id = ctx.try_get_argument("case_id_or_user");
@@ -137,56 +162,12 @@ pub fn case_info() -> Arg {
             None
         };
 
-        let case = match maybe_case_id_or_user_id {
-            Some(either::Right(case_id)) => {
-                let Some(case) = ctx
-                    .db
-                    .get_guild_moderation_case(ctx.guild_id, case_id)
-                    .await?
-                else {
-                    ctx.reply_embed(None, "A case with that ID does not exist.", Some(0xff0000))
-                        .await?;
-                    return Ok(());
-                };
-                case
-            }
-            Some(either::Left(user_id)) => {
-                if let Some(case) = ctx
-                    .db
-                    .get_last_guild_moderation_case_involving_user(ctx.guild_id, user_id)
-                    .await?
-                {
-                    case
-                } else {
-                    ctx.reply_embed(
-                        None,
-                        "That user does not have any previous moderation cases.",
-                        Some(0xffffff),
-                    )
-                    .await?;
-                    return Ok(());
-                }
-            }
-            None => {
-                if let Some(case) = ctx
-                    .db
-                    .get_last_guild_moderation_case_involving_user(
-                        ctx.guild_id,
-                        ctx.message.author.id,
-                    )
-                    .await?
-                {
-                    case
-                } else {
-                    ctx.reply_embed(
-                        None,
-                        "You do not have any previous moderation cases.",
-                        Some(0xffffff),
-                    )
-                    .await?;
-                    return Ok(());
-                }
-            }
+        let Some(case) =
+            try_get_case_from_maybe_case_id_or_user_id(&ctx, maybe_case_id_or_user_id).await?
+        else {
+            ctx.reply_embed(None, "No case found.", Some(0xff0000))
+                .await?;
+            return Ok(());
         };
 
         ctx.reply(format_case_info(case)).await?;
@@ -198,6 +179,73 @@ pub fn case_info() -> Arg {
         .then(case_id("case_id_or_user").executes(case_info))
         .then(user_id_or_mention("case_id_or_user").executes(case_info))
         .executes(case_info)
+}
+
+pub fn delete_case() -> Arg {
+    async fn delete_case(ctx: Ctx) -> anyhow::Result<()> {
+        let maybe_case_id_or_user_id = ctx.try_get_argument("case_id_or_user");
+
+        let maybe_case_id_or_user_id = if let Some(case_id_or_user_id) = maybe_case_id_or_user_id {
+            if let Some(case_id) = case_id_or_user_id.downcast_ref::<CaseId>() {
+                Some(either::Right(*case_id))
+            } else if let Some(user_id) = case_id_or_user_id.downcast_ref::<Id<UserMarker>>() {
+                Some(either::Left(*user_id))
+            } else {
+                tracing::error!("case_id_or_user_id was neither");
+                return Ok(());
+            }
+        } else {
+            None
+        };
+
+        let Some(case) =
+            try_get_case_from_maybe_case_id_or_user_id(&ctx, maybe_case_id_or_user_id).await?
+        else {
+            ctx.reply_embed(None, "No case found.", Some(0xff0000))
+                .await?;
+            return Ok(());
+        };
+
+        let confirmation_text = format!(
+            "Are you sure you want to delete the case `{}`? The case will be permanently deleted. This cannot be undone.",
+            case.case_id
+        );
+        let confirmation_message = ctx
+            .message
+            .reply(
+                &ctx.ctx,
+                create_embed!(
+                    description: confirmation_text,
+                    color: 0xffffff,
+                ),
+            )
+            .await?;
+
+        match confirmation(&ctx, confirmation_message, ctx.message.author.id).await? {
+            MaybeExpired::Expired | MaybeExpired::NotExpired(false) => {}
+            MaybeExpired::NotExpired(true) => {
+                let query_result = ctx.db.delete_guild_moderation_case(case.case_id).await?;
+                if query_result.rows_affected() == 0 {
+                    ctx.reply_embed(None, "The case has already been deleted.", Some(0xff0000))
+                        .await?;
+                } else {
+                    ctx.reply_embed(
+                        None,
+                        format!("Permanently deleted case `{}`", case.case_id),
+                        Some(0xffffff),
+                    )
+                    .await?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    empty()
+        .then(case_id("case_id_or_use").executes(delete_case))
+        .then(user_id_or_mention("case_id_or_user").executes(delete_case))
+        .executes(delete_case)
 }
 
 fn format_case_info(case: GuildModerationCase) -> CreateMessageBody {

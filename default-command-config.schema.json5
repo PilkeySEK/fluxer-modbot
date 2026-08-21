@@ -42,6 +42,7 @@
         "Kick",
         "Ban",
         "Unban",
+        "DeleteCase",
       ],
     },
   },

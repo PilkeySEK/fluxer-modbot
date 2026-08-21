@@ -254,6 +254,7 @@ pub enum CommandId {
     Kick,
     Ban,
     Unban,
+    DeleteCase,
 }
 
 pub struct GuildCommandPermissionConfig {

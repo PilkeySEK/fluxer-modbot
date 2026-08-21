@@ -256,6 +256,20 @@ impl SharedDatabaseManager {
         };
         Ok(Some(raw.try_into()?))
     }
+
+    pub async fn delete_guild_moderation_case(
+        &self,
+        case_id: CaseId,
+    ) -> anyhow::Result<PgQueryResult> {
+        let query_result = sqlx::query!(
+            "DELETE FROM guild_moderation_cases
+            WHERE case_id = $1",
+            case_id.0,
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(query_result)
+    }
 }
 
 /// pushes `(...)`

@@ -35,6 +35,9 @@
     addban: "Ban",
     unban: "Unban",
     removeban: "Unban",
+    "delete-case": "DeleteCase",
+    delcase: "DeleteCase",
+    rmcase: "DeleteCase",
   },
   permissions: {
     ListCases: "32",
@@ -53,5 +56,6 @@
     Kick: "2",
     Ban: "4",
     Unban: "4",
+    DeleteCase: "32",
   },
 }

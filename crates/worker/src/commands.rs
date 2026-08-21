@@ -25,7 +25,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     commands::{
-        cases::{case_info, list_cases},
+        cases::{case_info, delete_case, list_cases},
         guild_settings::{
             add_prefix, clear_modlog_webhook, list_prefixes, modlog_channel, remove_prefix,
             set_modlog_webhook,
@@ -114,6 +114,7 @@ impl Dispatcher {
                 CommandId::Kick => kick(),
                 CommandId::Ban => ban(),
                 CommandId::Unban => unban(),
+                CommandId::DeleteCase => delete_case(),
             },
             config_cache_by_name: Cache::new(4096),
             config_cache_by_id: Cache::new(4096),
@@ -136,6 +137,7 @@ impl Dispatcher {
                 CommandId::Kick => " <user> [reason]",
                 CommandId::Ban => " <user> [time] [reason]",
                 CommandId::Unban => " <user> [reason]",
+                CommandId::DeleteCase => " [case id | user]",
             },
         }
     }
