@@ -29,7 +29,7 @@ use crate::{
 
 pub struct DatabaseManager {
     pool: PgPool,
-    pub cached_prefixes: PrefixCache,
+    pub cached_prefixes: Arc<PrefixCache>,
     default_prefix: String,
     expiring_cases_tx: UnboundedSender<ExpiringCase>,
     logger: Arc<Logger>,
@@ -469,7 +469,7 @@ impl std::ops::Deref for DatabaseManager {
 /// which this function handles.
 pub async fn create_db_manager_and_case_expiration_actor(
     url: &str,
-    prefix_cache_capacity: u64,
+    prefix_cache: Arc<PrefixCache>,
     default_prefix: String,
     logger: Arc<Logger>,
 ) -> Result<(DatabaseManager, UnboundedReceiver<CaseId>), DbError> {
@@ -480,7 +480,7 @@ pub async fn create_db_manager_and_case_expiration_actor(
         DatabaseManager {
             pool: pool.clone(),
             expiring_cases_tx,
-            cached_prefixes: PrefixCache::new(prefix_cache_capacity),
+            cached_prefixes: prefix_cache,
             default_prefix,
             logger,
             shared_manager: SharedDatabaseManager::new(pool),

@@ -7,7 +7,7 @@ use tokio_tungstenite::{
     tungstenite::{Message, client::IntoClientRequest, http::HeaderValue},
 };
 
-use crate::db::DatabaseManager;
+use crate::{caches::PrefixCache, db::DatabaseManager};
 
 const RETRY_WAIT_TIME: Duration = Duration::from_mins(1);
 
@@ -16,6 +16,7 @@ pub async fn api_connection(
     worker_token: String,
     db: Arc<DatabaseManager>,
     mut rx: tokio::sync::mpsc::UnboundedReceiver<WorkerToApiMessage>,
+    prefix_cache: Arc<PrefixCache>,
 ) {
     // Wait for API to start up, probably
     tokio::time::sleep(Duration::from_secs(10)).await;
@@ -38,6 +39,7 @@ pub async fn api_connection(
         },
     );
     'conn_loop: loop {
+        prefix_cache.set_enabled(false);
         tracing::debug!("Connecting to API...");
         let mut stream = match tokio_tungstenite::connect_async(request.clone()).await {
             Ok((stream, _response)) => stream,
@@ -52,7 +54,6 @@ pub async fn api_connection(
                 continue 'conn_loop;
             }
         };
-        tracing::info!("Connected to API");
         #[expect(clippy::unwrap_used)]
         if let Err(e) = stream
             .send(Message::Text(
@@ -70,6 +71,8 @@ pub async fn api_connection(
             tokio::time::sleep(RETRY_WAIT_TIME).await;
             continue 'conn_loop;
         }
+        tracing::info!("Connected to API");
+        prefix_cache.set_enabled(true);
         loop {
             tokio::select! {
                 next = stream.try_next() => {
@@ -115,6 +118,7 @@ pub async fn api_connection(
             }
         }
     }
+    prefix_cache.set_enabled(false);
 }
 
 async fn on_stream_next(
@@ -170,6 +174,7 @@ async fn on_stream_next(
                 tracing::warn!("Unused heartbeat res message received, ignoring it.");
             }
             ApiToWorkerMessage::InvalidateCachedGuildPrefixes(guild_id) => {
+                tracing::info!("INVALIDATE CACHED GUILD PREFIXES");
                 db.cached_prefixes.invalidate_guild_prefixes(guild_id);
             }
         },

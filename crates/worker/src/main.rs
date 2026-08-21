@@ -12,6 +12,7 @@ use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitEx
 
 use crate::{
     api_connection::api_connection,
+    caches::PrefixCache,
     case_expiration::case_expiry_listener,
     commands::Dispatcher,
     config::{Config, ConfigExt, DefaultCommandConfig},
@@ -106,9 +107,11 @@ async fn main() -> anyhow::Result<()> {
 
     let logger = Arc::new(Logger::new(client.context().clone()));
 
+    let prefix_cache = Arc::new(PrefixCache::new(config.prefix_cache_capacity));
+
     let (db_manager, expired_cases_rx) = create_db_manager_and_case_expiration_actor(
         &config.database_url,
-        config.prefix_cache_capacity,
+        Arc::clone(&prefix_cache),
         config.default_command_prefix,
         Arc::clone(&logger),
     )
@@ -123,6 +126,7 @@ async fn main() -> anyhow::Result<()> {
         config.worker_api_token,
         Arc::clone(&db_manager),
         api_connection_rx,
+        prefix_cache,
     ));
 
     tokio::spawn(case_expiry_listener(
