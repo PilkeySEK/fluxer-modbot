@@ -1,9 +1,9 @@
 {
     "$schema": "worker-config.schema.json5",
-    "database_url": "postgres://botuser:botpass@localhost:5433/neptune_bot_2",
+    "database_url": "postgres://botuser:botpass@localhost:5432/rune_bot",
     "default_command_prefix": "!",
     "token": "",
-    "bot_name": "",
+    "bot_name": "Rune",
     "prefix_cache_capacity": 1024,
     "bot_id": "1498344999725150830",
     "worker_api_token": "",

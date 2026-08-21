@@ -1,4 +1,4 @@
-I need a name for this thing please 🙏
+~~I need a name for this thing please 🙏~~ <- unless you find a better name
 
 # Development
 

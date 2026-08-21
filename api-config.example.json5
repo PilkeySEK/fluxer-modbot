@@ -1,5 +1,5 @@
 {
-    "database_url": "postgres://botuser:botpass@localhost:5433/neptune_bot_2",
+    "database_url": "postgres://botuser:botpass@localhost:5433/rune_bot",
     "oauth2": {
         "client_id": "1498344999725150830",
         "scopes": ["identify", "guilds"],

@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_USER: botuser
       POSTGRES_PASSWORD: botpass
-      POSTGRES_DB: neptune_bot
+      POSTGRES_DB: rune_bot
     ports:
       - "5433:5432"
     volumes:
