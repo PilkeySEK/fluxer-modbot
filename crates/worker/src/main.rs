@@ -7,6 +7,7 @@ use fluxer_neptunium::{
 };
 use pretty_duration::{PrettyDurationOptions, PrettyDurationOutputFormat};
 use tokio::sync::mpsc::unbounded_channel;
+use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::{
@@ -48,9 +49,20 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    const LOG_VAR_NAME: &str = "RUST_LOG";
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer())
-        .with(EnvFilter::from_default_env())
+        .with(
+            match EnvFilter::builder()
+                .with_default_directive(LevelFilter::INFO.into())
+                .parse(env::var(LOG_VAR_NAME).unwrap_or_else(|_| String::new()))
+            {
+                Ok(layer) => layer,
+                Err(e) => {
+                    anyhow::bail!("{LOG_VAR_NAME} environment variable is invalid: {e}");
+                }
+            },
+        )
         .init();
 
     let config_file_path =

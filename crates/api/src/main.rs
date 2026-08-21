@@ -1,7 +1,11 @@
-use std::sync::Arc;
+#![cfg_attr(feature = "openapi-gen", expect(unreachable_code))]
 
+use std::{env, sync::Arc};
+
+use anyhow::Context;
 use axum_extra::extract::cookie::Key;
 use base64::{Engine, engine::general_purpose::STANDARD};
+use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::{
@@ -22,52 +26,51 @@ mod state;
 const SESSION_COOKIE_NAME: &str = "session";
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
     #[cfg(feature = "openapi-gen")]
     {
         openapi::print_openapi();
         return;
     }
-    #[cfg_attr(feature = "openapi-gen", expect(unreachable_code))]
+
+    const LOG_VAR_NAME: &str = "RUST_LOG";
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer())
-        .with(EnvFilter::from_default_env())
+        .with(
+            match EnvFilter::builder()
+                .with_default_directive(LevelFilter::INFO.into())
+                .parse(env::var(LOG_VAR_NAME).unwrap_or_else(|_| String::new()))
+            {
+                Ok(layer) => layer,
+                Err(e) => {
+                    anyhow::bail!("{LOG_VAR_NAME} environment variable is invalid: {e}");
+                }
+            },
+        )
         .init();
 
     let config_file_path =
-        std::env::var("API_CONFIG_PATH").unwrap_or_else(|_| String::from("../api-config.json5"));
+        env::var("API_CONFIG_PATH").unwrap_or_else(|_| String::from("../api-config.json5"));
     let config = match ApiConfig::load(config_file_path) {
         Ok(config) => config,
-        Err(e) => {
-            match e {
-                ConfigLoadError::IoError(e) => {
-                    tracing::error!("Failed to open or read config file: {e}");
-                }
-                ConfigLoadError::ParseError(e) => {
-                    tracing::error!("Failed to parse config file: {e}");
-                }
+        Err(e) => match e {
+            ConfigLoadError::IoError(e) => {
+                anyhow::bail!("Failed to open or read config file: {e}");
             }
-            return;
-        }
+            ConfigLoadError::ParseError(e) => {
+                anyhow::bail!("Failed to parse config file: {e}");
+            }
+        },
     };
 
-    let cookie_secret = match STANDARD.decode(config.cookie_secret) {
-        Ok(secret) => secret,
-        Err(e) => {
-            tracing::error!("Failed to decode cookie secret: {e}");
-            return;
-        }
-    };
-    let cookie_key = match Key::try_from(cookie_secret.as_slice()) {
-        Ok(key) => key,
-        Err(e) => {
-            tracing::error!("Failed to create key from cookie secret: {e}");
-            return;
-        }
-    };
+    let cookie_secret = STANDARD
+        .decode(config.cookie_secret)
+        .context("Failed to decode cookie secret")?;
+    let cookie_key = Key::try_from(cookie_secret.as_slice())
+        .context("Failed to create key from cookie secret")?;
 
-    let state = AppState(
-        match InnerAppState::new(
+    let state = AppState(Arc::new(
+        InnerAppState::new(
             config.oauth2,
             &config.database_url,
             config.fluxer_api_base,
@@ -80,25 +83,15 @@ async fn main() {
             config.max_command_prefixes,
         )
         .await
-        {
-            Ok(value) => Arc::new(value),
-            Err(e) => {
-                tracing::error!("Error creating state: {e}");
-                return;
-            }
-        },
-    );
+        .context("Failed to create state")?,
+    ));
 
     let app = routes::router(state.clone());
 
     // TODO: Make port configurable
-    let listener = match tokio::net::TcpListener::bind("0.0.0.0:3000").await {
-        Ok(listener) => listener,
-        Err(e) => {
-            tracing::error!("Failed to bind: {e}");
-            return;
-        }
-    };
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
+        .await
+        .context("Failed to bind TCP Listener")?;
 
     tracing::info!("Now serving API");
 
@@ -111,4 +104,6 @@ async fn main() {
         }
         tracing::error!("{e}");
     }
+
+    Ok(())
 }
