@@ -64,6 +64,7 @@
 	</div>
 
 	<div class="border-colors-default rounded-lg border-2 px-2 py-1">
+		<!-- Fight me, this grid is goated -->
 		<div class="grid grid-cols-[auto_1fr] gap-x-2">
 			<div class="flex items-center justify-center">
 				<input type="checkbox" bind:checked={currentGuildData.moderation_hierarchy_enabled} />
