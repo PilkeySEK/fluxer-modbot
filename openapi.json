@@ -524,7 +524,8 @@
       "GuildConfig": {
         "type": "object",
         "required": [
-          "command_prefixes"
+          "command_prefixes",
+          "moderation_hierarchy_enabled"
         ],
         "properties": {
           "command_prefixes": {
@@ -532,6 +533,9 @@
             "items": {
               "type": "string"
             }
+          },
+          "moderation_hierarchy_enabled": {
+            "type": "boolean"
           }
         }
       },
@@ -668,6 +672,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "moderation_hierarchy_enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           }
         }
       },

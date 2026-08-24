@@ -9,7 +9,8 @@ CREATE TABLE guilds (
     -- NULL if no modlog webhook is set
     modlog_webhook_token TEXT,
     -- NULL if no modlog webhook is set or the webhook was set manually
-    modlog_webhook_channel_id BIGINT
+    modlog_webhook_channel_id BIGINT,
+    moderation_hierarchy_enabled BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE UNIQUE INDEX idx_guilds ON guilds (guild_id);
@@ -84,3 +85,10 @@ CREATE TABLE guild_commands (
 );
 
 CREATE UNIQUE INDEX idx_guild_commands_by_guild_id_and_command_id ON guild_commands (guild_id, command_id);
+
+CREATE TABLE guild_moderation_hierarchy_excluded_roles (
+    guild_id BIGINT NOT NULL REFERENCES guilds (guild_id) ON DELETE CASCADE,
+    role_id BIGINT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_guild_moderation_hierarchy_excluded_roles_by_guild_id_and_role_id ON guild_moderation_hierarchy_excluded_roles (guild_id, role_id);

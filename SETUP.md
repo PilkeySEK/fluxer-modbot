@@ -9,3 +9,5 @@
 7. Copy `.env.example` to `.env` and also fill in the values accordingly.
 8. Finally, you can run `pnpm install:all` and then `pnpm dev` in the root of the project to start the bot. (Note that the API and worker might need some time to compile depending on your hardware, but it should not be more than a few minutes.) When the API is running, it will log "Now serving API", and when the bot (worker) is running, it will log "Logged in as ...!". Note that the dashboard (svelte) will hot-reload but the API and worker will not.
 9. Go to [localhost:5173](http://localhost:5173) to access the dashboard.
+
+Adminer is on http://localhost:8080/?server=db&username=botuser&db=rune_bot (password: `botpass`) if you started it using docker compose.

@@ -113,17 +113,30 @@ impl DbManager {
         if updates.command_prefixes.is_some() {
             query_builder.push(", command_prefixes");
         }
+        if updates.moderation_hierarchy_enabled.is_some() {
+            query_builder.push(", moderation_hierarchy_enabled");
+        }
         query_builder
             .push(") VALUES (")
             .push_bind(guild_id.into_inner().cast_signed());
         if let Some(command_prefixes) = &updates.command_prefixes {
             query_builder.push(", ").push_bind(command_prefixes);
         }
+        if let Some(moderation_hierarchy_enabled) = updates.moderation_hierarchy_enabled {
+            query_builder
+                .push(", ")
+                .push_bind(moderation_hierarchy_enabled);
+        }
         query_builder.push(") ON CONFLICT (guild_id) DO UPDATE SET guild_id = $1");
         if let Some(command_prefixes) = &updates.command_prefixes {
             query_builder
                 .push(", command_prefixes = ")
                 .push_bind(command_prefixes);
+        }
+        if let Some(moderation_hierarchy_enabled) = updates.moderation_hierarchy_enabled {
+            query_builder
+                .push(", moderation_hierarchy_enabled = ")
+                .push_bind(moderation_hierarchy_enabled);
         }
         query_builder.push(" RETURNING *");
 
@@ -161,6 +174,7 @@ impl DbManager {
 
         Ok(GuildConfig {
             command_prefixes: guild.command_prefixes,
+            moderation_hierarchy_enabled: guild.moderation_hierarchy_enabled,
         })
     }
 
@@ -270,10 +284,12 @@ pub mod schema {
     #[derive(Serialize, utoipa::ToSchema, FromRow)]
     pub struct GuildConfig {
         pub command_prefixes: Vec<String>,
+        pub moderation_hierarchy_enabled: bool,
     }
 
     #[derive(Deserialize, utoipa::ToSchema)]
     pub struct GuildUpdates {
         pub command_prefixes: Option<Vec<String>>,
+        pub moderation_hierarchy_enabled: Option<bool>,
     }
 }

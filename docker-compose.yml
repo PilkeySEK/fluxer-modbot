@@ -8,8 +8,16 @@ services:
       POSTGRES_PASSWORD: botpass
       POSTGRES_DB: rune_bot
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
 volumes:
   postgres_data:

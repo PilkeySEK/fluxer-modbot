@@ -30,7 +30,7 @@ async fn main() -> anyhow::Result<()> {
     #[cfg(feature = "openapi-gen")]
     {
         openapi::print_openapi();
-        return;
+        return Ok(());
     }
 
     const LOG_VAR_NAME: &str = "RUST_LOG";
