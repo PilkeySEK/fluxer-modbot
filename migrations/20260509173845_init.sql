@@ -10,10 +10,9 @@ CREATE TABLE guilds (
     modlog_webhook_token TEXT,
     -- NULL if no modlog webhook is set or the webhook was set manually
     modlog_webhook_channel_id BIGINT,
-    moderation_hierarchy_enabled BOOLEAN NOT NULL DEFAULT FALSE
+    moderation_hierarchy_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    moderation_hierarchy_excluded_roles BIGINT[] NOT NULL DEFAULT ARRAY[]::BIGINT[]
 );
-
-CREATE UNIQUE INDEX idx_guilds ON guilds (guild_id);
 
 CREATE TABLE guild_moderation_cases (
     case_id BIGSERIAL PRIMARY KEY,
@@ -54,7 +53,6 @@ CREATE TABLE dash_sessions (
 );
 
 CREATE INDEX idx_dash_sessions_expires_at ON dash_sessions (expires_at);
-CREATE INDEX idx_dash_sessions_session_token ON dash_sessions (session_token);
 
 CREATE TABLE user_info (
     user_id BIGINT PRIMARY KEY,
@@ -66,14 +64,10 @@ CREATE TABLE user_info (
     global_name TEXT
 );
 
-CREATE INDEX idx_user_info_by_user_id ON user_info (user_id);
-
 CREATE TABLE dashboard_user_settings (
     user_id BIGINT PRIMARY KEY,
     settings JSONB NOT NULL
 );
-
-CREATE INDEX idx_dashboard_user_settings_by_user_id ON dashboard_user_settings (user_id);
 
 CREATE TABLE guild_commands (
     guild_id BIGINT NOT NULL,
@@ -86,9 +80,10 @@ CREATE TABLE guild_commands (
 
 CREATE UNIQUE INDEX idx_guild_commands_by_guild_id_and_command_id ON guild_commands (guild_id, command_id);
 
-CREATE TABLE guild_moderation_hierarchy_excluded_roles (
-    guild_id BIGINT NOT NULL REFERENCES guilds (guild_id) ON DELETE CASCADE,
-    role_id BIGINT NOT NULL
+CREATE TABLE cached_guild_roles (
+    id BIGINT PRIMARY KEY,
+    guild_id BIGINT NOT NULL,
+    name TEXT NOT NULL,
+    color INTEGER NOT NULL,
+    permissions TEXT NOT NULL
 );
-
-CREATE UNIQUE INDEX idx_guild_moderation_hierarchy_excluded_roles_by_guild_id_and_role_id ON guild_moderation_hierarchy_excluded_roles (guild_id, role_id);

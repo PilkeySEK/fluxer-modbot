@@ -15,7 +15,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::db::schema::{GuildConfig, GuildUpdates, SessionJsonData};
+use crate::db::schema::{GuildConfig, GuildConfigSchema, GuildUpdates, SessionJsonData};
 
 pub struct DbManager {
     pool: sqlx::PgPool,
@@ -116,6 +116,9 @@ impl DbManager {
         if updates.moderation_hierarchy_enabled.is_some() {
             query_builder.push(", moderation_hierarchy_enabled");
         }
+        if updates.moderation_hierarchy_excluded_roles.is_some() {
+            query_builder.push(", moderation_hierarchy_excluded_roles");
+        }
         query_builder
             .push(") VALUES (")
             .push_bind(guild_id.into_inner().cast_signed());
@@ -126,6 +129,16 @@ impl DbManager {
             query_builder
                 .push(", ")
                 .push_bind(moderation_hierarchy_enabled);
+        }
+        if let Some(moderation_hierarchy_excluded_roles) =
+            &updates.moderation_hierarchy_excluded_roles
+        {
+            query_builder.push(", ").push_bind(
+                moderation_hierarchy_excluded_roles
+                    .iter()
+                    .map(|value| value.cast_signed())
+                    .collect::<Vec<_>>(),
+            );
         }
         query_builder.push(") ON CONFLICT (guild_id) DO UPDATE SET guild_id = $1");
         if let Some(command_prefixes) = &updates.command_prefixes {
@@ -138,6 +151,18 @@ impl DbManager {
                 .push(", moderation_hierarchy_enabled = ")
                 .push_bind(moderation_hierarchy_enabled);
         }
+        if let Some(moderation_hierarchy_excluded_roles) =
+            updates.moderation_hierarchy_excluded_roles
+        {
+            query_builder
+                .push(", moderation_hierarchy_excluded_roles = ")
+                .push_bind(
+                    moderation_hierarchy_excluded_roles
+                        .into_iter()
+                        .map(u64::cast_signed)
+                        .collect::<Vec<_>>(),
+                );
+        }
         query_builder.push(" RETURNING *");
 
         let row = query_builder
@@ -149,10 +174,37 @@ impl DbManager {
         if let Some(tx) = &*self.api_to_worker_tx.read().await
             && updates.command_prefixes.is_some()
         {
-            let _ = tx.send(ApiToWorkerMessage::InvalidateCachedGuildPrefixes(guild_id));
+            let _ = tx.send(ApiToWorkerMessage::InvalidateCachedGuildConfig(guild_id));
         }
 
-        GuildConfig::from_row(&row).map_err(DbError::Sqlx)
+        Ok(GuildConfigSchema::from_row(&row)
+            .map_err(DbError::Sqlx)?
+            .into())
+    }
+
+    pub async fn get_guild_cached_roles(
+        &self,
+        guild_id: Id<GuildMarker>,
+    ) -> Result<Vec<schema::CachedGuildRole>, DbError> {
+        let cached_roles = sqlx::query_as!(
+            schema::CachedGuildRoleSchema,
+            "SELECT * FROM cached_guild_roles
+        WHERE guild_id = $1",
+            guild_id.into_inner().cast_signed(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(DbError::Sqlx)?;
+
+        Ok(cached_roles
+            .into_iter()
+            .map(|schema| schema::CachedGuildRole {
+                id: schema.id.cast_unsigned(),
+                name: schema.name,
+                color: schema.color,
+                permissions: schema.permissions,
+            })
+            .collect())
     }
 
     pub async fn get_guild_config_upsert(
@@ -175,6 +227,11 @@ impl DbManager {
         Ok(GuildConfig {
             command_prefixes: guild.command_prefixes,
             moderation_hierarchy_enabled: guild.moderation_hierarchy_enabled,
+            moderation_hierarchy_excluded_roles: guild
+                .moderation_hierarchy_excluded_roles
+                .into_iter()
+                .map(i64::cast_unsigned)
+                .collect(),
         })
     }
 
@@ -281,15 +338,56 @@ pub mod schema {
         pub session_token: zeroize::Zeroizing<String>,
     }
 
-    #[derive(Serialize, utoipa::ToSchema, FromRow)]
+    #[derive(FromRow)]
+    pub struct GuildConfigSchema {
+        pub command_prefixes: Vec<String>,
+        pub moderation_hierarchy_enabled: bool,
+        pub moderation_hierarchy_excluded_roles: Vec<i64>,
+    }
+
+    #[derive(Serialize, utoipa::ToSchema)]
     pub struct GuildConfig {
         pub command_prefixes: Vec<String>,
         pub moderation_hierarchy_enabled: bool,
+        pub moderation_hierarchy_excluded_roles: Vec<u64>,
+    }
+
+    #[derive(Serialize)]
+    pub struct CachedGuildRole {
+        pub id: u64,
+        pub name: String,
+        pub color: i32,
+        pub permissions: String,
+    }
+
+    #[derive(sqlx::FromRow)]
+    pub(super) struct CachedGuildRoleSchema {
+        pub id: i64,
+        #[expect(unused)]
+        pub guild_id: i64,
+        pub name: String,
+        pub color: i32,
+        pub permissions: String,
+    }
+
+    impl From<GuildConfigSchema> for GuildConfig {
+        fn from(value: GuildConfigSchema) -> Self {
+            Self {
+                command_prefixes: value.command_prefixes,
+                moderation_hierarchy_enabled: value.moderation_hierarchy_enabled,
+                moderation_hierarchy_excluded_roles: value
+                    .moderation_hierarchy_excluded_roles
+                    .into_iter()
+                    .map(i64::cast_unsigned)
+                    .collect(),
+            }
+        }
     }
 
     #[derive(Deserialize, utoipa::ToSchema)]
     pub struct GuildUpdates {
         pub command_prefixes: Option<Vec<String>>,
         pub moderation_hierarchy_enabled: Option<bool>,
+        pub moderation_hierarchy_excluded_roles: Option<Vec<u64>>,
     }
 }

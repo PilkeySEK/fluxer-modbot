@@ -76,5 +76,24 @@
 				role.
 			</p>
 		</div>
+		<h2>Excluded roles from hierarchy</h2>
+		<p>These roles will not be part of the hierarchy</p>
+		<ul>
+			{#each currentGuildData.moderation_hierarchy_excluded_roles as role_id (role_id)}
+				<li>
+					<p>{role_id}</p>
+					<button
+						onclick={() => {
+							currentGuildData.moderation_hierarchy_excluded_roles.splice(
+								currentGuildData.moderation_hierarchy_excluded_roles.findIndex(
+									(value) => value === role_id
+								),
+								1
+							);
+						}}><XIcon size={iconSize(5)} /></button
+					>
+				</li>
+			{/each}
+		</ul>
 	</div>
 </div>

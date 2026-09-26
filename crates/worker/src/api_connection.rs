@@ -173,8 +173,7 @@ async fn on_stream_next(
             ApiToWorkerMessage::HeartbeatRes => {
                 tracing::warn!("Unused heartbeat res message received, ignoring it.");
             }
-            ApiToWorkerMessage::InvalidateCachedGuildPrefixes(guild_id) => {
-                tracing::info!("INVALIDATE CACHED GUILD PREFIXES");
+            ApiToWorkerMessage::InvalidateCachedGuildConfig(guild_id) => {
                 db.cached_prefixes.invalidate_guild_prefixes(guild_id);
             }
         },

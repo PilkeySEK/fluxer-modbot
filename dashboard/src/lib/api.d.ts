@@ -185,6 +185,7 @@ export interface components {
         GuildConfig: {
             command_prefixes: string[];
             moderation_hierarchy_enabled: boolean;
+            moderation_hierarchy_excluded_roles: number[];
         };
         GuildModerationCaseCloseDataResponse: {
             closed_by?: string | null;
@@ -218,6 +219,7 @@ export interface components {
         GuildUpdates: {
             command_prefixes?: string[] | null;
             moderation_hierarchy_enabled?: boolean | null;
+            moderation_hierarchy_excluded_roles?: number[] | null;
         };
         /** @enum {string} */
         ModerationKind: "Warn" | "Mute" | "Kick" | "Ban";

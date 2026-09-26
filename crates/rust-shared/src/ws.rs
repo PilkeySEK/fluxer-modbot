@@ -22,7 +22,7 @@ pub enum WorkerToApiMessage {
 pub enum ApiToWorkerMessage {
     HeartbeatReq,
     HeartbeatRes,
-    InvalidateCachedGuildPrefixes(Id<GuildMarker>),
+    InvalidateCachedGuildConfig(Id<GuildMarker>),
 }
 
 #[repr(u16)]

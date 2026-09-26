@@ -525,7 +525,8 @@
         "type": "object",
         "required": [
           "command_prefixes",
-          "moderation_hierarchy_enabled"
+          "moderation_hierarchy_enabled",
+          "moderation_hierarchy_excluded_roles"
         ],
         "properties": {
           "command_prefixes": {
@@ -536,6 +537,14 @@
           },
           "moderation_hierarchy_enabled": {
             "type": "boolean"
+          },
+          "moderation_hierarchy_excluded_roles": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
           }
         }
       },
@@ -678,6 +687,17 @@
               "boolean",
               "null"
             ]
+          },
+          "moderation_hierarchy_excluded_roles": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
           }
         }
       },
