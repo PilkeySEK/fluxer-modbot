@@ -4,7 +4,7 @@ use anyhow::Context;
 use async_brigadier::arg::{greedy_string, optional};
 use chrono::Utc;
 use fluxer_neptunium::{
-    client::error::ClientErrorKind,
+    client::ClientError,
     exts::GuildExt,
     http::endpoints::guild::BanGuildMemberBody,
     model::{
@@ -165,7 +165,7 @@ pub fn unmute() -> Arg {
                     let mut member = match ctx.guild_id.get_member(&ctx.ctx, target_id).await {
                         Ok(member) => member,
                         Err(e) => {
-                            if let ClientErrorKind::HttpNotFound(_) = e.kind() {
+                            if let ClientError::HttpNotFound(_) = e {
                                 ctx.reply_embed(
                                     None,
                                     "That user is not a member of this community.",
@@ -370,7 +370,7 @@ pub fn unban() -> Arg {
             ctx.guild_id.unban_member(&ctx.ctx, target_id).await
         };
         if let Err(e) = result {
-            if let ClientErrorKind::HttpNotFound(_) = e.kind() {
+            if let ClientError::HttpNotFound(_) = e {
                 ctx.reply_embed(
                     None,
                     "That user is not banned in this community.",

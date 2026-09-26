@@ -46,7 +46,7 @@ impl FluxerApiManager {
         &self,
         user_id: Id<UserMarker>,
         bearer_token: &str,
-    ) -> Result<Vec<Guild>, Box<ExecuteEndpointRequestError>> {
+    ) -> Result<Vec<Guild>, ExecuteEndpointRequestError> {
         let guilds =
             <std::vec::Vec<Guild> as fluxer_neptunium::http::endpoints::ResponseBody>::deserialize(
                 self.client
@@ -91,7 +91,7 @@ impl FluxerApiManager {
     pub async fn get_user(
         &self,
         bearer_token: &str,
-    ) -> Result<UserPrivateResponse, Box<ExecuteEndpointRequestError>> {
+    ) -> Result<UserPrivateResponse, ExecuteEndpointRequestError> {
         let res: UserPrivateResponse = ResponseBody::deserialize(
             self.client
                 .get(format!("{}/users/@me", self.api_base))
@@ -125,7 +125,7 @@ impl FluxerApiManager {
         guild_id: Id<GuildMarker>,
         user_id: Id<UserMarker>,
         bearer_token: &str,
-    ) -> Result<Option<Permissions>, Box<ExecuteEndpointRequestError>> {
+    ) -> Result<Option<Permissions>, ExecuteEndpointRequestError> {
         if let Some(permissions) = self
             .guild_member_permissions
             .get(&(guild_id, user_id))

@@ -7,26 +7,26 @@ build = "../build.rs"
 [dependencies]
 chrono = "0.4.45"
 dashmap = "6.2.1"
-enumset = "1.1.13"
+enumset = "1.1.14"
 fluxer-neptunium = { workspace = true }
 json5 = "1.3.1"
 mini-moka = "0.10.3"
 nom = "8.0.0"
 pretty-duration = "0.1.1"
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.150"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
 sqlx = { workspace = true }
 # strum = { version = "0.28.0", features = ["derive"] }
-tokio = { version = "1.52.3", features = ["full"] }
+tokio = { version = "1.53.1", features = ["full"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 zeroize = "1.9.0"
 rust-shared = { workspace = true }
-tokio-tungstenite = "0.29.0"
-futures = "0.3.32"
+tokio-tungstenite = "0.30.0"
+futures = "0.3.34"
 async-brigadier = { path = "../async-brigadier" }
 anyhow = { workspace = true }
-either = "1.16.0"
+either = "1.18.0"
 enum-map = { version = "3.1.0", features = ["serde"] }
 rand = { workspace = true }
 

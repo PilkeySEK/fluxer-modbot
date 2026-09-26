@@ -211,11 +211,11 @@ pub fn modlog_channel() -> Arg {
                 })
                 .await
         {
-            match *e {
+            match e {
                 // The old webhook doesn't exist anymore, probably
                 ExecuteEndpointRequestError::Forbidden(_)
                 | ExecuteEndpointRequestError::NotFound(_) => {}
-                other => return Err(fluxer_neptunium::client::error::Error::from(other).into()),
+                other => return Err(fluxer_neptunium::client::ClientError::from(other).into()),
             }
         }
 

@@ -12,7 +12,7 @@ sqlx = { version = "0.9.0", features = ["runtime-tokio", "postgres", "chrono"] }
 anyhow = "1.0.104"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
-rand = { version = "0.10.1", features = ["chacha"] }
+rand = { version = "0.10.3", features = ["chacha"] }
 
 [workspace.lints.clippy]
 pedantic = "warn"

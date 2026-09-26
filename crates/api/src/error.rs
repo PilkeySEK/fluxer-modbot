@@ -51,7 +51,7 @@ pub enum ApiError {
     ),
     Reqwest(reqwest::Error),
     Serde(serde_json::Error),
-    ExecuteEndpointRequest(Box<ExecuteEndpointRequestError>),
+    ExecuteEndpointRequest(ExecuteEndpointRequestError),
     GenericError(String),
     OAuthInvalidState,
 }
@@ -112,8 +112,8 @@ impl From<serde_json::Error> for ApiError {
     }
 }
 
-impl From<Box<ExecuteEndpointRequestError>> for ApiError {
-    fn from(value: Box<ExecuteEndpointRequestError>) -> Self {
+impl From<ExecuteEndpointRequestError> for ApiError {
+    fn from(value: ExecuteEndpointRequestError) -> Self {
         Self::ExecuteEndpointRequest(value)
     }
 }
