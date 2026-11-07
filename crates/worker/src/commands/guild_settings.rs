@@ -248,7 +248,18 @@ pub fn modlog_channel() -> Arg {
                                 ctx.db
                                     .set_guild_modlog_webhook_upsert(
                                         ctx.guild_id,
-                                        Some((webhook.id, &webhook.token, Some(channel_id))),
+                                        Some((
+                                            webhook.id,
+                                            if let Some(token) = &webhook.token {
+                                                &*token
+                                            } else {
+                                                anyhow::bail!(
+                                                    "webhook.token is None for webhook {}",
+                                                    webhook.id
+                                                );
+                                            },
+                                            Some(channel_id),
+                                        )),
                                     )
                                     .await?;
                                 ctx.reply_embed(
@@ -285,7 +296,15 @@ pub fn modlog_channel() -> Arg {
                 ctx.db
                     .set_guild_modlog_webhook_upsert(
                         ctx.guild_id,
-                        Some((webhook.id, &webhook.token, Some(channel_id))),
+                        Some((
+                            webhook.id,
+                            if let Some(token) = &webhook.token {
+                                &*token
+                            } else {
+                                anyhow::bail!("webhook.token is None for webhook {}", webhook.id);
+                            },
+                            Some(channel_id),
+                        )),
                     )
                     .await?;
 

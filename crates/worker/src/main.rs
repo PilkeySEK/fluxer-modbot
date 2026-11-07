@@ -1,4 +1,4 @@
-use std::{env, sync::Arc};
+use std::{convert::Infallible, env, sync::Arc};
 
 use anyhow::Context;
 use fluxer_neptunium::{
@@ -49,7 +49,7 @@ const PRETTY_DURATION_OPTIONS: Option<PrettyDurationOptions> = Some(PrettyDurati
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> anyhow::Result<Infallible> {
     const LOG_VAR_NAME: &str = "RUST_LOG";
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer())
@@ -97,13 +97,14 @@ async fn main() -> anyhow::Result<()> {
         config.token,
         ClientConfig::builder()
             .default_allowed_mentions(AllowedMentions {
-                parse: Some(Vec::new()),
-                users: Some(Vec::new()),
-                roles: Some(Vec::new()),
-                replied_user: false,
+                parse: None,
+                users: None,
+                roles: None,
+                replied_user: None,
             })
             .build(),
-    );
+    )
+    .await?;
 
     let logger = Arc::new(Logger::new(client.context().clone()));
 
@@ -148,9 +149,5 @@ async fn main() -> anyhow::Result<()> {
 
     client.register_event_handler(event_handler);
 
-    if let Err(e) = client.start().await {
-        tracing::error!("Fatal client error: {e}");
-    }
-
-    Ok(())
+    anyhow::Context::context(client.start().await, "Fatal client error")
 }

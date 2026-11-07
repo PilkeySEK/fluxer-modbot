@@ -10,7 +10,7 @@ use fluxer_neptunium::{
     exts::{GuildExt, GuildMemberExt, MessageExt},
     http::endpoints::channel::CreateMessageBody,
     model::{
-        channel::message::embed::{MessageEmbed, MessageEmbedBase},
+        channel::message::embed::RichEmbed,
         guild::permissions::Permissions,
         id::{
             Id,
@@ -362,14 +362,10 @@ impl CommandContext {
         color: Option<u32>,
     ) -> anyhow::Result<()> {
         self.reply(
-            MessageEmbed::builder()
-                .base(
-                    MessageEmbedBase::builder()
-                        .maybe_title(title)
-                        .description(description)
-                        .maybe_color(color.map(HexColor::new))
-                        .build(),
-                )
+            RichEmbed::builder()
+                .maybe_title(title)
+                .description(description)
+                .maybe_color(color.map(HexColor::new))
                 .build(),
         )
         .await
