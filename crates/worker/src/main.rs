@@ -93,7 +93,7 @@ async fn main() -> anyhow::Result<Infallible> {
         }
     };
 
-    let mut client = Client::new_with_config(
+    let mut client = Client::create_with_config(
         config.token,
         ClientConfig::builder()
             .default_allowed_mentions(AllowedMentions {
