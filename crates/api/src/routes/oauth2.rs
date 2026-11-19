@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use axum::{
     Router,
     extract::{Query, State},
@@ -8,12 +10,10 @@ use axum_extra::extract::{
     PrivateCookieJar,
     cookie::{Cookie, Expiration, SameSite},
 };
-use chrono::{TimeDelta, Utc};
 use oauth2::{AuthorizationCode, CsrfToken, TokenResponse};
 use rand::RngExt;
-use reqwest::StatusCode;
+use rust_shared::ToTime;
 use serde::Deserialize;
-use time::OffsetDateTime;
 
 use crate::{
     SESSION_COOKIE_NAME,
@@ -95,7 +95,7 @@ async fn callback(
         .map(char::from)
         .collect();
 
-    let expires_at = Utc::now() + TimeDelta::hours(24);
+    let expires_at = jiff::Timestamp::now() + Duration::from_hours(24);
 
     state
         .db
@@ -114,21 +114,7 @@ async fn callback(
         .http_only(true)
         .same_site(SameSite::Lax)
         .path("/")
-        .expires(Expiration::DateTime(
-            match OffsetDateTime::from_unix_timestamp(expires_at.timestamp()) {
-                Ok(timestamp) => timestamp,
-                Err(e) => {
-                    tracing::error!(
-                        "Error converting {:?} to chrono DateTime: {}",
-                        expires_at,
-                        e
-                    );
-                    return Err(crate::error::ApiErrorResponse::StatusCode(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                    ));
-                }
-            },
-        ))
+        .expires(Expiration::DateTime(expires_at.to_time()))
         .build();
 
     Ok((jar.add(session_cookie), Redirect::to(&state.dashboard_uri)))

@@ -198,10 +198,10 @@ export interface components {
         };
         GuildModerationCaseResponse: {
             case_id: components["schemas"]["CaseId"];
-            close_data?: null | components["schemas"]["GuildModerationCaseCloseDataResponse"];
+            close_data?: components["schemas"]["GuildModerationCaseCloseDataResponse"] | null;
             /** Format: date-time */
             created_at: string;
-            expiry?: null | components["schemas"]["GuildModerationCaseExpiry"];
+            expiry?: components["schemas"]["GuildModerationCaseExpiry"] | null;
             guild_id: string;
             moderation_kind: components["schemas"]["ModerationKind"];
             moderator_id?: string | null;
@@ -494,7 +494,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": null | components["schemas"]["DashboardUser"];
+                    "application/json": components["schemas"]["DashboardUser"] | null;
                 };
             };
             /** @description Bad request */

@@ -25,7 +25,6 @@
         ],
         "responses": {
           "200": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -73,7 +72,6 @@
         },
         "responses": {
           "200": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -129,7 +127,6 @@
         ],
         "responses": {
           "200": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -182,9 +179,7 @@
         ],
         "operationId": "sign_out",
         "responses": {
-          "200": {
-            "description": ""
-          },
+          "200": {},
           "400": {
             "description": "Bad request"
           },
@@ -208,16 +203,15 @@
         "operationId": "get_maybe_user_me",
         "responses": {
           "200": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
                   "oneOf": [
                     {
-                      "type": "null"
+                      "$ref": "#/components/schemas/DashboardUser"
                     },
                     {
-                      "$ref": "#/components/schemas/DashboardUser"
+                      "type": "null"
                     }
                   ]
                 }
@@ -247,7 +241,6 @@
         "operationId": "get_user_me",
         "responses": {
           "200": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -279,7 +272,6 @@
         "operationId": "get_user_guilds",
         "responses": {
           "200": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -323,9 +315,7 @@
           "required": true
         },
         "responses": {
-          "204": {
-            "description": ""
-          },
+          "204": {},
           "400": {
             "description": "Bad request"
           },
@@ -359,7 +349,6 @@
         },
         "responses": {
           "200": {
-            "description": "",
             "content": {
               "application/json": {
                 "schema": {
@@ -597,11 +586,11 @@
           "close_data": {
             "oneOf": [
               {
-                "type": "null"
-              },
-              {
                 "$ref": "#/components/schemas/GuildModerationCaseCloseDataResponse",
                 "description": "`None` if the case is not closed."
+              },
+              {
+                "type": "null"
               }
             ]
           },
@@ -612,10 +601,10 @@
           "expiry": {
             "oneOf": [
               {
-                "type": "null"
+                "$ref": "#/components/schemas/GuildModerationCaseExpiry"
               },
               {
-                "$ref": "#/components/schemas/GuildModerationCaseExpiry"
+                "type": "null"
               }
             ]
           },

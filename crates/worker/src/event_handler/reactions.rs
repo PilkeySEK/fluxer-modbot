@@ -1,6 +1,5 @@
 use std::{collections::HashMap, pin::Pin, sync::Arc};
 
-use chrono::Utc;
 use fluxer_neptunium::{
     cached_payload::CachedMessageReactionAdd,
     events::EventError,
@@ -52,7 +51,7 @@ pub type ReactionExpiryHandlerFn =
 pub type ReactionsEventHandlerMessage = (
     Id<MessageMarker>,
     Box<dyn ReactionHandler>,
-    Option<(ReactionExpiryHandlerFn, chrono::DateTime<chrono::Utc>)>,
+    Option<(ReactionExpiryHandlerFn, jiff::Timestamp)>,
 );
 
 pub(super) struct ReactionsEventHandler {
@@ -64,7 +63,7 @@ pub(super) struct ReactionsEventHandler {
             Id<MessageMarker>,
             (
                 Box<dyn ReactionHandler>,
-                Option<(ReactionExpiryHandlerFn, chrono::DateTime<chrono::Utc>)>,
+                Option<(ReactionExpiryHandlerFn, jiff::Timestamp)>,
             ),
         >,
     >,
@@ -112,7 +111,7 @@ impl ReactionsEventHandler {
                 debug_panic!("Multiple reaction handlers for message {message_id}");
             }
         }
-        let now = Utc::now();
+        let now = jiff::Timestamp::now();
         let removed_handlers = reaction_handlers.extract_if(|_, (_, expiry)| {
             if let Some(expiry) = expiry
                 && expiry.1 < now

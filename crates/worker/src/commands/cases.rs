@@ -1,5 +1,4 @@
 use async_brigadier::arg::optional;
-use chrono::Utc;
 use fluxer_neptunium::{
     cache::Cached,
     create_embed,
@@ -7,7 +6,7 @@ use fluxer_neptunium::{
     http::endpoints::channel::{CreateMessageBody, EditMessageBody},
     model::{
         id::{Id, marker::UserMarker},
-        time::timestamp::{Timestamp, TimestampDisplayType, representations::UnixMillis},
+        time::{TimestampDisplayType, TimestampExt},
     },
 };
 use rust_shared::db::{CaseId, GuildModerationCase, GuildModerationCaseExpiry, ModerationKind};
@@ -265,17 +264,15 @@ fn format_case_info(case: GuildModerationCase) -> CreateMessageBody {
                      expires_at,
                      duration,
                  }| {
-                    let now = Utc::now();
                     format!(
                         "{} ({} {})",
                         pretty_duration::pretty_duration(&duration, crate::PRETTY_DURATION_OPTIONS),
-                        if expires_at > now {
+                        if expires_at > jiff::Timestamp::now() {
                             "expires"
                         } else {
                             "expired"
                         },
-                        Timestamp::<UnixMillis>::from(expires_at)
-                            .time_string(TimestampDisplayType::Relative)
+                        expires_at.time_string(TimestampDisplayType::Relative)
                     )
                 },
             )
@@ -321,8 +318,7 @@ fn format_case_list(
     fn format_case_oneline(case: GuildModerationCase) -> String {
         format!(
             "[{}] **{}** of <@{}> - `{}`{}{}: {}",
-            Timestamp::<UnixMillis>::from(case.created_at)
-                .time_string(TimestampDisplayType::ShortDate),
+            case.created_at.time_string(TimestampDisplayType::ShortDate),
             case.moderation_kind,
             case.target_id,
             case.case_id,
@@ -335,8 +331,7 @@ fn format_case_list(
             {
                 format!(
                     " (expires {})",
-                    Timestamp::<UnixMillis>::from(expires_at)
-                        .time_string(TimestampDisplayType::Relative)
+                    expires_at.time_string(TimestampDisplayType::Relative)
                 )
             } else {
                 " (permanent)".to_owned()

@@ -5,14 +5,18 @@ use fluxer_neptunium::model::id::{
     Id,
     marker::{ChannelMarker, GuildMarker, UserMarker, WebhookMarker},
 };
-use rust_shared::db::{
-    CaseId, DbError, GuildModerationCase, ModerationKind, RawGuildModerationCase,
-    SharedDatabaseManager,
+use rust_shared::{
+    ToJiff, ToTime,
+    db::{
+        CaseId, DbError, GuildModerationCase, ModerationKind, RawGuildModerationCase,
+        SharedDatabaseManager,
+    },
 };
 use sqlx::{
     PgPool,
     postgres::{PgPoolOptions, PgQueryResult},
     query, query_as, query_scalar,
+    types::time::OffsetDateTime,
 };
 use tokio::{
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
@@ -127,10 +131,10 @@ impl DatabaseManager {
             data.target_id.into_inner().cast_signed(),
             data.moderator_id.map(|id| id.into_inner().cast_signed()),
             data.moderation_kind.to_string(),
-            data.expiry.map(|value| value.0),
+            data.expiry.map(|value| value.0.to_time()),
             data.reason,
             data.expiry.map(|value| value.1),
-            data.created_at,
+            data.created_at.to_time(),
         ).fetch_one(&self.pool).await.context("Failed to execute database query")?;
         let Some(case) = GuildModerationCase::from_raw(raw) else {
             bail!("Failed to parse database response");
@@ -357,9 +361,9 @@ impl DatabaseManager {
 
     async fn get_all_expiring_case_ids(
         pool: &PgPool,
-    ) -> Result<Vec<(chrono::DateTime<chrono::Utc>, CaseId)>, DbError> {
+    ) -> Result<Vec<(jiff::Timestamp, CaseId)>, DbError> {
         struct CaseExpiryInfo {
-            expires_at: Option<chrono::DateTime<chrono::Utc>>,
+            expires_at: Option<OffsetDateTime>,
             case_id: i64,
         }
         let cases = query_as!(
@@ -374,7 +378,7 @@ impl DatabaseManager {
             .into_iter()
             .filter_map(|info| {
                 if let Some(expires_at) = info.expires_at {
-                    Some((expires_at, CaseId(info.case_id)))
+                    Some((expires_at.to_jiff(), CaseId(info.case_id)))
                 } else {
                     debug_panic!("Database returned a case where expires_at is null");
                     None
@@ -502,7 +506,7 @@ pub mod schema {
         pub moderator_id: Option<Id<UserMarker>>,
         pub moderation_kind: ModerationKind,
         pub reason: Option<&'a str>,
-        pub expiry: Option<(chrono::DateTime<chrono::Utc>, i64)>,
-        pub created_at: chrono::DateTime<chrono::Utc>,
+        pub expiry: Option<(jiff::Timestamp, i64)>,
+        pub created_at: jiff::Timestamp,
     }
 }

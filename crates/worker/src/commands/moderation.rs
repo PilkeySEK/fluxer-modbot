@@ -2,14 +2,13 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_brigadier::arg::{greedy_string, optional};
-use chrono::Utc;
 use fluxer_neptunium::{
     client::ClientError,
     exts::GuildExt,
     http::endpoints::guild::BanGuildMemberBody,
     model::{
         id::{Id, marker::UserMarker},
-        time::timestamp::{Timestamp, TimestampDisplayType, representations::UnixMillis},
+        time::{TimestampDisplayType, TimestampExt},
     },
 };
 use rust_shared::db::ModerationKind;
@@ -48,7 +47,7 @@ pub fn warn() -> Arg {
                         if let Some((expires_at, _)) = expiry {
                             format!(
                                 " until {}.",
-                                Timestamp::<UnixMillis>::from(expires_at).time_string(
+                                expires_at.time_string(
                                     TimestampDisplayType::VerboseDateWithDayOfWeekAndShortTime
                                 ),
                             )
@@ -134,7 +133,7 @@ pub fn mute() -> Arg {
                         "**Muted** <@{target_id}>{}\n{}",
                         format_args!(
                             " until {}.",
-                            Timestamp::<UnixMillis>::from(expiry.0).time_string(
+                            expiry.0.time_string(
                                 TimestampDisplayType::VerboseDateWithDayOfWeekAndShortTime
                             ),
                         ),
@@ -183,7 +182,7 @@ pub fn unmute() -> Arg {
                     let mut member_is_timed_out = true;
 
                     if let Some(communication_disabled_until) = member.communication_disabled_until
-                        && chrono::DateTime::from(communication_disabled_until) < Utc::now()
+                        && communication_disabled_until < jiff::Timestamp::now()
                     {
                         member_is_timed_out = false;
                     } else if member.communication_disabled_until.is_none() {
@@ -334,7 +333,7 @@ pub fn ban() -> Arg {
                         if let Some((expires_at, _)) = expiry {
                             format!(
                                 " until {}.",
-                                Timestamp::<UnixMillis>::from(expires_at).time_string(
+                                expires_at.time_string(
                                     TimestampDisplayType::VerboseDateWithDayOfWeekAndShortTime
                                 ),
                             )
@@ -445,7 +444,7 @@ async fn create_moderation_case(
                     None => None,
                 },
                 reason,
-                created_at: Utc::now(),
+                created_at: jiff::Timestamp::now(),
             },
             fetch_and_add_users_to_db(
                 Arc::clone(&ctx.db),

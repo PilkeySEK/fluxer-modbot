@@ -2,7 +2,6 @@ use std::{sync::Arc, time::SystemTime};
 
 use anyhow::Context as _;
 use async_brigadier::{CommandError, arg::CommandArgument, parse_arg_recursively};
-use chrono::{TimeDelta, Utc};
 use enum_map::{EnumMap, enum_map};
 use fluxer_neptunium::{
     cache::{Cached, CachedMessage},
@@ -318,17 +317,13 @@ impl CommandContext {
     ) {
         let expiry = match expiry {
             Some((f, expires_in)) => {
-                let expires_in: TimeDelta = match TimeDelta::from_std(expires_in) {
-                    Ok(expires_in) => expires_in,
+                let now = jiff::Timestamp::now();
+                let expires_at = match now.checked_add(expires_in) {
+                    Ok(expires_at) => expires_at,
                     Err(e) => {
-                        tracing::error!("Failed to convert Duration to TimeDelta: {e}");
+                        tracing::error!(%e, "Error calculating expires_at.");
                         return;
                     }
-                };
-                let now = Utc::now();
-                let Some(expires_at) = now.checked_add_signed(expires_in) else {
-                    tracing::error!("Overflow calculating expires_at.");
-                    return;
                 };
                 Some((f, expires_at))
             }

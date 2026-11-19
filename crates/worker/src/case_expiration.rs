@@ -2,7 +2,6 @@
 
 use std::{sync::Arc, time::Duration};
 
-use chrono::Utc;
 use rust_shared::db::CaseId;
 use tokio::sync::{
     Mutex,
@@ -12,8 +11,8 @@ use tokio::sync::{
 use crate::db::DatabaseManager;
 
 /// Setting `None` for the time means that the case should be silently dropped (as it was manually closed).
-pub type ExpiringCase = (Option<chrono::DateTime<chrono::Utc>>, CaseId);
-type StoredExpiringCase = (chrono::DateTime<chrono::Utc>, CaseId);
+pub type ExpiringCase = (Option<jiff::Timestamp>, CaseId);
+type StoredExpiringCase = (jiff::Timestamp, CaseId);
 type Cases = Arc<Mutex<Vec<StoredExpiringCase>>>;
 
 pub fn start_case_expiration_actor(
@@ -84,8 +83,8 @@ async fn case_expiration_task(
         };
 
         if let Some(next_expiration) = next_expiration {
-            let delta_until = next_expiration.signed_duration_since(Utc::now());
-            let duration_until = delta_until.to_std().unwrap_or(Duration::ZERO);
+            let delta_until = next_expiration.duration_since(jiff::Timestamp::now());
+            let duration_until = delta_until.try_into().unwrap_or(Duration::ZERO);
 
             tokio::select! {
                 new_case_added_result = new_case_added_rx.recv() => {
@@ -111,7 +110,7 @@ async fn case_expiration_task(
 }
 
 async fn get_expired_cases(cases: &Cases) -> Vec<StoredExpiringCase> {
-    let now = Utc::now();
+    let now = jiff::Timestamp::now();
     cases
         .lock()
         .await

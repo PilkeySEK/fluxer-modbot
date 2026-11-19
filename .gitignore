@@ -1,11 +1,11 @@
 /target
-crates/target
-crates/.env
-crates/*/target
+/crates/target
+/crates/*/target
 .env
-config.json5
-api-config.json5
-worker-config.json5
+!/crates/.env
+/config.json5
+/api-config.json5
+/worker-config.json5
 **/*.ignore
 
 .vscode
@@ -13,20 +13,20 @@ worker-config.json5
 
 node_modules
 
-dashboard/node_modules
+/dashboard/node_modules
 
 # Output
-dashboard.output
-dashboard.vercel
-dashboard.netlify
-dashboard.wrangler
-dashboard/.svelte-kit
-dashboard/build
+/dashboard.output
+/dashboard.vercel
+/dashboard.netlify
+/dashboard.wrangler
+/dashboard/.svelte-kit
+/dashboard/build
 
 # OS
 .DS_Store
 Thumbs.db
 
 # Vite
-dashboard/vite.config.js.timestamp-*
-dashboard/vite.config.ts.timestamp-*
+/dashboard/vite.config.js.timestamp-*
+/dashboard/vite.config.ts.timestamp-*

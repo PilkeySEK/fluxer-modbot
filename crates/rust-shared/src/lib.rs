@@ -4,6 +4,7 @@ use fluxer_neptunium::model::{
     gateway::payload::incoming::UserPrivateResponse, guild::permissions::Permissions,
 };
 use sqids::{Sqids, SqidsBuilder};
+use sqlx::types::time::OffsetDateTime;
 use utoipa::ToSchema;
 
 pub mod db;
@@ -93,6 +94,26 @@ impl From<(UserPrivateResponse, DashboardUserSettings)> for DashboardUser {
 pub fn is_guild_manager_permissions(permissions: Permissions) -> bool {
     permissions.intersects(Permissions::ADMINISTRATOR)
         || permissions.intersects(Permissions::MANAGE_GUILD)
+}
+
+pub trait ToTime {
+    fn to_time(self) -> OffsetDateTime;
+}
+
+impl ToTime for jiff::Timestamp {
+    fn to_time(self) -> OffsetDateTime {
+        OffsetDateTime::from_unix_timestamp_nanos(self.as_nanosecond()).unwrap()
+    }
+}
+
+pub trait ToJiff {
+    fn to_jiff(self) -> jiff::Timestamp;
+}
+
+impl ToJiff for OffsetDateTime {
+    fn to_jiff(self) -> jiff::Timestamp {
+        jiff::Timestamp::from_nanosecond(self.unix_timestamp_nanos()).unwrap()
+    }
 }
 
 #[cfg(test)]

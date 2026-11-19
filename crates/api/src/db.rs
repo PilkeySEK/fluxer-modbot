@@ -5,7 +5,7 @@ use fluxer_neptunium::model::id::{
     marker::{GuildMarker, UserMarker},
 };
 use rust_shared::{
-    DashboardUserSettings,
+    DashboardUserSettings, ToTime,
     db::{DbError, SharedDatabaseManager},
     ws::ApiToWorkerMessage,
 };
@@ -55,7 +55,7 @@ impl DbManager {
         &self,
         session_token: &str,
         user_id: Id<UserMarker>,
-        expires_at: chrono::DateTime<chrono::Utc>,
+        expires_at: jiff::Timestamp,
         data: SessionJsonData,
     ) -> Result<(), sqlx::Error> {
         #[expect(clippy::unwrap_used)]
@@ -65,7 +65,7 @@ impl DbManager {
             session_token,
             user_id.into_inner().cast_signed(),
             serde_json::to_value(&data).unwrap(),
-            expires_at,
+            expires_at.to_time(),
         )
         .execute(&self.pool)
         .await?;

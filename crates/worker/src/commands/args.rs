@@ -4,7 +4,6 @@ use async_brigadier::{
     CommandParseError,
     arg::{CommandArgument, CommandArgumentKind},
 };
-use chrono::Utc;
 use fluxer_neptunium::model::id::{Id, marker::UserMarker};
 use rust_shared::db::CaseId;
 
@@ -96,7 +95,10 @@ impl CommandArgumentKind for ExpiryArgumentKind {
         if let Some(duration) = duration {
             Ok((
                 rest,
-                Some(Box::new(expiry_from_duration(Utc::now(), duration)?)),
+                Some(Box::new(expiry_from_duration(
+                    jiff::Timestamp::now(),
+                    duration,
+                )?)),
             ))
         } else {
             Err(async_brigadier::CommandParseError::NoMatch)

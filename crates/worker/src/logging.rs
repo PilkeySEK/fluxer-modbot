@@ -3,14 +3,14 @@ use fluxer_neptunium::{
     events::context::Context,
     http::endpoints::{
         channel::CreateMessageBody,
-        webhooks::{ExecuteWebhook, WebhookMessage},
+        webhooks::{ExecuteWebhook, ExecuteWebhookParams, WebhookMessage},
     },
     model::{
         id::{
             Id,
             marker::{GuildMarker, UserMarker},
         },
-        time::timestamp::{Timestamp, TimestampDisplayType, representations::UnixMillis},
+        time::{TimestampDisplayType, TimestampExt},
     },
 };
 use pretty_duration::pretty_duration;
@@ -62,7 +62,10 @@ impl Logger {
                     username: None,
                     avatar_url: None,
                 },
-                wait: false,
+                params: ExecuteWebhookParams {
+                    wait: None,
+                    thread_id: None,
+                },
             })
             .await
         {
@@ -97,8 +100,7 @@ impl ModLogEntry {
                                 format!(
                                     "{} (expires {})",
                                     pretty_duration(&duration, crate::PRETTY_DURATION_OPTIONS),
-                                    Timestamp::<UnixMillis>::from(expires_at)
-                                        .time_string(TimestampDisplayType::Relative)
+                                    expires_at.time_string(TimestampDisplayType::Relative)
                                 )
                             },
                         )

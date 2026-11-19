@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use async_brigadier::CommandParseError;
-use chrono::{TimeDelta, Utc};
 use fluxer_neptunium::model::id::{
     Id,
     marker::{ChannelMarker, GuildMarker, WebhookMarker},
@@ -12,7 +11,7 @@ pub mod confirmation;
 pub mod pages;
 pub mod user_fetcher;
 
-pub type Expiry = (chrono::DateTime<Utc>, Duration);
+pub type Expiry = (jiff::Timestamp, Duration);
 
 pub enum MaybeExpired<T> {
     NotExpired(T),
@@ -79,27 +78,22 @@ pub fn parse_channel_mention_or_id_or_link(
 }
 
 pub fn expiry_from_duration(
-    now: chrono::DateTime<Utc>,
-    std_duration: Duration,
+    now: jiff::Timestamp,
+    duration: Duration,
 ) -> Result<Expiry, CommandParseError> {
-    if std_duration > Duration::from_hours(24 * 356) {
+    if duration > Duration::from_hours(24 * 356) {
         return Err(CommandParseError::Other(
             "The duration can not be more than 1 year.",
         ));
     }
     Ok((
-        if let Some(time) = now.checked_add_signed(match TimeDelta::from_std(std_duration) {
-            Ok(delta) => delta,
+        match now.checked_add(duration) {
+            Ok(timestamp) => timestamp,
             Err(e) => {
-                tracing::error!("Failed to convert Duration to TimeDelta: {e}");
+                tracing::error!(?duration, %now, %e, "Duration add overflow!");
                 return Err(CommandParseError::Other("Internal error"));
             }
-        }) {
-            time
-        } else {
-            tracing::error!(?std_duration, %now, "Duration add overflow!");
-            return Err(CommandParseError::Other("Internal error"));
         },
-        std_duration,
+        duration,
     ))
 }

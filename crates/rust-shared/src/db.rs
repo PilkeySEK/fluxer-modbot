@@ -14,13 +14,13 @@ use fluxer_neptunium::model::{
 mod manager;
 pub use manager::*;
 use serde::Deserialize;
-use sqlx::prelude::FromRow;
+use sqlx::{prelude::FromRow, types::time::OffsetDateTime};
 use utoipa::{
     ToSchema,
     openapi::{ObjectBuilder, schema::SchemaType},
 };
 
-use crate::DurationSchema;
+use crate::{DurationSchema, ToJiff};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct CaseId(pub i64);
@@ -86,11 +86,11 @@ pub struct RawGuildModerationCase {
     pub target_id: i64,
     pub moderator_id: Option<i64>,
     pub moderation_kind: String,
-    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub expires_at: Option<OffsetDateTime>,
     pub reason: Option<String>,
     pub closed: bool,
     pub duration: Option<i64>,
-    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub created_at: OffsetDateTime,
     pub close_reason: Option<String>,
     pub closed_by: Option<i64>,
 }
@@ -109,7 +109,7 @@ pub struct GuildModerationCaseCloseDataResponse {
 
 #[derive(serde::Serialize, ToSchema)]
 pub struct GuildModerationCaseExpiry {
-    pub expires_at: chrono::DateTime<chrono::Utc>,
+    pub expires_at: jiff::Timestamp,
     #[schema(value_type = DurationSchema)]
     pub duration: Duration,
 }
@@ -123,7 +123,7 @@ pub struct GuildModerationCaseResponse {
     pub moderation_kind: ModerationKind,
     pub expiry: Option<GuildModerationCaseExpiry>,
     pub reason: Option<String>,
-    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub created_at: OffsetDateTime,
     /// `None` if the case is not closed.
     pub close_data: Option<GuildModerationCaseCloseDataResponse>,
 }
@@ -137,7 +137,7 @@ pub struct GuildModerationCase {
     pub moderation_kind: ModerationKind,
     pub expiry: Option<GuildModerationCaseExpiry>,
     pub reason: Option<String>,
-    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub created_at: jiff::Timestamp,
     /// `None` if the case is not closed.
     pub close_data: Option<GuildModerationCaseCloseData>,
 }
@@ -171,14 +171,14 @@ impl GuildModerationCase {
             expiry: if let Some(expires_at) = raw.expires_at {
                 let duration = raw.duration?;
                 Some(GuildModerationCaseExpiry {
-                    expires_at,
+                    expires_at: expires_at.to_jiff(),
                     duration: Duration::from_secs(u64::try_from(duration).ok()?),
                 })
             } else {
                 None
             },
             reason: raw.reason,
-            created_at: raw.created_at,
+            created_at: raw.created_at.to_jiff(),
             close_data: if raw.closed {
                 Some(GuildModerationCaseCloseData {
                     reason: raw.close_reason,
