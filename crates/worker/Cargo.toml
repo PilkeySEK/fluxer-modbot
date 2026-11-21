@@ -24,11 +24,12 @@ rust-shared = { workspace = true }
 tokio-tungstenite = "0.30.0"
 futures = "0.3.34"
 async-brigadier = { path = "../async-brigadier" }
-anyhow = { workspace = true }
 either = "1.19.0"
 enum-map = { version = "3.1.0", features = ["serde"] }
 rand = { workspace = true }
 jiff = { workspace = true }
+color-eyre = "0.6.5"
+secrecy = "0.10.3"
 
 [lints]
 workspace = true

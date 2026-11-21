@@ -3,8 +3,12 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
+use color_eyre::eyre::Context;
 use fluxer_neptunium::{
-    http::endpoints::{ExecuteEndpointRequestError, ResponseBody},
+    http::{
+        client::HttpClientConfig,
+        endpoints::{ExecuteEndpointRequestError, ResponseBody},
+    },
     model::{
         gateway::payload::incoming::UserPrivateResponse,
         guild::{Guild, permissions::Permissions},
@@ -30,16 +34,24 @@ pub struct FluxerApiManager {
 }
 
 impl FluxerApiManager {
-    pub fn new(api_base: String, db: Arc<DbManager>) -> Self {
-        Self {
+    pub async fn new(instance_root: String, db: Arc<DbManager>) -> color_eyre::Result<Self> {
+        let (_temp_client, instance_discovery_document) =
+            fluxer_neptunium::http::client::HttpClient::new(
+                HttpClientConfig::builder()
+                    .instance_root(instance_root)
+                    .build(),
+            )
+            .await
+            .wrap_err("Failed to create HttpClient (fetch instance discovery document)")?;
+        Ok(Self {
             client: Client::new(),
-            api_base,
+            api_base: instance_discovery_document.endpoints.api_public,
             guild_member_permissions: CacheBuilder::new(10u64.pow(6) /* 10^6 = one million */)
                 .support_invalidation_closures()
                 .build(),
             cache_enabled: AtomicBool::new(false),
             db,
-        }
+        })
     }
 
     pub async fn get_user_guilds(

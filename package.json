@@ -10,6 +10,6 @@
         "openapi-gen": "cd crates/api && cargo run -F openapi-gen > ../../openapi.json && pnpm --dir ../../dashboard generate-openapi-types"
     },
     "devDependencies": {
-        "concurrently": "^9.2.1"
+        "concurrently": "^9.2.5"
     }
 }

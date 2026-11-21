@@ -6,6 +6,7 @@ use axum::{
     routing::any,
 };
 use reqwest::StatusCode;
+use secrecy::ExposeSecret;
 use tokio::sync::mpsc::unbounded_channel;
 
 use crate::state::AppState;
@@ -30,7 +31,7 @@ pub async fn worker_auth_required(
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    if authorization.trim() != state.worker_api_token {
+    if authorization.trim() != state.worker_api_token.expose_secret() {
         return Err(StatusCode::UNAUTHORIZED);
     }
 

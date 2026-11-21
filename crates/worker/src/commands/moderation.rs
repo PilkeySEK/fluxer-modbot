@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use anyhow::Context;
 use async_brigadier::arg::{greedy_string, optional};
+use color_eyre::eyre::Context;
 use fluxer_neptunium::{
     client::ClientError,
     exts::GuildExt,
@@ -357,7 +357,7 @@ pub fn ban() -> Arg {
 }
 
 pub fn unban() -> Arg {
-    async fn unban(mut ctx: Ctx) -> anyhow::Result<()> {
+    async fn unban(mut ctx: Ctx) -> color_eyre::Result<()> {
         let target_id: Id<UserMarker> = ctx.take_argument("target_id");
         let reason: Option<String> = ctx.try_take_argument_downcast("reason");
 
@@ -424,7 +424,7 @@ async fn create_moderation_case(
     expiry: Option<Expiry>,
     reason: Option<&str>,
     moderation_kind: ModerationKind,
-) -> anyhow::Result<()> {
+) -> color_eyre::Result<()> {
     ctx.db
         .create_moderation_case(
             CreateGuildModerationCaseData {
@@ -453,6 +453,6 @@ async fn create_moderation_case(
             ),
         )
         .await
-        .context("Failed to create moderation case")?;
+        .wrap_err("Failed to create moderation case")?;
     Ok(())
 }

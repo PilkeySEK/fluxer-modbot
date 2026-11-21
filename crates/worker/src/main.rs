@@ -1,31 +1,28 @@
 use std::{convert::Infallible, env, sync::Arc};
 
-use anyhow::Context;
+use color_eyre::eyre::Context;
+use color_eyre::eyre::{self, ContextCompat};
 use fluxer_neptunium::{
     client::{Client, ClientConfig},
     http::endpoints::channel::AllowedMentions,
 };
 use pretty_duration::{PrettyDurationOptions, PrettyDurationOutputFormat};
+use secrecy::ExposeSecret;
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::{
-    api_connection::api_connection,
-    caches::PrefixCache,
-    case_expiration::case_expiry_listener,
-    commands::Dispatcher,
-    config::{Config, ConfigExt, DefaultCommandConfig},
-    db::create_db_manager_and_case_expiration_actor,
-    event_handler::BotEventHandler,
-    logging::Logger,
+    api_connection::api_connection, caches::PrefixCache, case_expiration::case_expiry_listener,
+    commands::Dispatcher, db::create_db_manager_and_case_expiration_actor,
+    event_handler::BotEventHandler, logging::Logger,
 };
 
 mod api_connection;
 mod caches;
 mod case_expiration;
 mod commands;
-mod config;
+// mod config;
 mod db;
 mod event_handler;
 mod logging;
@@ -49,7 +46,7 @@ const PRETTY_DURATION_OPTIONS: Option<PrettyDurationOptions> = Some(PrettyDurati
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[tokio::main]
-async fn main() -> anyhow::Result<Infallible> {
+async fn main() -> color_eyre::Result<Infallible> {
     const LOG_VAR_NAME: &str = "RUST_LOG";
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer())
@@ -60,7 +57,7 @@ async fn main() -> anyhow::Result<Infallible> {
             {
                 Ok(layer) => layer,
                 Err(e) => {
-                    anyhow::bail!("{LOG_VAR_NAME} environment variable is invalid: {e}");
+                    eyre::bail!("{LOG_VAR_NAME} environment variable is invalid: {e}");
                 }
             },
         )
@@ -68,33 +65,13 @@ async fn main() -> anyhow::Result<Infallible> {
 
     let config_file_path =
         env::var("CONFIG_FILE_PATH").unwrap_or_else(|_| String::from("../worker-config.json5"));
-    let default_command_config_file_path = env::var("DEFAULT_COMMAND_CONFIG_FILE_PATH")
-        .unwrap_or_else(|_| String::from("../default-command-config.json5"));
 
-    let (config, default_command_config) = match tokio::try_join!(
-        async {
-            Config::load_from_file(&config_file_path)
-                .await
-                .with_context(|| format!("Failed to load config `{config_file_path}`"))
-        },
-        async {
-            DefaultCommandConfig::load_from_file(&default_command_config_file_path)
-                .await
-                .with_context(|| {
-                    format!(
-                        "Failed to load default command config from `{default_command_config_file_path}`"
-                    )
-                })
-        }
-    ) {
-        Ok(values) => values,
-        Err(e) => {
-            return Err(e);
-        }
-    };
+    let config = rust_shared::config::Config::load(&config_file_path)
+        .await
+        .wrap_err_with(|| format!("Failed to open config file at `{config_file_path}`"))?;
 
     let mut client = Client::create_with_config(
-        config.token,
+        config.internal.bot_fluxer_token.expose_secret(),
         ClientConfig::builder()
             .default_allowed_mentions(AllowedMentions {
                 parse: None,
@@ -108,12 +85,12 @@ async fn main() -> anyhow::Result<Infallible> {
 
     let logger = Arc::new(Logger::new(client.context().clone()));
 
-    let prefix_cache = Arc::new(PrefixCache::new(config.prefix_cache_capacity));
+    let prefix_cache = Arc::new(PrefixCache::new(1024));
 
     let (db_manager, expired_cases_rx) = create_db_manager_and_case_expiration_actor(
-        &config.database_url,
+        config.internal.database_url.expose_secret(),
         Arc::clone(&prefix_cache),
-        config.default_command_prefix,
+        config.public.default_command_prefix,
         Arc::clone(&logger),
     )
     .await
@@ -123,8 +100,8 @@ async fn main() -> anyhow::Result<Infallible> {
 
     let (api_connection_tx, api_connection_rx) = unbounded_channel();
     tokio::spawn(api_connection(
-        config.api_worker_ws_url,
-        config.worker_api_token,
+        config.internal.api_worker_ws_url,
+        config.internal.worker_api_token,
         Arc::clone(&db_manager),
         api_connection_rx,
         prefix_cache,
@@ -136,18 +113,20 @@ async fn main() -> anyhow::Result<Infallible> {
     ));
 
     let event_handler = BotEventHandler::new(
-        Dispatcher::new(Arc::clone(&db_manager), default_command_config),
-        config.bot_name,
+        Dispatcher::new(Arc::clone(&db_manager), config.default_commands),
+        config.public.bot_name,
         db_manager,
-        config.max_command_prefix_len,
-        config.max_command_prefixes,
+        config.public.max_command_prefix_len,
+        config.public.max_command_prefixes,
         logger,
-        config.webhook_avatar_b64,
-        config.bot_id,
+        config.public.webhook_avatar,
+        client
+            .get_user_id_from_token()
+            .wrap_err("Failed to get user ID from token")?,
         api_connection_tx,
     );
 
     client.register_event_handler(event_handler);
 
-    anyhow::Context::context(client.start().await, "Fatal client error")
+    client.start().await.wrap_err("Fatal client error")
 }

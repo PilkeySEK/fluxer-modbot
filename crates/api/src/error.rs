@@ -40,7 +40,7 @@ impl IntoResponse for ApiErrorResponse {
 
 #[derive(Debug)]
 pub enum ApiError {
-    UrlParse(oauth2::url::ParseError),
+    // UrlParse(oauth2::url::ParseError),
     OAuthReqwest(oauth2::reqwest::Error),
     Database(DbError),
     RequestToken(
@@ -52,7 +52,7 @@ pub enum ApiError {
     Reqwest(reqwest::Error),
     Serde(serde_json::Error),
     ExecuteEndpointRequest(ExecuteEndpointRequestError),
-    GenericError(String),
+    // GenericError(String),
     OAuthInvalidState,
 }
 
@@ -61,7 +61,7 @@ impl std::error::Error for ApiError {}
 impl std::fmt::Display for ApiError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::UrlParse(e) => f.write_fmt(format_args!("Failed to parse URL: {e}")),
+            // Self::UrlParse(e) => f.write_fmt(format_args!("Failed to parse URL: {e}")),
             Self::OAuthReqwest(e) => f.write_fmt(format_args!("OAuth2 reqwest error: {e}")),
             Self::Database(e) => f.write_fmt(format_args!("Database error: {e}")),
             Self::RequestToken(e) => f.write_fmt(format_args!("Token request failed: {e}")),
@@ -70,17 +70,17 @@ impl std::fmt::Display for ApiError {
             Self::ExecuteEndpointRequest(e) => {
                 f.write_fmt(format_args!("ExecuteEndpointRequestError: {e}"))
             }
-            Self::GenericError(e) => e.fmt(f),
+            // Self::GenericError(e) => e.fmt(f),
             Self::OAuthInvalidState => f.write_str("Invalid OAuth state"),
         }
     }
 }
 
-impl From<oauth2::url::ParseError> for ApiError {
-    fn from(value: oauth2::url::ParseError) -> Self {
-        Self::UrlParse(value)
-    }
-}
+// impl From<oauth2::url::ParseError> for ApiError {
+//     fn from(value: oauth2::url::ParseError) -> Self {
+//         Self::UrlParse(value)
+//     }
+// }
 
 impl From<DbError> for ApiError {
     fn from(value: DbError) -> Self {
@@ -123,10 +123,10 @@ impl IntoResponse for ApiError {
         tracing::error!("{self}");
 
         let (status, message) = match self {
-            Self::UrlParse(_) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                String::from("Failed to parse url"),
-            ),
+            // Self::UrlParse(_) => (
+            //     StatusCode::INTERNAL_SERVER_ERROR,
+            //     String::from("Failed to parse url"),
+            // ),
             Self::Database(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 String::from("Database error"),
@@ -144,9 +144,7 @@ impl IntoResponse for ApiError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 String::from("Serialization error"),
             ),
-            Self::ExecuteEndpointRequest(_) | Self::GenericError(_) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, String::new())
-            }
+            Self::ExecuteEndpointRequest(_) => (StatusCode::INTERNAL_SERVER_ERROR, String::new()),
             Self::OAuthInvalidState => {
                 (StatusCode::BAD_REQUEST, String::from("Invalid OAuth state"))
             }

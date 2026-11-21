@@ -2,18 +2,16 @@
 
 use std::{env, sync::Arc};
 
-use anyhow::Context;
 use axum_extra::extract::cookie::Key;
 use base64::{Engine, engine::general_purpose::STANDARD};
+use color_eyre::eyre::{self, Context};
+use secrecy::ExposeSecret;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::{
-    config::{ApiConfig, ConfigLoadError},
-    state::{AppState, InnerAppState},
-};
+use crate::state::{AppState, InnerAppState};
 
-mod config;
+// mod config;
 mod db;
 mod error;
 mod fluxer_api;
@@ -26,7 +24,7 @@ mod state;
 const SESSION_COOKIE_NAME: &str = "session";
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> color_eyre::Result<()> {
     #[cfg(feature = "openapi-gen")]
     {
         openapi::print_openapi();
@@ -43,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
             {
                 Ok(layer) => layer,
                 Err(e) => {
-                    anyhow::bail!("{LOG_VAR_NAME} environment variable is invalid: {e}");
+                    eyre::bail!("{LOG_VAR_NAME} environment variable is invalid: {e}");
                 }
             },
         )
@@ -51,36 +49,27 @@ async fn main() -> anyhow::Result<()> {
 
     let config_file_path =
         env::var("API_CONFIG_PATH").unwrap_or_else(|_| String::from("../api-config.json5"));
-    let config = match ApiConfig::load(config_file_path) {
-        Ok(config) => config,
-        Err(e) => match e {
-            ConfigLoadError::IoError(e) => {
-                anyhow::bail!("Failed to open or read config file: {e}");
-            }
-            ConfigLoadError::ParseError(e) => {
-                anyhow::bail!("Failed to parse config file: {e}");
-            }
-        },
-    };
+    let config = rust_shared::config::Config::load(&config_file_path)
+        .await
+        .wrap_err_with(|| format!("Failed to open config file at `{config_file_path}`"))?;
 
     let cookie_secret = STANDARD
-        .decode(config.cookie_secret)
+        .decode(config.internal.cookie_secret.expose_secret())
         .context("Failed to decode cookie secret")?;
     let cookie_key = Key::try_from(cookie_secret.as_slice())
         .context("Failed to create key from cookie secret")?;
 
     let state = AppState(Arc::new(
         InnerAppState::new(
-            config.oauth2,
-            &config.database_url,
-            config.fluxer_api_base,
+            config.internal.oauth2,
+            config.internal.database_url.expose_secret(),
+            config.internal.fluxer_instance_root,
             cookie_key,
-            config.dashboard_uri,
-            config.default_command_prefix,
-            config.worker_api_token,
-            config.dashboard_base,
-            config.max_command_prefix_len,
-            config.max_command_prefixes,
+            config.public.default_command_prefix,
+            config.internal.worker_api_token,
+            config.internal.dashboard_base,
+            config.public.max_command_prefix_len,
+            config.public.max_command_prefixes,
         )
         .await
         .context("Failed to create state")?,

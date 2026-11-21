@@ -26,8 +26,9 @@ utoipa = { version = "6.0.0", features = ["axum_extras", "time"] }
 utoipauto = "0.3.1"
 zeroize = "1.9.2"
 moka = { version = "0.12.16", features = ["future"] }
-anyhow = { workspace = true }
 jiff = { workspace = true }
+color-eyre = "0.6.5"
+secrecy = "0.10.3"
 
 [lints]
 workspace = true

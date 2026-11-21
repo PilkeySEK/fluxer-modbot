@@ -123,7 +123,7 @@ pub fn list_cases() -> Arg {
 async fn try_get_case_from_maybe_case_id_or_user_id(
     ctx: &Ctx,
     maybe_case_id_or_user_id: Option<either::Either<Id<UserMarker>, CaseId>>,
-) -> anyhow::Result<Option<GuildModerationCase>> {
+) -> color_eyre::Result<Option<GuildModerationCase>> {
     let case = match maybe_case_id_or_user_id {
         Some(either::Right(case_id)) => {
             ctx.db
@@ -145,7 +145,7 @@ async fn try_get_case_from_maybe_case_id_or_user_id(
 }
 
 pub fn case_info() -> Arg {
-    async fn case_info(ctx: Ctx) -> anyhow::Result<()> {
+    async fn case_info(ctx: Ctx) -> color_eyre::Result<()> {
         let maybe_case_id_or_user_id = ctx.try_get_argument("case_id_or_user");
 
         let maybe_case_id_or_user_id = if let Some(case_id_or_user_id) = maybe_case_id_or_user_id {
@@ -181,7 +181,7 @@ pub fn case_info() -> Arg {
 }
 
 pub fn delete_case() -> Arg {
-    async fn delete_case(ctx: Ctx) -> anyhow::Result<()> {
+    async fn delete_case(ctx: Ctx) -> color_eyre::Result<()> {
         let maybe_case_id_or_user_id = ctx.try_get_argument("case_id_or_user");
 
         let maybe_case_id_or_user_id = if let Some(case_id_or_user_id) = maybe_case_id_or_user_id {

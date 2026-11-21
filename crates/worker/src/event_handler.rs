@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::SystemTime};
 
-use anyhow::Context as _;
+use color_eyre::eyre::Context as _;
 use fluxer_neptunium::{
     async_trait,
     cache::{Cached, CachedGuildMember, CachedGuildRole, CachedMessage},
@@ -392,7 +392,7 @@ impl BotEventHandler {
                         ),
                     )
                     .await
-                    .context("Failed to reply with missing permissions message")
+                    .wrap_err("Failed to reply with missing permissions message")
                 {
                     tracing::error!("{e:?}");
                 }
@@ -408,7 +408,7 @@ impl BotEventHandler {
                         ),
                     )
                     .await
-                    .context("Failed to reply with unknown command message")
+                    .wrap_err("Failed to reply with unknown command message")
                 {
                     tracing::error!("{e:?}");
                 }
@@ -424,7 +424,7 @@ impl BotEventHandler {
                         ),
                     )
                     .await
-                    .context("Failed to reply with wrong usage message")
+                    .wrap_err("Failed to reply with wrong usage message")
                 {
                     tracing::error!("{e:?}");
                 }

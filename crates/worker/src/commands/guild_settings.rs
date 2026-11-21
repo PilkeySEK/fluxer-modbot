@@ -1,4 +1,5 @@
 use async_brigadier::arg::{greedy_string, optional};
+use color_eyre::eyre;
 use fluxer_neptunium::{
     exts::{ChannelExt, GuildExt, MessageExt},
     http::endpoints::{
@@ -21,7 +22,7 @@ use crate::{
 };
 
 pub fn add_prefix() -> Arg {
-    async fn add_prefix(mut ctx: Ctx) -> anyhow::Result<()> {
+    async fn add_prefix(mut ctx: Ctx) -> color_eyre::Result<()> {
         let prefix: String = ctx.take_argument("prefix");
 
         if prefix.len() > ctx.max_command_prefix_len {
@@ -173,7 +174,7 @@ pub fn set_modlog_webhook() -> Arg {
     )
 }
 
-async fn clear_modlog_webhook_inner(ctx: Ctx) -> anyhow::Result<()> {
+async fn clear_modlog_webhook_inner(ctx: Ctx) -> color_eyre::Result<()> {
     ctx.db
         .set_guild_modlog_webhook_upsert(ctx.guild_id, None)
         .await?;
@@ -189,7 +190,7 @@ pub fn clear_modlog_webhook() -> Arg {
 
 #[expect(clippy::too_many_lines)]
 pub fn modlog_channel() -> Arg {
-    async fn modlog_channel(mut ctx: Ctx) -> anyhow::Result<()> {
+    async fn modlog_channel(mut ctx: Ctx) -> color_eyre::Result<()> {
         let channel_id: Id<ChannelMarker> = ctx.take_argument("channel");
 
         // Delete the existing webhook in the guild, if it exists and wasn't manually set
@@ -253,7 +254,7 @@ pub fn modlog_channel() -> Arg {
                                             if let Some(token) = &webhook.token {
                                                 &*token
                                             } else {
-                                                anyhow::bail!(
+                                                eyre::bail!(
                                                     "webhook.token is None for webhook {}",
                                                     webhook.id
                                                 );
@@ -301,7 +302,7 @@ pub fn modlog_channel() -> Arg {
                             if let Some(token) = &webhook.token {
                                 &*token
                             } else {
-                                anyhow::bail!("webhook.token is None for webhook {}", webhook.id);
+                                eyre::bail!("webhook.token is None for webhook {}", webhook.id);
                             },
                             Some(channel_id),
                         )),

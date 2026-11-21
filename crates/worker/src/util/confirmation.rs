@@ -23,7 +23,7 @@ pub async fn confirmation(
     ctx: &Ctx,
     confirmation_message: Cached<CachedMessage>,
     allowed_reactor: Id<UserMarker>,
-) -> MaybeExpiringResult<bool, anyhow::Error> {
+) -> MaybeExpiringResult<bool, color_eyre::eyre::Error> {
     const CONFIRM: &str = "✅";
     const CANCEL: &str = "❌";
 

@@ -2,6 +2,7 @@ use std::{ops::ControlFlow, sync::Arc, time::Duration};
 
 use futures::{SinkExt, TryStreamExt};
 use rust_shared::ws::{ApiToWorkerMessage, WorkerToApiMessage};
+use secrecy::{ExposeSecret, SecretString};
 use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream,
     tungstenite::{Message, client::IntoClientRequest, http::HeaderValue},
@@ -13,7 +14,7 @@ const RETRY_WAIT_TIME: Duration = Duration::from_mins(1);
 
 pub async fn api_connection(
     url: String,
-    worker_token: String,
+    worker_token: SecretString,
     db: Arc<DatabaseManager>,
     mut rx: tokio::sync::mpsc::UnboundedReceiver<WorkerToApiMessage>,
     prefix_cache: Arc<PrefixCache>,
@@ -30,7 +31,7 @@ pub async fn api_connection(
     };
     request.headers_mut().insert(
         "Authorization",
-        match HeaderValue::from_str(&worker_token) {
+        match HeaderValue::from_str(worker_token.expose_secret()) {
             Ok(value) => value,
             Err(e) => {
                 tracing::error!("Invalid header value: {e}");

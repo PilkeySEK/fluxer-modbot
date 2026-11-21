@@ -29,7 +29,7 @@ pub async fn pages(
     pages_message: Cached<CachedMessage>,
     allowed_reactor: Id<UserMarker>,
     allowed_actions: EnumSet<PageAction>,
-) -> MaybeExpiringResult<PageAction, anyhow::Error> {
+) -> MaybeExpiringResult<PageAction, color_eyre::eyre::Error> {
     const BACK: &str = "⬅️";
     const CONTINUE: &str = "➡️";
 

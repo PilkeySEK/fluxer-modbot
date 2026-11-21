@@ -7,6 +7,7 @@ use sqids::{Sqids, SqidsBuilder};
 use sqlx::types::time::OffsetDateTime;
 use utoipa::ToSchema;
 
+pub mod config;
 pub mod db;
 pub mod ws;
 

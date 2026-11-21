@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::SystemTime};
 
-use anyhow::Context as _;
 use async_brigadier::{CommandError, arg::CommandArgument, parse_arg_recursively};
+use color_eyre::eyre::Context as _;
 use enum_map::{EnumMap, enum_map};
 use fluxer_neptunium::{
     cache::{Cached, CachedMessage},
@@ -19,7 +19,10 @@ use fluxer_neptunium::{
     },
 };
 use mini_moka::sync::Cache;
-use rust_shared::db::{CommandId, GuildCommandConfig, GuildCommandPermissionConfig};
+use rust_shared::{
+    config::DefaultCommandsConfig,
+    db::{CommandId, GuildCommandConfig, GuildCommandPermissionConfig},
+};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
@@ -32,7 +35,6 @@ use crate::{
         misc::ping,
         moderation::{ban, kick, mute, unban, unmute, unwarn, warn},
     },
-    config::DefaultCommandConfig,
     db::DatabaseManager,
     event_handler::reactions::{
         ReactionExpiryHandlerFn, ReactionHandler, ReactionsEventHandlerMessage,
@@ -49,18 +51,18 @@ mod moderation;
 // pub type Dispatcher = CommandDispatcher<CommandContext, anyhow::Result<()>>;
 // pub type Dispatcher = BotDispatcher<CommandContext, anyhow::Result<()>>;
 pub type Ctx = async_brigadier::CommandContext<CommandContext>;
-type Arg = CommandArgument<CommandContext, anyhow::Result<()>>;
+type Arg = CommandArgument<CommandContext, color_eyre::Result<()>>;
 
 pub enum BotCommandError {
     MissingPermissions,
     UnknownCommand,
     #[expect(unused)]
     Command(CommandError, String),
-    Any(anyhow::Error),
+    Any(color_eyre::eyre::Error),
 }
 
-impl From<anyhow::Error> for BotCommandError {
-    fn from(value: anyhow::Error) -> Self {
+impl From<color_eyre::eyre::Error> for BotCommandError {
+    fn from(value: color_eyre::eyre::Error) -> Self {
         Self::Any(value)
     }
 }
@@ -82,19 +84,19 @@ pub struct CommandContext {
 }
 
 pub struct Dispatcher {
-    commands: EnumMap<CommandId, CommandArgument<CommandContext, anyhow::Result<()>>>,
+    commands: EnumMap<CommandId, CommandArgument<CommandContext, color_eyre::Result<()>>>,
     config_cache_by_name:
         mini_moka::sync::Cache<(Id<GuildMarker>, String), Arc<GuildCommandConfig>>,
     config_cache_by_id:
         mini_moka::sync::Cache<(Id<GuildMarker>, CommandId), Arc<GuildCommandConfig>>,
     db: Arc<DatabaseManager>,
-    default_command_config: DefaultCommandConfig,
+    default_commands_config: DefaultCommandsConfig,
     command_usage: EnumMap<CommandId, &'static str>,
 }
 
 impl Dispatcher {
     #[must_use]
-    pub fn new(db: Arc<DatabaseManager>, default_command_config: DefaultCommandConfig) -> Self {
+    pub fn new(db: Arc<DatabaseManager>, default_commands_config: DefaultCommandsConfig) -> Self {
         Self {
             commands: enum_map! {
                 CommandId::ListCases => list_cases(),
@@ -118,7 +120,7 @@ impl Dispatcher {
             config_cache_by_name: Cache::new(4096),
             config_cache_by_id: Cache::new(4096),
             db,
-            default_command_config,
+            default_commands_config,
             command_usage: enum_map! {
                 CommandId::ListCases => " [involving user]",
                 CommandId::CaseInfo => " [case id | user]",
@@ -146,7 +148,7 @@ impl Dispatcher {
         word: &'a str,
         rest: &'a str,
         guild_id: Id<GuildMarker>,
-    ) -> anyhow::Result<Option<(&'a str, Arc<GuildCommandConfig>)>> {
+    ) -> color_eyre::Result<Option<(&'a str, Arc<GuildCommandConfig>)>> {
         let word = word.to_owned();
 
         if let Some(config) = self.config_cache_by_name.get(&(guild_id, word.clone())) {
@@ -174,7 +176,7 @@ impl Dispatcher {
         &self,
         guild_id: Id<GuildMarker>,
         command_id: CommandId,
-    ) -> anyhow::Result<either::Either<Arc<GuildCommandPermissionConfig>, Permissions>> {
+    ) -> color_eyre::Result<either::Either<Arc<GuildCommandPermissionConfig>, Permissions>> {
         if let Some(config) = self.config_cache_by_id.get(&(guild_id, command_id)) {
             return Ok(either::Left(Arc::clone(&config.perms)));
         }
@@ -190,7 +192,7 @@ impl Dispatcher {
             // Here, we don't insert any name into the cache because we don't know which is actually being used
             either::Left(permissions)
         } else {
-            let permissions = self.default_command_config.permissions[command_id];
+            let permissions = self.default_commands_config.required_permissions[command_id];
             either::Right(permissions)
         };
 
@@ -202,7 +204,7 @@ impl Dispatcher {
         command: &str,
         context: CommandContext,
         prefix_used: &str,
-    ) -> Result<anyhow::Result<()>, BotCommandError> {
+    ) -> Result<color_eyre::Result<()>, BotCommandError> {
         let command = command.trim_start();
         let (command_word, rest) = command.split_once(' ').unwrap_or((command, ""));
         let (rest, command_id) = if let Some(v) = self
@@ -212,7 +214,7 @@ impl Dispatcher {
             (v.0, v.1.command_id)
         } else {
             'blk: {
-                for (name, id) in &self.default_command_config.names {
+                for (name, id) in &self.default_commands_config.names {
                     if command_word == name {
                         break 'blk (rest, *id);
                     }
@@ -228,7 +230,7 @@ impl Dispatcher {
             .guild_id
             .get_member(&context.ctx, context.message.author.id)
             .await
-            .context("Failed to fetch guild member")?;
+            .wrap_err("Failed to fetch guild member")?;
         let guild = context
             .guild_id
             .fetch(&context.ctx)
@@ -343,7 +345,7 @@ impl CommandContext {
     pub async fn reply(
         &self,
         content: impl Into<CreateMessageBody> + Send + Sync,
-    ) -> anyhow::Result<()> {
+    ) -> color_eyre::Result<()> {
         self.message.reply(&self.ctx, content).await?;
         Ok(())
     }
@@ -355,7 +357,7 @@ impl CommandContext {
         title: Option<&str>,
         description: impl Into<String>,
         color: Option<u32>,
-    ) -> anyhow::Result<()> {
+    ) -> color_eyre::Result<()> {
         self.reply(
             RichEmbed::builder()
                 .maybe_title(title)

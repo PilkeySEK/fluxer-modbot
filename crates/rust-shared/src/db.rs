@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc, time::Duration};
 
-use anyhow::Context;
+use color_eyre::eyre::Context;
 use enum_map::Enum;
 use fluxer_neptunium::model::{
     guild::permissions::Permissions,
@@ -271,12 +271,12 @@ pub struct GuildCommandConfig {
 }
 
 impl TryFrom<GuildCommandConfigSchema> for GuildCommandConfig {
-    type Error = anyhow::Error;
+    type Error = color_eyre::eyre::Error;
     fn try_from(value: GuildCommandConfigSchema) -> Result<Self, Self::Error> {
         Ok(Self {
             guild_id: value.guild_id.cast_unsigned().into(),
             command_id: CommandId::from_str(&value.command_id)
-                .context("Failed to convert command ID")?,
+                .wrap_err("Failed to convert command ID")?,
             perms: Arc::new(GuildCommandPermissionConfig {
                 required_roles: value
                     .required_roles

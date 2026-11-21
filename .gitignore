@@ -3,10 +3,8 @@
 /crates/*/target
 .env
 !/crates/.env
-/config.json5
-/api-config.json5
-/worker-config.json5
 **/*.ignore
+/config.toml
 
 .vscode
 .zed

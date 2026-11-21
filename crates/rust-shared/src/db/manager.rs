@@ -221,7 +221,7 @@ impl SharedDatabaseManager {
         &self,
         guild_id: Id<GuildMarker>,
         command_id: CommandId,
-    ) -> anyhow::Result<Option<GuildCommandConfig>> {
+    ) -> color_eyre::Result<Option<GuildCommandConfig>> {
         let raw = sqlx::query_as!(
             GuildCommandConfigSchema,
             "SELECT * FROM guild_commands
@@ -241,7 +241,7 @@ impl SharedDatabaseManager {
         &self,
         guild_id: Id<GuildMarker>,
         name: &str,
-    ) -> anyhow::Result<Option<GuildCommandConfig>> {
+    ) -> color_eyre::Result<Option<GuildCommandConfig>> {
         let raw = sqlx::query_as!(
             GuildCommandConfigSchema,
             "SELECT * FROM guild_commands
@@ -260,7 +260,7 @@ impl SharedDatabaseManager {
     pub async fn delete_guild_moderation_case(
         &self,
         case_id: CaseId,
-    ) -> anyhow::Result<PgQueryResult> {
+    ) -> color_eyre::Result<PgQueryResult> {
         let query_result = sqlx::query!(
             "DELETE FROM guild_moderation_cases
             WHERE case_id = $1",
